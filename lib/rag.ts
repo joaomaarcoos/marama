@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/admin'
+import { adminClient } from '@/lib/supabase/admin'
 import { createEmbedding } from '@/lib/openai'
 
 const CHUNK_SIZE = 2000
@@ -38,7 +38,7 @@ export async function embedAndStoreDocument(
   documentId: string,
   text: string
 ): Promise<number> {
-  const supabase = createClient()
+  const supabase = adminClient
   const chunks = chunkText(text)
 
   if (chunks.length === 0) return 0
@@ -89,7 +89,7 @@ export async function searchRelevantChunks(
   matchThreshold = 0.7,
   matchCount = 3
 ): Promise<MatchedChunk[]> {
-  const supabase = createClient()
+  const supabase = adminClient
 
   try {
     const queryEmbedding = await createEmbedding(query)

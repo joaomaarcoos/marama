@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server'
+import { PDFParse } from 'pdf-parse'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { embedAndStoreDocument } from '@/lib/rag'
 
-// Lazy import for pdf-parse (avoids issues with Next.js edge runtime)
 async function parsePdf(buffer: Buffer): Promise<string> {
-  const pdfParse = (await import('pdf-parse')).default
-  const result = await pdfParse(buffer)
-  return result.text
+  const parser = new PDFParse({ data: buffer })
+
+  try {
+    const result = await parser.getText()
+    return result.text
+  } finally {
+    await parser.destroy()
+  }
 }
 
 export const maxDuration = 60 // Allow up to 60s for large documents
