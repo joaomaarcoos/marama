@@ -3,11 +3,6 @@ version: '3.8'
 services:
   sistemamara:
     image: sistemamara:latest
-    ports:
-      - target: 3000
-        published: 1303
-        protocol: tcp
-        mode: ingress
     environment:
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
@@ -22,12 +17,27 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
       NEXT_PUBLIC_EVOLUTION_INSTANCE: ${NEXT_PUBLIC_EVOLUTION_INSTANCE:-mara-teste}
       NEXT_PUBLIC_INSTANCE_NAME: ${NEXT_PUBLIC_INSTANCE_NAME:-mara}
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    networks:
+      - JoaoDantasMAnet
     deploy:
+      mode: replicated
       replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
       restart_policy:
         condition: any
+      labels:
+        - traefik.enable=1
+        - traefik.http.routers.sistemamara.rule=Host(`mara.joaodantasia.com.br`)
+        - traefik.http.routers.sistemamara.entrypoints=websecure
+        - traefik.http.routers.sistemamara.priority=1
+        - traefik.http.routers.sistemamara.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.sistemamara.service=sistemamara
+        - traefik.http.services.sistemamara.loadbalancer.server.port=3000
+        - traefik.http.services.sistemamara.loadbalancer.passHostHeader=true
+
+networks:
+  JoaoDantasMAnet:
+    external: true
+    name: JoaoDantasMAnet

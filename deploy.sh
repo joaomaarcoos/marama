@@ -30,9 +30,9 @@ echo "Atualizando webhook no Evolution API..."
 curl -s -X PUT "https://apima.joaodantasia.com.br/webhook/set/mara-teste" \
   -H "apikey: 6208717f318c23042e127b1721f51eb6" \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://mara.joaondantasia.com.br/api/webhook/evolution","enabled":true,"events":["MESSAGES_UPSERT"],"webhookByEvents":false,"webhookBase64":true}'
+  -d '{"url":"https://mara.joaodantasia.com.br/api/webhook/evolution","enabled":true,"events":["MESSAGES_UPSERT"],"webhookByEvents":false,"webhookBase64":true}'
 
 echo ""
 echo "=== Deploy concluido! ==="
-echo "App: https://mara.joaondantasia.com.br"
+echo "App: https://mara.joaodantasia.com.br"
 echo "Logs: docker compose logs -f"
