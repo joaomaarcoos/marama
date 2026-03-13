@@ -1,8 +1,25 @@
 import OpenAI from 'openai'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+let cachedOpenAI: OpenAI | null = null
+
+function getRequiredEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`${name} is required.`)
+  }
+  return value
+}
+
+export function getOpenAIClient(): OpenAI {
+  if (!cachedOpenAI) {
+    cachedOpenAI = new OpenAI({ apiKey: getRequiredEnv('OPENAI_API_KEY') })
+  }
+
+  return cachedOpenAI
+}
 
 export async function createEmbedding(text: string): Promise<number[]> {
+  const openai = getOpenAIClient()
   const response = await openai.embeddings.create({
     model: 'text-embedding-3-small',
     input: text,
@@ -17,6 +34,7 @@ export type ChatMessage = {
 }
 
 export async function chatCompletion(messages: ChatMessage[]): Promise<string> {
+  const openai = getOpenAIClient()
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
@@ -28,6 +46,7 @@ export async function chatCompletion(messages: ChatMessage[]): Promise<string> {
 }
 
 export async function transcribeAudio(audioBuffer: Buffer, mimetype: string): Promise<string> {
+  const openai = getOpenAIClient()
   const ext = mimetype.includes('ogg') ? 'ogg' : mimetype.includes('mp4') ? 'mp4' : 'mp3'
   const filename = `audio.${ext}`
 

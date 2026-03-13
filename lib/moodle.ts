@@ -1,5 +1,10 @@
-const MOODLE_URL = process.env.MOODLE_URL!
-const WSTOKEN = process.env.MOODLE_WSTOKEN!
+function getRequiredEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`${name} is required.`)
+  }
+  return value
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,8 +59,8 @@ export interface EnrollmentInfo {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function buildUrl(wsfunction: string, params: Record<string, string> = {}): string {
-  const url = new URL(`${MOODLE_URL}/webservice/rest/server.php`)
-  url.searchParams.set('wstoken', WSTOKEN)
+  const url = new URL(`${getRequiredEnv('MOODLE_URL')}/webservice/rest/server.php`)
+  url.searchParams.set('wstoken', getRequiredEnv('MOODLE_WSTOKEN'))
   url.searchParams.set('moodlewsrestformat', 'json')
   url.searchParams.set('wsfunction', wsfunction)
   for (const [k, v] of Object.entries(params)) {

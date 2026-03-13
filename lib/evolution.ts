@@ -1,16 +1,31 @@
-const BASE_URL = process.env.EVOLUTION_API_URL!
-const API_KEY = process.env.EVOLUTION_API_KEY!
-const INSTANCE = process.env.EVOLUTION_INSTANCE_NAME!
+function getRequiredEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`${name} is required.`)
+  }
+  return value
+}
 
-const headers = {
-  'Content-Type': 'application/json',
-  'apikey': API_KEY,
+function getEvolutionConfig() {
+  return {
+    baseUrl: getRequiredEnv('EVOLUTION_API_URL'),
+    apiKey: getRequiredEnv('EVOLUTION_API_KEY'),
+    instance: getRequiredEnv('EVOLUTION_INSTANCE_NAME'),
+  }
+}
+
+function getHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    apikey: getEvolutionConfig().apiKey,
+  }
 }
 
 export async function sendText(phone: string, text: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/message/sendText/${INSTANCE}`, {
+  const { baseUrl, instance } = getEvolutionConfig()
+  const res = await fetch(`${baseUrl}/message/sendText/${instance}`, {
     method: 'POST',
-    headers,
+    headers: getHeaders(),
     body: JSON.stringify({
       number: phone,
       text,
@@ -29,9 +44,10 @@ export async function sendMedia(
   mediatype: 'image' | 'audio' | 'document',
   caption?: string
 ): Promise<void> {
-  const res = await fetch(`${BASE_URL}/message/sendMedia/${INSTANCE}`, {
+  const { baseUrl, instance } = getEvolutionConfig()
+  const res = await fetch(`${baseUrl}/message/sendMedia/${instance}`, {
     method: 'POST',
-    headers,
+    headers: getHeaders(),
     body: JSON.stringify({
       number: phone,
       mediatype,
@@ -47,9 +63,10 @@ export async function sendMedia(
 }
 
 export async function downloadMedia(messageId: string): Promise<{ base64: string; mimetype: string }> {
-  const res = await fetch(`${BASE_URL}/chat/getBase64FromMediaMessage/${INSTANCE}`, {
+  const { baseUrl, instance } = getEvolutionConfig()
+  const res = await fetch(`${baseUrl}/chat/getBase64FromMediaMessage/${instance}`, {
     method: 'POST',
-    headers,
+    headers: getHeaders(),
     body: JSON.stringify({ message: { key: { id: messageId } } }),
   })
 
@@ -65,8 +82,9 @@ export async function downloadMedia(messageId: string): Promise<{ base64: string
 }
 
 export async function getInstanceStatus(): Promise<{ state: string; instanceName?: string; profileName?: string; profilePicUrl?: string }> {
-  const res = await fetch(`${BASE_URL}/instance/connectionState/${INSTANCE}`, {
-    headers,
+  const { baseUrl, instance } = getEvolutionConfig()
+  const res = await fetch(`${baseUrl}/instance/connectionState/${instance}`, {
+    headers: getHeaders(),
   })
 
   if (!res.ok) return { state: 'unknown' }
@@ -74,15 +92,16 @@ export async function getInstanceStatus(): Promise<{ state: string; instanceName
   const data = await res.json()
   return {
     state: data.instance?.state ?? 'unknown',
-    instanceName: INSTANCE,
+    instanceName: instance,
     profileName: data.instance?.profileName,
     profilePicUrl: data.instance?.profilePicUrl,
   }
 }
 
 export async function getQrCode(): Promise<{ qrcode?: string; pairingCode?: string; state: string }> {
-  const res = await fetch(`${BASE_URL}/instance/connect/${INSTANCE}`, {
-    headers,
+  const { baseUrl, instance } = getEvolutionConfig()
+  const res = await fetch(`${baseUrl}/instance/connect/${instance}`, {
+    headers: getHeaders(),
   })
 
   if (!res.ok) {
@@ -103,9 +122,10 @@ export async function getQrCode(): Promise<{ qrcode?: string; pairingCode?: stri
 }
 
 export async function disconnectInstance(): Promise<void> {
-  const res = await fetch(`${BASE_URL}/instance/logout/${INSTANCE}`, {
+  const { baseUrl, instance } = getEvolutionConfig()
+  const res = await fetch(`${baseUrl}/instance/logout/${instance}`, {
     method: 'DELETE',
-    headers,
+    headers: getHeaders(),
   })
 
   if (!res.ok) {
