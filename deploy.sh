@@ -27,7 +27,7 @@ fi
 # Atualizar webhook do Evolution API para domínio de produção
 echo ""
 echo "Atualizando webhook no Evolution API..."
-curl -s -X PUT "https://apima.joaodantasia.com.br/webhook/set/mara-teste" \
+curl -s -X PUT "https://apima.joaodantasia.com.br/webhook/set/marav2" \
   -H "apikey: 6208717f318c23042e127b1721f51eb6" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://mara.joaodantasia.com.br/api/webhook/evolution","enabled":true,"events":["MESSAGES_UPSERT"],"webhookByEvents":false,"webhookBase64":true}'

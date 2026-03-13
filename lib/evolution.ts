@@ -21,6 +21,83 @@ function getHeaders() {
   }
 }
 
+function getWebhookUrl() {
+  const appUrl = getRequiredEnv('NEXT_PUBLIC_APP_URL')
+  const url = new URL('/api/webhook/evolution', appUrl)
+  const secret = process.env.WEBHOOK_SECRET
+
+  if (secret) {
+    url.searchParams.set('secret', secret)
+  }
+
+  return url.toString()
+}
+
+async function parseEvolutionError(res: Response, fallback: string) {
+  const raw = await res.text()
+
+  try {
+    const data = JSON.parse(raw) as { message?: string; response?: { message?: string } }
+    return data.response?.message ?? data.message ?? raw ?? fallback
+  } catch {
+    return raw || fallback
+  }
+}
+
+export async function configureWebhook(): Promise<void> {
+  const { baseUrl, instance } = getEvolutionConfig()
+  const res = await fetch(`${baseUrl}/webhook/set/${instance}`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({
+      enabled: true,
+      url: getWebhookUrl(),
+      webhookByEvents: false,
+      webhookBase64: true,
+      events: ['MESSAGES_UPSERT'],
+    }),
+  })
+
+  if (!res.ok) {
+    const message = await parseEvolutionError(res, 'Erro ao configurar webhook')
+    throw new Error(`Evolution API configureWebhook error: ${res.status} ${message}`)
+  }
+}
+
+export async function createInstance(): Promise<{ instanceName: string; alreadyExists: boolean }> {
+  const { baseUrl, instance } = getEvolutionConfig()
+  const res = await fetch(`${baseUrl}/instance/create`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({
+      instanceName: instance,
+      integration: 'WHATSAPP-BAILEYS',
+      qrcode: false,
+      webhook: {
+        url: getWebhookUrl(),
+        byEvents: false,
+        base64: true,
+        events: ['MESSAGES_UPSERT'],
+      },
+    }),
+  })
+
+  if (!res.ok) {
+    const message = await parseEvolutionError(res, 'Erro ao criar instancia')
+    const normalized = message.toLowerCase()
+
+    if (res.status === 409 || normalized.includes('already') || normalized.includes('exists')) {
+      await configureWebhook()
+      return { instanceName: instance, alreadyExists: true }
+    }
+
+    throw new Error(`Evolution API createInstance error: ${res.status} ${message}`)
+  }
+
+  await configureWebhook()
+  return { instanceName: instance, alreadyExists: false }
+}
+
 export async function sendText(phone: string, text: string): Promise<void> {
   const { baseUrl, instance } = getEvolutionConfig()
   const res = await fetch(`${baseUrl}/message/sendText/${instance}`, {
@@ -81,17 +158,30 @@ export async function downloadMedia(messageId: string): Promise<{ base64: string
   }
 }
 
-export async function getInstanceStatus(): Promise<{ state: string; instanceName?: string; profileName?: string; profilePicUrl?: string }> {
+export async function getInstanceStatus(): Promise<{
+  state: string
+  exists: boolean
+  instanceName?: string
+  profileName?: string
+  profilePicUrl?: string
+}> {
   const { baseUrl, instance } = getEvolutionConfig()
   const res = await fetch(`${baseUrl}/instance/connectionState/${instance}`, {
     headers: getHeaders(),
   })
 
-  if (!res.ok) return { state: 'unknown' }
+  if (!res.ok) {
+    if (res.status === 404) {
+      return { state: 'unknown', exists: false, instanceName: instance }
+    }
+
+    return { state: 'unknown', exists: true, instanceName: instance }
+  }
 
   const data = await res.json()
   return {
     state: data.instance?.state ?? 'unknown',
+    exists: true,
     instanceName: instance,
     profileName: data.instance?.profileName,
     profilePicUrl: data.instance?.profilePicUrl,
@@ -99,21 +189,23 @@ export async function getInstanceStatus(): Promise<{ state: string; instanceName
 }
 
 export async function getQrCode(): Promise<{ qrcode?: string; pairingCode?: string; state: string }> {
+  await configureWebhook()
+
   const { baseUrl, instance } = getEvolutionConfig()
   const res = await fetch(`${baseUrl}/instance/connect/${instance}`, {
     headers: getHeaders(),
   })
 
   if (!res.ok) {
-    const body = await res.text()
+    const body = await parseEvolutionError(res, 'Erro ao obter QR code')
     throw new Error(`Evolution API connect error: ${res.status} ${body}`)
   }
 
   const data = await res.json()
-  // Response can have: { base64, code, count, pairingCode } or { state: 'open' }
   if (data.instance?.state === 'open' || data.state === 'open') {
     return { state: 'open' }
   }
+
   return {
     qrcode: data.base64 ?? data.qrcode?.base64,
     pairingCode: data.pairingCode,

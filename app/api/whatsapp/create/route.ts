@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { disconnectInstance } from '@/lib/evolution'
+import { createInstance } from '@/lib/evolution'
 
 export async function POST() {
   const supabase = await createClient()
@@ -13,10 +13,10 @@ export async function POST() {
   }
 
   try {
-    await disconnectInstance()
-    return NextResponse.json({ ok: true })
+    const result = await createInstance()
+    return NextResponse.json({ ok: true, ...result })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erro ao desconectar'
+    const message = err instanceof Error ? err.message : 'Erro ao criar instancia'
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -115,7 +115,7 @@ export default function LogsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Logs Evolution API</h1>
           <p className="text-gray-500 mt-1 text-sm">
-            Mensagens e conversas da instancia <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{process.env.NEXT_PUBLIC_EVOLUTION_INSTANCE ?? 'mara-teste'}</span>
+            Mensagens e conversas da instancia <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{process.env.NEXT_PUBLIC_EVOLUTION_INSTANCE ?? 'marav2'}</span>
           </p>
         </div>
         <div className="flex items-center gap-3">
