@@ -5,7 +5,7 @@ services:
     image: sistemamara:latest
     ports:
       - target: 3000
-        published: 3000
+        published: 1303
         protocol: tcp
         mode: ingress
     environment:
