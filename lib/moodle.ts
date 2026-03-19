@@ -221,6 +221,117 @@ export async function getUserEnrollmentInfo(userId: number): Promise<EnrollmentI
   }
 }
 
+// ─── Tutor / Teacher Functions ────────────────────────────────────────────────
+
+const TEACHER_ROLE_IDS = [3, 4] // 3=editingteacher, 4=teacher
+
+export interface TutorCourse {
+  id: number
+  name: string
+  lastaccess: number // unix timestamp, 0 if never
+}
+
+export interface TutorAggregate {
+  id: number
+  fullname: string
+  email: string
+  username: string
+  roles: { roleid: number; name: string; shortname: string }[]
+  courses: TutorCourse[]
+  lastaccess: number // max across all courses
+}
+
+type RawEnrolledUser = {
+  id: number
+  fullname: string
+  email: string
+  username: string
+  lastcourseaccess: number
+  roles: { roleid: number; name: string; shortname: string }[]
+}
+
+async function getTeachersByCourse(
+  courseId: number,
+  courseName: string
+): Promise<{ tutor: RawEnrolledUser; courseid: number; coursename: string }[]> {
+  try {
+    const data = await moodleGet<RawEnrolledUser[]>('core_enrol_get_enrolled_users', {
+      courseid: String(courseId),
+    })
+    if (!Array.isArray(data)) return []
+    return data
+      .filter((u) => (u.roles ?? []).some((r) => TEACHER_ROLE_IDS.includes(r.roleid)))
+      .map((u) => ({ tutor: u, courseid: courseId, coursename: courseName }))
+  } catch {
+    return []
+  }
+}
+
+export async function getAllTutors(): Promise<TutorAggregate[]> {
+  // Fetch course names first
+  const courseNames: Record<number, string> = {}
+  try {
+    for (const id of SYNC_COURSE_IDS) {
+      courseNames[id] = `Curso ${id}`
+    }
+    // Try to get course names from any enrolled user's courses
+    const sampleData = await moodleGet<{ id: number; fullname: string; shortname: string }[]>(
+      'core_enrol_get_enrolled_users',
+      { courseid: String(SYNC_COURSE_IDS[0]) }
+    )
+    if (Array.isArray(sampleData) && sampleData.length > 0) {
+      const user = sampleData[0] as unknown as { enrolledcourses?: { id: number; fullname: string }[] }
+      if (user.enrolledcourses) {
+        for (const c of user.enrolledcourses) {
+          courseNames[c.id] = c.fullname
+        }
+      }
+    }
+  } catch {
+    // ignore, use fallback names
+  }
+
+  // Process in chunks of 10 to avoid overwhelming Moodle
+  const chunks: number[][] = []
+  for (let i = 0; i < SYNC_COURSE_IDS.length; i += 10) {
+    chunks.push(SYNC_COURSE_IDS.slice(i, i + 10))
+  }
+
+  const allEntries: { tutor: RawEnrolledUser; courseid: number; coursename: string }[] = []
+  for (const chunk of chunks) {
+    const results = await Promise.all(
+      chunk.map((id) => getTeachersByCourse(id, courseNames[id] ?? `Curso ${id}`))
+    )
+    for (const r of results) allEntries.push(...r)
+  }
+
+  // Aggregate by tutor id
+  const map = new Map<number, TutorAggregate>()
+  for (const { tutor, courseid, coursename } of allEntries) {
+    if (!map.has(tutor.id)) {
+      map.set(tutor.id, {
+        id: tutor.id,
+        fullname: tutor.fullname,
+        email: tutor.email ?? '',
+        username: tutor.username ?? '',
+        roles: tutor.roles ?? [],
+        courses: [],
+        lastaccess: 0,
+      })
+    }
+    const agg = map.get(tutor.id)!
+    const alreadyHasCourse = agg.courses.some((c) => c.id === courseid)
+    if (!alreadyHasCourse) {
+      agg.courses.push({ id: courseid, name: coursename, lastaccess: tutor.lastcourseaccess ?? 0 })
+    }
+    if ((tutor.lastcourseaccess ?? 0) > agg.lastaccess) {
+      agg.lastaccess = tutor.lastcourseaccess ?? 0
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.lastaccess - a.lastaccess)
+}
+
 // ─── Context Formatters (for MARA system prompt injection) ─────────────────────
 
 export function formatGradeContext(grades: CourseGrade[], courses: MoodleCourse[]): string {

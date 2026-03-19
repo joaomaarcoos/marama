@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Smartphone,
   ScrollText,
+  GraduationCap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +26,7 @@ const navItems = [
   { href: '/documentos', label: 'Base de Conhecimento', icon: BookOpen },
   { href: '/disparos', label: 'Disparos', icon: Send },
   { href: '/moodle', label: 'Alunos (Moodle)', icon: Users },
+  { href: '/tutores', label: 'Tutores / Professores', icon: GraduationCap },
   { href: '/usuarios', label: 'Usuários', icon: ShieldCheck },
   { href: '/conexao', label: 'Conexão WhatsApp', icon: Smartphone },
   { href: '/logs', label: 'Logs Evolution', icon: ScrollText },
