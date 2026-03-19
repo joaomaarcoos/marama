@@ -19,7 +19,6 @@ interface Tutor {
   lastaccess: number
 }
 
-type RoleFilter = 'all' | 'editingteacher' | 'teacher'
 type SortDir = 'asc' | 'desc'
 
 function statusBadge(lastaccess: number) {
@@ -56,7 +55,6 @@ export default function TutoresPage() {
   const [tutors, setTutors] = useState<Tutor[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   const [search, setSearch] = useState('')
@@ -80,11 +78,6 @@ export default function TutoresPage() {
 
   const filtered = useMemo(() => {
     let list = tutors
-    if (roleFilter === 'editingteacher') {
-      list = list.filter((t) => t.roles.some((r) => r.roleid === 3))
-    } else if (roleFilter === 'teacher') {
-      list = list.filter((t) => t.roles.some((r) => r.roleid === 4))
-    }
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(
@@ -106,9 +99,8 @@ export default function TutoresPage() {
 
   const counts = useMemo(() => ({
     all: tutors.length,
-    teachers: tutors.filter((t) => t.roles.some((r) => r.roleid === 3)).length,
-    tutors: tutors.filter((t) => t.roles.some((r) => r.roleid === 4)).length,
     active: tutors.filter((t) => t.lastaccess && (Date.now() / 1000 - t.lastaccess) < 7 * 86400).length,
+    recent: tutors.filter((t) => t.lastaccess && (Date.now() / 1000 - t.lastaccess) >= 7 * 86400 && (Date.now() / 1000 - t.lastaccess) < 30 * 86400).length,
     inactive: tutors.filter((t) => !t.lastaccess || (Date.now() / 1000 - t.lastaccess) >= 30 * 86400).length,
   }), [tutors])
 
@@ -138,9 +130,9 @@ export default function TutoresPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'Total', value: counts.all, color: 'text-blue-400' },
-            { label: 'Professores', value: counts.teachers, color: 'text-purple-400' },
-            { label: 'Tutores', value: counts.tutors, color: 'text-indigo-400' },
             { label: 'Ativos (7d)', value: counts.active, color: 'text-green-400' },
+            { label: 'Recentes (30d)', value: counts.recent, color: 'text-yellow-400' },
+            { label: 'Inativos (+30d)', value: counts.inactive, color: 'text-red-400' },
           ].map((c) => (
             <div key={c.label} className="bg-gray-800 rounded-lg p-3 border border-gray-700">
               <p className="text-xs text-gray-400">{c.label}</p>
@@ -159,21 +151,6 @@ export default function TutoresPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 w-64"
         />
-        <div className="flex gap-2">
-          {(['all', 'editingteacher', 'teacher'] as RoleFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setRoleFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                roleFilter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-            >
-              {f === 'all' ? 'Todos' : f === 'editingteacher' ? 'Professores' : 'Tutores'}
-            </button>
-          ))}
-        </div>
         <button
           onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
           className="flex items-center gap-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs text-gray-400 transition-colors"

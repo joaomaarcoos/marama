@@ -223,7 +223,7 @@ export async function getUserEnrollmentInfo(userId: number): Promise<EnrollmentI
 
 // ─── Tutor / Teacher Functions ────────────────────────────────────────────────
 
-const TEACHER_ROLE_IDS = [3, 4] // 3=editingteacher, 4=teacher
+const STUDENT_ROLE_SHORTNAMES = ['student', 'guest'] // excluir esses, mostrar todos os demais
 
 export interface TutorCourse {
   id: number
@@ -260,7 +260,12 @@ async function getTeachersByCourse(
     })
     if (!Array.isArray(data)) return []
     return data
-      .filter((u) => (u.roles ?? []).some((r) => TEACHER_ROLE_IDS.includes(r.roleid)))
+      .filter((u) => {
+        const roles = u.roles ?? []
+        if (roles.length === 0) return false
+        // mostra quem tem pelo menos um papel que NAO seja aluno/guest
+        return roles.some((r) => !STUDENT_ROLE_SHORTNAMES.includes(r.shortname))
+      })
       .map((u) => ({ tutor: u, courseid: courseId, coursename: courseName }))
   } catch {
     return []
