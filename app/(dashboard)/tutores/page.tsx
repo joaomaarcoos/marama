@@ -87,7 +87,7 @@ export default function TutoresPage() {
     return [...list].sort((a, b) =>
       sortDir === 'desc' ? b.lastaccess - a.lastaccess : a.lastaccess - b.lastaccess
     )
-  }, [tutors, roleFilter, sortDir, search])
+  }, [tutors, sortDir, search])
 
   function toggleExpand(id: number) {
     setExpanded((prev) => {
