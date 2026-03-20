@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logout } from '@/app/(auth)/login/actions'
+import { MARAOrb } from '@/components/mara-orb'
 import {
-  Bot,
   LayoutDashboard,
   MessageSquare,
   Send,
@@ -53,14 +53,8 @@ export function Sidebar() {
         style={{ borderBottom: '1px solid hsl(var(--sidebar-border-subtle))' }}
       >
         <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{
-              background: 'hsl(var(--primary) / 0.12)',
-              border: '1px solid hsl(var(--primary) / 0.28)',
-            }}
-          >
-            <Bot className="h-4 w-4" style={{ color: 'hsl(var(--sidebar-brand-color))' }} />
+          <div className="shrink-0 flex items-center justify-center">
+            <MARAOrb size={44} isStatic />
           </div>
           <div className="min-w-0">
             <p
