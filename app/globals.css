@@ -4,48 +4,27 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Dark theme — permanent */
+    --background: 222 47% 4%;
+    --foreground: 213 31% 91%;
+    --card: 220 40% 8%;
+    --card-foreground: 213 31% 91%;
+    --popover: 219 36% 10%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 38 92% 50%;
+    --primary-foreground: 222 47% 4%;
+    --secondary: 219 36% 13%;
+    --secondary-foreground: 213 31% 91%;
+    --muted: 219 36% 12%;
+    --muted-foreground: 215 18% 45%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 222 47% 4%;
+    --destructive: 0 63% 50%;
+    --destructive-foreground: 213 31% 91%;
+    --border: 216 32% 16%;
+    --input: 216 32% 14%;
+    --ring: 38 92% 50%;
+    --radius: 0.375rem;
   }
 }
 
@@ -53,7 +32,161 @@
   * {
     @apply border-border;
   }
+
+  html {
+    color-scheme: dark;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-outfit, 'Outfit', system-ui, sans-serif);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(216 32% 20%);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(215 18% 35%);
+  }
+}
+
+/* Font utilities */
+@layer utilities {
+  .font-display {
+    font-family: var(--font-fraunces, 'Georgia', serif);
+  }
+  .font-data {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  }
+}
+
+/* Animations */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@layer utilities {
+  .animate-fade-up {
+    animation: fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out forwards;
+  }
+  .animate-slide-in {
+    animation: slide-in-left 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+/* Global dark remapping — makes all pages dark automatically */
+.bg-white {
+  background-color: hsl(220 40% 8%) !important;
+}
+.bg-gray-50 {
+  background-color: hsl(222 47% 6%) !important;
+}
+.bg-gray-100 {
+  background-color: hsl(219 36% 12%) !important;
+}
+.text-gray-900,
+.text-gray-800 {
+  color: hsl(213 31% 91%) !important;
+}
+.text-gray-700 {
+  color: hsl(215 20% 75%) !important;
+}
+.text-gray-600 {
+  color: hsl(215 18% 62%) !important;
+}
+.text-gray-500 {
+  color: hsl(215 16% 47%) !important;
+}
+.text-gray-400 {
+  color: hsl(215 18% 38%) !important;
+}
+.text-gray-300 {
+  color: hsl(215 18% 32%) !important;
+}
+.border-gray-100 {
+  border-color: hsl(216 32% 13%) !important;
+}
+.border-gray-200 {
+  border-color: hsl(216 32% 16%) !important;
+}
+.border-gray-300 {
+  border-color: hsl(216 32% 20%) !important;
+}
+.hover\:bg-gray-50:hover {
+  background-color: hsl(219 36% 11%) !important;
+}
+.hover\:bg-gray-100:hover {
+  background-color: hsl(219 36% 13%) !important;
+}
+.hover\:shadow-md:hover {
+  box-shadow: 0 4px 16px -4px hsl(222 47% 2% / 0.6) !important;
+}
+.shadow-sm {
+  box-shadow: 0 1px 3px hsl(222 50% 2% / 0.5) !important;
+}
+.shadow-xl {
+  box-shadow: 0 20px 40px -12px hsl(222 50% 2% / 0.7) !important;
+}
+.divide-gray-100 > * + *,
+.divide-gray-200 > * + * {
+  border-color: hsl(216 32% 13%) !important;
+}
+
+/* Stat card hover lift */
+.stat-card:hover {
+  box-shadow: 0 8px 24px -8px hsl(222 50% 2% / 0.6);
+}
+
+/* Badge overrides for status */
+.bg-green-100 {
+  background-color: hsl(160 84% 39% / 0.12) !important;
+}
+.text-green-800 {
+  color: hsl(160 70% 55%) !important;
+}
+.bg-yellow-100 {
+  background-color: hsl(45 93% 47% / 0.12) !important;
+}
+.text-yellow-800 {
+  color: hsl(45 80% 60%) !important;
+}
+.bg-gray-100.text-gray-600 {
+  background-color: hsl(219 36% 14%) !important;
+  color: hsl(215 16% 50%) !important;
 }

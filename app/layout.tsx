@@ -1,8 +1,21 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Outfit, JetBrains_Mono, Fraunces } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-outfit',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+})
+
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-fraunces',
+})
 
 export const metadata: Metadata = {
   title: 'SISTEMAMARA',
@@ -15,8 +28,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR">
-      <body className={inter.className}>{children}</body>
+    <html
+      lang="pt-BR"
+      className={`${outfit.variable} ${jetbrainsMono.variable} ${fraunces.variable}`}
+    >
+      <body>{children}</body>
     </html>
   )
 }

@@ -93,7 +93,9 @@
       "Bash(curl -s \"https://apima.joaodantasia.com.br/webhook/find/mara-teste\" -H \"apikey: 6208717f318c23042e127b1721f51eb6\")",
       "Bash(curl -s -X POST \"https://apima.joaodantasia.com.br/chat/findChats/mara-teste\" -H \"apikey: 6208717f318c23042e127b1721f51eb6\" -H \"Content-Type: application/json\" -d '{}')",
       "Bash(where ngrok:*)",
-      "Bash(winget install:*)"
+      "Bash(winget install:*)",
+      "Bash(npx skills:*)",
+      "Bash(git add:*)"
     ]
   },
   "mcpServers": {
