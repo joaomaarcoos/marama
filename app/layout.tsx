@@ -1,25 +1,9 @@
 import type { Metadata } from 'next'
-import { Outfit, JetBrains_Mono, Fraunces } from 'next/font/google'
 import './globals.css'
-
-const outfit = Outfit({
-  subsets: ['latin'],
-  variable: '--font-outfit',
-})
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-})
-
-const fraunces = Fraunces({
-  subsets: ['latin'],
-  variable: '--font-fraunces',
-})
 
 export const metadata: Metadata = {
   title: 'SISTEMAMARA',
-  description: 'Sistema de gestão da agente MARA — Maranhão Profissionalizado',
+  description: 'Sistema de gestao da agente MARA - Maranhao Profissionalizado',
 }
 
 export default function RootLayout({
@@ -28,10 +12,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html
-      lang="pt-BR"
-      className={`${outfit.variable} ${jetbrainsMono.variable} ${fraunces.variable}`}
-    >
+    <html lang="pt-BR">
       <body>{children}</body>
     </html>
   )
