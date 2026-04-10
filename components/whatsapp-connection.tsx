@@ -6,6 +6,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  Copy,
+  Check,
+  Link2,
   Loader2,
   LogOut,
   PlusCircle,
@@ -38,6 +41,9 @@ export default function WhatsAppConnection() {
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pollingQr, setPollingQr] = useState(false)
+  const [webhookUrl, setWebhookUrl] = useState<string | null>(null)
+  const [webhookHasSecret, setWebhookHasSecret] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -55,6 +61,10 @@ export default function WhatsAppConnection() {
 
   useEffect(() => {
     fetchStatus()
+    fetch('/api/whatsapp/webhook-url')
+      .then(r => r.json())
+      .then(d => { setWebhookUrl(d.url); setWebhookHasSecret(d.hasSecret) })
+      .catch(() => {})
   }, [fetchStatus])
 
   useEffect(() => {
@@ -333,6 +343,39 @@ export default function WhatsAppConnection() {
             <RefreshCw className="h-3.5 w-3.5" />
             Gerar novo QR code
           </button>
+        </div>
+      )}
+
+      {webhookUrl && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <Link2 className="h-4 w-4" />
+            URL do Webhook
+            {webhookHasSecret && (
+              <span className="ml-auto rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                com secret
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500">
+            Configure esta URL na Evolution API para receber mensagens do WhatsApp.
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 break-all font-mono select-all">
+              {webhookUrl}
+            </code>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(webhookUrl)
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2000)
+              }}
+              title="Copiar URL"
+              className="shrink-0 rounded-lg border border-gray-200 bg-white p-2 text-gray-500 transition-colors hover:text-gray-800"
+            >
+              {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
       )}
 
