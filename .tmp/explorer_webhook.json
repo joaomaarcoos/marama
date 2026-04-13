@@ -1,0 +1,1 @@
+﻿{"event":"MESSAGES_UPSERT","data":{"key":{"fromMe":false,"remoteJid":"5599999999999@s.whatsapp.net","id":"abc123"},"message":{"extendedTextMessage":{"text":"oi"}}}}

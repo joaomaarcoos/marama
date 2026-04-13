@@ -95,7 +95,21 @@
       "Bash(where ngrok:*)",
       "Bash(winget install:*)",
       "Bash(npx skills:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(grep -n \"^\\\\`\\\\}\" \"/c/Users/joaom/OneDrive/Área de Trabalho/SISTEMAMARA/app/\\(auth\\)/login/page.tsx\")",
+      "Bash(grep -n \"^      \\\\`}\" \"/c/Users/joaom/OneDrive/Área de Trabalho/SISTEMAMARA/app/\\(auth\\)/login/page.tsx\")",
+      "Bash(wc -l \"/c/Users/joaom/OneDrive/Área de Trabalho/SISTEMAMARA/app/\\(auth\\)/login/page.tsx\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA''; git add ''app/\\(auth\\)/login/page.tsx'' ''app/\\(dashboard\\)/tutores/page.tsx'' ''app/globals.css'' ''app/layout.tsx'' ''components/sidebar.tsx'' ''components/theme-provider.tsx''; git status\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA''; git commit -m ''feat: redesign visual completo — tema Maranhao, modo noturno e orb animada:*)",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA''; git push origin master\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA''; git add ''components/mara-orb.tsx'' ''components/sidebar.tsx'' ''app/\\(auth\\)/login/page.tsx''; git commit -m ''feat: MARAOrb como componente compartilhado — animado no login, estatico na sidebar:*)",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA''; npm run build 2>&1\" -timeout 120000)",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA''; npm run build\" -timeout 120000)",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA''; npx next build\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA''; git add components/mara-orb.tsx; git commit -m ''fix: non-null assertion em ctx para passar o build TypeScript''; git push origin master\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA'; npx next build 2>&1 | Select-String -Pattern 'error|Error|warning|✓|✗|Failed' | Select-Object -Last 20\")",
+      "Bash(npx next:*)"
     ]
   },
   "mcpServers": {

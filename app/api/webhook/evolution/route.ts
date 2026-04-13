@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { processMessages } from '@/lib/mara-agent'
+import { startInactivityScheduler } from '@/lib/inactivity-scheduler'
+
+// Inicia o scheduler de inatividade junto com o servidor (sem cron externo)
+startInactivityScheduler()
 
 // ─── Debounce: acumula mensagens por telefone por até 3s ──────────────────────
 
