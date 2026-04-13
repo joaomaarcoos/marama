@@ -1164,3 +1164,117 @@
 .chat-conv-item[data-closed='true'] .chat-conv-preview {
   opacity: 0.55;
 }
+
+/* ── Contact Info Panel ────────────────────────────────── */
+.contact-panel {
+  width: 240px;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  background: var(--chat-sidebar-bg);
+  border-right: 1px solid var(--chat-border);
+  overflow-y: auto;
+  animation: slide-in-left 0.18s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+.contact-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--chat-border);
+  flex-shrink: 0;
+}
+
+.contact-panel-title {
+  font-family: 'Sora', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--chat-text);
+  letter-spacing: -0.01em;
+}
+
+.contact-panel-body {
+  padding: 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.contact-panel-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid var(--chat-border);
+}
+
+.contact-panel-name {
+  font-family: 'Sora', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--chat-text);
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+.contact-panel-phone-sm {
+  font-family: 'Manrope', sans-serif;
+  font-size: 0.7rem;
+  color: var(--chat-text-muted);
+}
+
+.contact-panel-section {
+  padding: 12px 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contact-panel-section-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'Sora', sans-serif;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--chat-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+}
+
+.contact-panel-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.contact-panel-label {
+  font-family: 'Manrope', sans-serif;
+  font-size: 0.65rem;
+  color: var(--chat-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.contact-panel-value {
+  font-family: 'Manrope', sans-serif;
+  font-size: 0.75rem;
+  color: var(--chat-text);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.contact-panel-course {
+  font-family: 'Manrope', sans-serif;
+  font-size: 0.72rem;
+  color: var(--chat-text);
+  background: var(--chat-item-hover);
+  border-radius: 6px;
+  padding: 5px 8px;
+  line-height: 1.3;
+}

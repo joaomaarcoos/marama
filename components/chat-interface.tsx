@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import {
   MessageSquare, Search, User, Bot, Clock, CheckCircle2, XCircle,
   AlertCircle, RefreshCw, Tag, UserCheck, UserPlus, X, ChevronDown,
-  RotateCcw, LogOut, Plus, Trash2,
+  RotateCcw, LogOut, Plus, Trash2, Info, GraduationCap, Mail,
+  Phone, Calendar, ChevronRight,
 } from 'lucide-react'
 import { formatPhone } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -27,6 +28,7 @@ interface Conversation {
   assigned_to: string | null
   assigned_name: string | null
   labels: string[] | null
+  lgpd_accepted_at: string | null
   students: { full_name: string; email: string } | null
 }
 
@@ -371,6 +373,118 @@ function filterByTab(convs: Conversation[], tab: Tab, userId: string | null): Co
   })
 }
 
+// ─── Contact Info Panel ───────────────────────────────────────────────────────
+
+function ContactPanel({
+  conversation,
+  allLabels,
+  onClose,
+}: {
+  conversation: ConversationDetail['conversation']
+  allLabels: Label[]
+  onClose: () => void
+}) {
+  const student = conversation.students
+  const labelIds = conversation.labels ?? []
+  const labelMap = Object.fromEntries(allLabels.map(l => [l.id, l]))
+  const courses = Array.isArray(student?.courses)
+    ? (student.courses as { fullname?: string; shortname?: string }[])
+    : []
+
+  const Row = ({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) => (
+    <div className="contact-panel-row">
+      <Icon size={13} className="shrink-0" style={{ color: 'var(--chat-avatar-text)' }} />
+      <div className="min-w-0">
+        <p className="contact-panel-label">{label}</p>
+        <p className="contact-panel-value truncate">{value}</p>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="contact-panel">
+      {/* Header */}
+      <div className="contact-panel-header">
+        <span className="contact-panel-title">Informações</span>
+        <button onClick={onClose} className="chat-icon-btn" title="Fechar">
+          <ChevronRight size={15} />
+        </button>
+      </div>
+
+      <div className="contact-panel-body">
+        {/* Avatar + name */}
+        <div className="contact-panel-hero">
+          <div
+            className="chat-avatar"
+            style={{ width: 52, height: 52, fontSize: '1rem' }}
+            data-identified={!!student}
+          >
+            {student ? (student.full_name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()) : <User size={22} />}
+          </div>
+          <p className="contact-panel-name">{student?.full_name ?? formatPhone(conversation.phone)}</p>
+          <p className="contact-panel-phone-sm">{formatPhone(conversation.phone)}</p>
+        </div>
+
+        {/* Details */}
+        <div className="contact-panel-section">
+          <Row icon={Phone} label="Telefone" value={formatPhone(conversation.phone)} />
+          {student?.email && <Row icon={Mail} label="E-mail" value={student.email} />}
+          {conversation.assigned_name && (
+            <Row icon={UserCheck} label="Atribuída a" value={conversation.assigned_name.split('@')[0]} />
+          )}
+          {conversation.lgpd_accepted_at && (
+            <Row
+              icon={CheckCircle2}
+              label="LGPD aceita em"
+              value={new Date(conversation.lgpd_accepted_at as string).toLocaleDateString('pt-BR')}
+            />
+          )}
+          {conversation.last_message_at && (
+            <Row
+              icon={Calendar}
+              label="Última mensagem"
+              value={new Date(conversation.last_message_at).toLocaleString('pt-BR')}
+            />
+          )}
+        </div>
+
+        {/* Courses */}
+        {courses.length > 0 && (
+          <div className="contact-panel-section">
+            <p className="contact-panel-section-title">
+              <GraduationCap size={12} /> Cursos
+            </p>
+            {courses.map((c, i) => (
+              <div key={i} className="contact-panel-course">
+                {c.fullname ?? c.shortname ?? '—'}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Labels */}
+        {labelIds.length > 0 && (
+          <div className="contact-panel-section">
+            <p className="contact-panel-section-title">
+              <Tag size={12} /> Etiquetas
+            </p>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {labelIds.map(id => {
+                const l = labelMap[id]
+                return l ? (
+                  <span key={id} className="chat-label-chip" style={{ '--label-color': l.color } as React.CSSProperties}>
+                    {l.name}
+                  </span>
+                ) : null
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
 function EmptyPane() {
@@ -405,6 +519,7 @@ function ChatPanel({
   const [data, setData] = useState<ConversationDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [labelOpen, setLabelOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
   const [acting, setActing] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -467,7 +582,17 @@ function ChatPanel({
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex overflow-hidden">
+      {/* Contact info panel (left of messages) */}
+      {infoOpen && data && (
+        <ContactPanel
+          conversation={data.conversation}
+          allLabels={allLabels}
+          onClose={() => setInfoOpen(false)}
+        />
+      )}
+
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
       {/* Header */}
       <div className="chat-panel-header">
         <div className="chat-avatar chat-avatar-lg" data-identified={!!student}>
@@ -535,6 +660,16 @@ function ChatPanel({
             </button>
           )}
 
+          <button
+            onClick={() => setInfoOpen(v => !v)}
+            className="chat-icon-btn"
+            title="Informações do contato"
+            data-active={infoOpen}
+            style={infoOpen ? { color: 'var(--chat-avatar-text)', background: 'var(--chat-item-active)' } : {}}
+          >
+            <Info size={14} />
+          </button>
+
           <button onClick={() => { load(); onRefresh() }} className="chat-icon-btn">
             <RefreshCw size={13} className={acting ? 'animate-spin' : ''} />
           </button>
@@ -600,6 +735,7 @@ function ChatPanel({
           </div>
         )}
       </div>
+      </div> {/* end inner flex-col */}
     </div>
   )
 }
