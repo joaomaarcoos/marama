@@ -18,7 +18,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface WebhookMessage {
+export interface WebhookMessage {
   type: 'text' | 'audio' | 'image' | 'document' | 'unknown'
   text?: string
   caption?: string
@@ -47,6 +47,22 @@ type Identity =
 const FALLBACK_MESSAGE =
   'Olá! Estou com dificuldades técnicas no momento. Por favor, tente novamente em instantes. 🙏'
 
+const LGPD_NOTICE =
+  `Olá! 👋 Antes de prosseguir, preciso te informar que este atendimento é realizado pela *MARA*, assistente virtual do *Maranhão Profissionalizado*.\n\n` +
+  `Ao continuar esta conversa, você concorda com o tratamento dos seus dados pessoais conforme a *Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018)*, utilizados exclusivamente para fins de suporte educacional.\n\n` +
+  `Para prosseguir, responda *SIM* ou *Concordo*. ✅`
+
+const LGPD_ACK =
+  `Ótimo! Seus dados estão protegidos e o atendimento pode começar. 😊 Como posso te ajudar hoje?`
+
+const FOLLOWUP_MESSAGE =
+  `Oi, ainda está por aí? 😊 Fico à disposição se precisar de mais alguma ajuda com seus estudos!`
+
+const CLOSING_MESSAGE =
+  `Seu atendimento foi encerrado por inatividade. Fique à vontade para entrar em contato novamente sempre que precisar. Até logo! 👋`
+
+const CONSENT_REGEX = /\b(sim|s|concordo|aceito|ok|tudo\s*bem|claro|certo|pode|beleza|positivo|afirmativo|aceito\s*sim|concordo\s*sim)\b/i
+
 const MOODLE_INTENT_KEYWORDS: Record<MoodleIntent, string[]> = {
   notas: ['nota', 'notas', 'grade', 'média', 'media', 'desempenho', 'pontuação', 'pontuacao'],
   certificado: [
@@ -68,7 +84,6 @@ const MOODLE_INTENT_KEYWORDS: Record<MoodleIntent, string[]> = {
 async function resolveIdentity(phone: string, messageText?: string): Promise<Identity> {
   const normalized = normalizePhone(phone)
 
-  // 1. Try phone-based lookup
   if (normalized) {
     const { data: student } = await adminClient
       .from('students')
@@ -82,7 +97,6 @@ async function resolveIdentity(phone: string, messageText?: string): Promise<Ide
     }
   }
 
-  // 2. CPF fallback — extract CPF from message text and search
   if (messageText) {
     const cpf = extractCpf(messageText)
     const normalizedCpf = normalizeCpf(cpf)
@@ -94,14 +108,9 @@ async function resolveIdentity(phone: string, messageText?: string): Promise<Ide
         .single()
 
       if (student) {
-        // Auto-link WhatsApp number if student has no phone yet
         if (!student.phone && normalized) {
-          await adminClient
-            .from('students')
-            .update({ phone: normalized })
-            .eq('id', student.id)
+          await adminClient.from('students').update({ phone: normalized }).eq('id', student.id)
         }
-
         const s = student as StudentRow
         return { type: s.role === 'gestor' ? 'gestor' : 'aluno', student: s }
       }
@@ -143,19 +152,14 @@ function buildIdentityContext(identity: Identity): string | null {
 function detectMoodleIntent(text: string): MoodleIntent | null {
   const lower = text.toLowerCase()
   for (const [intent, keywords] of Object.entries(MOODLE_INTENT_KEYWORDS) as [MoodleIntent, string[]][]) {
-    if (keywords.some((kw) => lower.includes(kw))) {
-      return intent
-    }
+    if (keywords.some((kw) => lower.includes(kw))) return intent
   }
   return null
 }
 
 // ─── On-demand Moodle Context Fetcher ────────────────────────────────────────
 
-async function fetchMoodleContext(
-  student: StudentRow,
-  intent: MoodleIntent
-): Promise<string | null> {
+async function fetchMoodleContext(student: StudentRow, intent: MoodleIntent): Promise<string | null> {
   if (!student.moodle_id) return null
 
   const courses = Array.isArray(student.courses) ? (student.courses as MoodleCourse[]) : []
@@ -167,7 +171,6 @@ async function fetchMoodleContext(
         const grades = await getUserGradeOverview(student.moodle_id)
         return `### Notas\n${formatGradeContext(grades, courses)}`
       }
-
       case 'certificado': {
         if (!firstCourse) return 'Nenhum curso matriculado para verificar certificado.'
         if (courses.length > 1) {
@@ -182,13 +185,11 @@ async function fetchMoodleContext(
         const completion = await getCourseCompletion(student.moodle_id, firstCourse.id)
         return `### Status de Conclusão / Certificado\n${formatCompletionContext(completion, firstCourse.fullname || firstCourse.shortname)}`
       }
-
       case 'progresso': {
         if (!firstCourse) return 'Nenhum curso encontrado para verificar progresso.'
         const activities = await getCourseActivitiesCompletion(student.moodle_id, firstCourse.id)
         return `### Progresso em "${firstCourse.fullname || firstCourse.shortname}"\n${formatActivitiesContext(activities)}`
       }
-
       case 'matricula': {
         const enrollments = await getUserEnrollmentInfo(student.moodle_id)
         return `### Situação de Matrícula\n${formatEnrollmentContext(enrollments)}`
@@ -202,44 +203,96 @@ async function fetchMoodleContext(
 
 // ─── Main Orchestrator ────────────────────────────────────────────────────────
 
-export async function processMessage(phone: string, message: WebhookMessage): Promise<void> {
+export async function processMessages(phone: string, messages: WebhookMessage[]): Promise<void> {
   try {
-    // 1. UPSERT conversations
+    // 1. Upsert conversation + fetch LGPD/followup state
     await adminClient.from('conversations').upsert(
       {
         phone,
         last_message_at: new Date().toISOString(),
-        last_message: message.text ?? message.caption ?? `[${message.type}]`,
+        last_message: messages.map(m => m.text ?? m.caption ?? `[${m.type}]`).join(' '),
         status: 'active',
       },
       { onConflict: 'phone' }
     )
 
-    // 2. Process message content (needed for CPF fallback in identity resolution)
-    let userContent: ChatMessage['content']
+    const { data: conv } = await adminClient
+      .from('conversations')
+      .select('lgpd_accepted_at, followup_stage')
+      .eq('phone', phone)
+      .single()
 
-    if (message.type === 'audio' && message.mediaId) {
-      try {
-        const { base64, mimetype } = await downloadMedia(message.mediaId)
-        const audioBuffer = Buffer.from(base64, 'base64')
-        const transcribed = await transcribeAudio(audioBuffer, mimetype)
-        userContent = `[Áudio transcrito]: ${transcribed}`
-      } catch {
-        userContent = '[Áudio recebido, mas não foi possível transcrever]'
+    const combinedRawText = messages
+      .map(m => m.text ?? m.caption ?? '')
+      .join(' ')
+      .trim()
+
+    // 2. LGPD gate — first-time users must consent before any GPT processing
+    if (!conv?.lgpd_accepted_at) {
+      const isConsent = CONSENT_REGEX.test(combinedRawText)
+
+      if (isConsent) {
+        await adminClient
+          .from('conversations')
+          .update({ lgpd_accepted_at: new Date().toISOString() })
+          .eq('phone', phone)
+        await sendText(phone, LGPD_ACK)
+        return
+      } else {
+        await sendText(phone, LGPD_NOTICE)
+        return
       }
-    } else if (message.type === 'image' && message.mediaId) {
-      try {
-        const { base64, mimetype } = await downloadMedia(message.mediaId)
-        userContent = await buildImageMessage(base64, mimetype, message.caption)
-      } catch {
-        userContent = message.caption ?? '[Imagem recebida, mas não foi possível processar]'
-      }
-    } else {
-      userContent = message.text ?? message.caption ?? '[Mensagem sem conteúdo]'
     }
 
-    // 3. Resolve identity (aluno / gestor / desconhecido) — with CPF fallback from text
-    const messageText = typeof userContent === 'string' ? userContent : message.text ?? message.caption
+    // 3. Inactivity reset — if user was in follow-up, receiving any message resets it
+    if (conv?.followup_stage === 'followup_1') {
+      await adminClient
+        .from('conversations')
+        .update({ followup_stage: null, followup_sent_at: null })
+        .eq('phone', phone)
+    }
+
+    // 4. Build combined user content from all messages in the batch
+    let combinedText = ''
+    let imageContent: { base64: string; mimetype: string; caption?: string } | null = null
+
+    for (const msg of messages) {
+      if (msg.type === 'text' || msg.type === 'document') {
+        if (combinedText) combinedText += '\n'
+        combinedText += msg.text ?? ''
+      } else if (msg.type === 'audio' && msg.mediaId) {
+        try {
+          const { base64, mimetype } = await downloadMedia(msg.mediaId)
+          const transcribed = await transcribeAudio(Buffer.from(base64, 'base64'), mimetype)
+          if (combinedText) combinedText += '\n'
+          combinedText += `[Áudio transcrito]: ${transcribed}`
+        } catch {
+          combinedText += '\n[Áudio recebido, mas não foi possível transcrever]'
+        }
+      } else if (msg.type === 'image' && msg.mediaId) {
+        try {
+          const { base64, mimetype } = await downloadMedia(msg.mediaId)
+          imageContent = { base64, mimetype, caption: msg.caption }
+        } catch {
+          if (msg.caption) {
+            if (combinedText) combinedText += '\n'
+            combinedText += msg.caption
+          }
+        }
+      }
+    }
+
+    let userContent: ChatMessage['content']
+
+    if (imageContent) {
+      const fullCaption = [imageContent.caption, combinedText].filter(Boolean).join('\n') || undefined
+      userContent = await buildImageMessage(imageContent.base64, imageContent.mimetype, fullCaption)
+    } else {
+      userContent = combinedText || '[Mensagem sem conteúdo]'
+    }
+
+    // 5. Resolve identity
+    const messageText = typeof userContent === 'string' ? userContent : combinedRawText
     const identity = await resolveIdentity(phone, messageText)
     const identityContext = buildIdentityContext(identity)
 
@@ -250,7 +303,7 @@ export async function processMessage(phone: string, message: WebhookMessage): Pr
         .eq('phone', phone)
     }
 
-    // 4. Fetch chat history
+    // 6. Fetch chat history
     const { data: history } = await adminClient
       .from('chatmemory')
       .select('role, content')
@@ -258,26 +311,22 @@ export async function processMessage(phone: string, message: WebhookMessage): Pr
       .order('created_at', { ascending: true })
       .limit(20)
 
-    // 4.5. RAG: search knowledge base
-    const queryText =
-      typeof userContent === 'string' ? userContent : JSON.stringify(userContent)
+    // 7. RAG search
+    const queryText = typeof userContent === 'string' ? userContent : JSON.stringify(userContent)
     const ragChunks = await searchRelevantChunks(queryText)
     const ragContext = buildRagContext(ragChunks)
 
-    // 4.6. Moodle on-demand: dynamic data only for identified students
+    // 8. Moodle on-demand
     let moodleContext: string | null = null
     if (identity.type === 'aluno' && identity.student.moodle_id) {
       const intent = detectMoodleIntent(queryText)
-      if (intent) {
-        moodleContext = await fetchMoodleContext(identity.student, intent)
-      }
+      if (intent) moodleContext = await fetchMoodleContext(identity.student, intent)
     }
 
-    // 5. Build system prompt
+    // 9. Build system prompt + call GPT-4o
     const systemPrompt = await buildSystemPrompt(identityContext, ragContext, moodleContext)
 
-    // 6. Build GPT-4o messages
-    const messages: ChatMessage[] = [
+    const chatMessages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
       ...(history ?? []).map(h => ({
         role: h.role as 'user' | 'assistant',
@@ -286,28 +335,22 @@ export async function processMessage(phone: string, message: WebhookMessage): Pr
       { role: 'user', content: userContent },
     ]
 
-    // 7. Call GPT-4o
-    const response = await chatCompletion(messages)
+    const response = await chatCompletion(chatMessages)
 
-    // 8. Save to chatmemory
-    const userContentText =
-      typeof userContent === 'string' ? userContent : JSON.stringify(userContent)
+    // 10. Save to chatmemory
+    const userContentText = typeof userContent === 'string' ? userContent : JSON.stringify(userContent)
 
     await adminClient.from('chatmemory').insert([
       { session_id: phone, role: 'user', content: userContentText },
       { session_id: phone, role: 'assistant', content: response },
     ])
 
-    // 9. Update conversation
+    // 11. Update conversation + reply
     await adminClient
       .from('conversations')
-      .update({
-        last_message: response.slice(0, 200),
-        last_message_at: new Date().toISOString(),
-      })
+      .update({ last_message: response.slice(0, 200), last_message_at: new Date().toISOString() })
       .eq('phone', phone)
 
-    // 10. Send reply via Evolution API
     await sendText(phone, response)
   } catch (error) {
     console.error('[MARA Agent] Erro ao processar mensagem:', error)
@@ -317,4 +360,58 @@ export async function processMessage(phone: string, message: WebhookMessage): Pr
       console.error('[MARA Agent] Falha ao enviar mensagem de fallback')
     }
   }
+}
+
+// ─── Inactivity checker (chamado pelo cron) ───────────────────────────────────
+
+export async function checkInactivity(): Promise<{ followups: number; closings: number }> {
+  const now = Date.now()
+  const ninetyMinutesAgo = new Date(now - 90 * 60 * 1000).toISOString()
+  const sixtyMinutesAgo  = new Date(now - 60 * 60 * 1000).toISOString()
+
+  let followups = 0
+  let closings = 0
+
+  // Conversas ativas há mais de 90 minutos sem follow-up enviado
+  const { data: idleConvs } = await adminClient
+    .from('conversations')
+    .select('phone')
+    .eq('status', 'active')
+    .is('followup_stage', null)
+    .lt('last_message_at', ninetyMinutesAgo)
+
+  for (const conv of idleConvs ?? []) {
+    try {
+      await sendText(conv.phone, FOLLOWUP_MESSAGE)
+      await adminClient
+        .from('conversations')
+        .update({ followup_stage: 'followup_1', followup_sent_at: new Date().toISOString() })
+        .eq('phone', conv.phone)
+      followups++
+    } catch (err) {
+      console.error(`[Inatividade] Erro ao enviar follow-up para ${conv.phone}:`, err)
+    }
+  }
+
+  // Conversas em follow-up há mais de 1 hora sem resposta
+  const { data: staleConvs } = await adminClient
+    .from('conversations')
+    .select('phone')
+    .eq('followup_stage', 'followup_1')
+    .lt('followup_sent_at', sixtyMinutesAgo)
+
+  for (const conv of staleConvs ?? []) {
+    try {
+      await sendText(conv.phone, CLOSING_MESSAGE)
+      await adminClient
+        .from('conversations')
+        .update({ followup_stage: 'closed', status: 'closed' })
+        .eq('phone', conv.phone)
+      closings++
+    } catch (err) {
+      console.error(`[Inatividade] Erro ao fechar conversa de ${conv.phone}:`, err)
+    }
+  }
+
+  return { followups, closings }
 }
