@@ -11,8 +11,12 @@ services:
     ports:
       - "1303:3000"
     environment:
+      # Variáveis com prefixo NEXT_PUBLIC_ (usadas pelo cliente e middleware)
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      # Aliases sem prefixo (fallback no middleware caso as acima não estejam definidas)
+      SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       EVOLUTION_API_URL: ${EVOLUTION_API_URL}
