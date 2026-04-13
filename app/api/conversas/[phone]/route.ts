@@ -23,3 +23,25 @@ export async function GET(
 
   return NextResponse.json({ conversation, messages: messages ?? [] })
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { phone: string } }
+) {
+  const phone = decodeURIComponent(params.phone)
+  const body = await request.json() as {
+    status?: string
+    assigned_to?: string | null
+    assigned_name?: string | null
+    labels?: string[]
+    followup_stage?: string | null
+  }
+
+  const { error } = await adminClient
+    .from('conversations')
+    .update(body)
+    .eq('phone', phone)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
