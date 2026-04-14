@@ -1,18 +1,16 @@
 import { NextResponse } from 'next/server'
-import { PDFParse } from 'pdf-parse'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { embedAndStoreDocument } from '@/lib/rag'
 
 async function parsePdf(buffer: Buffer): Promise<string> {
-  const parser = new PDFParse({ data: buffer })
-
-  try {
-    const result = await parser.getText()
-    return result.text
-  } finally {
-    await parser.destroy()
-  }
+  // Carrega pdf-parse (v1) dentro da função para evitar que pdfjs-dist seja
+  // inicializado no startup do servidor — a inicialização do módulo exige APIs
+  // de DOM que não existem no Node.js (DOMMatrix, ImageData, Path2D).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfParse = (require as any)('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>
+  const data = await pdfParse(buffer)
+  return data.text
 }
 
 export const maxDuration = 60 // Allow up to 60s for large documents
