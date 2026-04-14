@@ -11,16 +11,26 @@ export default async function DocumentosPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div>
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-1">
-          <BookOpen className="h-6 w-6 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900">Base de Conhecimento</h1>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div
+          className="flex h-9 w-9 items-center justify-center rounded-lg"
+          style={{
+            background: 'hsl(262 80% 65% / 0.12)',
+            border: '1px solid hsl(262 80% 65% / 0.25)',
+          }}
+        >
+          <BookOpen className="h-5 w-5" style={{ color: 'hsl(262 80% 65%)' }} />
         </div>
-        <p className="text-sm text-gray-500">
-          Adicione documentos (PDF, TXT, MD) que a MARA usará como referência ao responder os alunos.
-          Cada arquivo é dividido em trechos e indexado via busca semântica.
-        </p>
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: 'hsl(213 31% 91%)' }}>
+            Base de Conhecimento
+          </h1>
+          <p className="text-sm" style={{ color: 'hsl(215 18% 42%)' }}>
+            Documentos indexados via busca semântica (RAG) para a MARA consultar
+          </p>
+        </div>
       </div>
 
       <DocumentUploader initialDocuments={documents ?? []} />

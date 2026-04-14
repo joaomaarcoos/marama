@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, Trash2, FileText, Loader2 } from 'lucide-react'
+import { Upload, Trash2, FileText, Loader2, FileType, FileCode } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface Document {
@@ -11,10 +11,6 @@ interface Document {
   mime_type: string
   chunk_count: number
   created_at: string
-}
-
-interface DocumentUploaderProps {
-  initialDocuments: Document[]
 }
 
 function formatBytes(bytes: number): string {
@@ -33,23 +29,31 @@ function formatDate(dateStr: string): string {
   })
 }
 
-export default function DocumentUploader({ initialDocuments }: DocumentUploaderProps) {
+function FileIcon({ mime, name }: { mime: string; name: string }) {
+  if (mime === 'application/pdf' || name.endsWith('.pdf')) {
+    return <FileType className="h-4 w-4" style={{ color: 'hsl(0 70% 60%)' }} />
+  }
+  if (name.endsWith('.md')) {
+    return <FileCode className="h-4 w-4" style={{ color: 'hsl(217 91% 60%)' }} />
+  }
+  return <FileText className="h-4 w-4" style={{ color: 'hsl(160 84% 39%)' }} />
+}
+
+export default function DocumentUploader({ initialDocuments }: { initialDocuments: Document[] }) {
   const [documents, setDocuments] = useState<Document[]>(initialDocuments)
   const [uploading, setUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
   const showMessage = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text })
-    setTimeout(() => setMessage(null), 4000)
+    setTimeout(() => setMessage(null), 5000)
   }
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
+  const uploadFile = async (file: File) => {
     setUploading(true)
     const formData = new FormData()
     formData.append('file', file)
@@ -63,7 +67,6 @@ export default function DocumentUploader({ initialDocuments }: DocumentUploaderP
       } else {
         showMessage('success', data.message ?? 'Documento adicionado com sucesso!')
         router.refresh()
-        // Refresh local list
         const listRes = await fetch('/api/documentos')
         if (listRes.ok) setDocuments(await listRes.json())
       }
@@ -75,8 +78,20 @@ export default function DocumentUploader({ initialDocuments }: DocumentUploaderP
     }
   }
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) await uploadFile(file)
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) await uploadFile(file)
+  }
+
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Excluir "${name}"? Esta ação não pode ser desfeita.`)) return
+    if (!confirm(`Excluir "${name}"?\nEsta ação não pode ser desfeita.`)) return
 
     setDeletingId(id)
     try {
@@ -96,9 +111,20 @@ export default function DocumentUploader({ initialDocuments }: DocumentUploaderP
   }
 
   return (
-    <div className="space-y-6">
-      {/* Upload area */}
-      <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-blue-300 transition-colors">
+    <div className="space-y-5">
+
+      {/* Drop zone */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => !uploading && fileInputRef.current?.click()}
+        className="rounded-xl p-8 text-center cursor-pointer transition-all duration-200"
+        style={{
+          background: dragOver ? 'hsl(262 80% 65% / 0.08)' : 'hsl(220 40% 8%)',
+          border: `2px dashed ${dragOver ? 'hsl(262 80% 65%)' : 'hsl(216 32% 20%)'}`,
+        }}
+      >
         <input
           ref={fileInputRef}
           type="file"
@@ -107,87 +133,133 @@ export default function DocumentUploader({ initialDocuments }: DocumentUploaderP
           className="hidden"
           disabled={uploading}
         />
-        <div className="flex flex-col items-center gap-3">
-          {uploading ? (
-            <>
-              <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
-              <p className="text-sm text-gray-600">Indexando documento, aguarde...</p>
-              <p className="text-xs text-gray-400">Isso pode levar alguns segundos</p>
-            </>
-          ) : (
-            <>
-              <Upload className="h-10 w-10 text-gray-400" />
-              <div>
-                <p className="text-sm font-medium text-gray-700">
-                  Arraste ou{' '}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-blue-600 hover:text-blue-700 underline"
-                  >
-                    escolha um arquivo
-                  </button>
-                </p>
-                <p className="text-xs text-gray-400 mt-1">PDF, TXT ou MD — máximo 10MB</p>
-              </div>
-            </>
-          )}
-        </div>
+
+        {uploading ? (
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-10 w-10 animate-spin" style={{ color: 'hsl(262 80% 65%)' }} />
+            <p className="text-sm font-medium" style={{ color: 'hsl(213 31% 91%)' }}>
+              Indexando documento…
+            </p>
+            <p className="text-xs" style={{ color: 'hsl(215 18% 42%)' }}>
+              Extraindo texto, gerando embeddings e salvando na base de conhecimento
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3">
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-xl"
+              style={{ background: 'hsl(262 80% 65% / 0.12)', color: 'hsl(262 80% 65%)' }}
+            >
+              <Upload className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium" style={{ color: 'hsl(213 31% 91%)' }}>
+                Arraste um arquivo ou{' '}
+                <span style={{ color: 'hsl(262 80% 65%)' }}>clique para escolher</span>
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'hsl(215 18% 42%)' }}>
+                PDF, TXT ou MD — máximo 10 MB
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Status message */}
       {message && (
         <div
-          className={`rounded-lg px-4 py-3 text-sm ${
+          className="rounded-xl px-4 py-3 text-sm"
+          style={
             message.type === 'success'
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
-          }`}
+              ? { background: 'hsl(160 84% 39% / 0.15)', border: '1px solid hsl(160 84% 39% / 0.35)', color: 'hsl(160 84% 55%)' }
+              : { background: 'hsl(0 70% 40% / 0.15)', border: '1px solid hsl(0 70% 50% / 0.35)', color: 'hsl(0 70% 65%)' }
+          }
         >
           {message.text}
         </div>
       )}
 
-      {/* Documents list */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-700">
-            Documentos indexados ({documents.length})
+      {/* Document list */}
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ border: '1px solid hsl(216 32% 15%)' }}
+      >
+        <div
+          className="px-5 py-3.5 flex items-center justify-between"
+          style={{ background: 'hsl(220 40% 7%)', borderBottom: '1px solid hsl(216 32% 15%)' }}
+        >
+          <h3
+            className="text-xs font-semibold uppercase tracking-widest"
+            style={{ color: 'hsl(215 18% 42%)', letterSpacing: '0.1em' }}
+          >
+            Documentos indexados
           </h3>
+          <span
+            className="text-xs font-medium px-2 py-0.5 rounded-full"
+            style={{ background: 'hsl(262 80% 65% / 0.15)', color: 'hsl(262 80% 65%)' }}
+          >
+            {documents.length}
+          </span>
         </div>
 
         {documents.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">Nenhum documento adicionado ainda.</p>
-            <p className="text-xs text-gray-300 mt-1">Envie PDFs ou arquivos de texto para a MARA usar como referência.</p>
+          <div className="px-6 py-12 text-center" style={{ background: 'hsl(220 40% 8%)' }}>
+            <FileText className="h-8 w-8 mx-auto mb-3" style={{ color: 'hsl(216 32% 22%)' }} />
+            <p className="text-sm" style={{ color: 'hsl(215 18% 42%)' }}>
+              Nenhum documento adicionado ainda.
+            </p>
+            <p className="text-xs mt-1" style={{ color: 'hsl(215 18% 30%)' }}>
+              Envie PDFs, TXTs ou MDs para a MARA usar como base de conhecimento.
+            </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
-            {documents.map((doc) => (
-              <div key={doc.id} className="px-6 py-4 flex items-center justify-between gap-4">
+          <div style={{ background: 'hsl(220 40% 8%)' }}>
+            {documents.map((doc, i) => (
+              <div
+                key={doc.id}
+                className="px-5 py-4 flex items-center justify-between gap-4"
+                style={{ borderTop: i === 0 ? 'none' : '1px solid hsl(216 32% 12%)' }}
+              >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="shrink-0 w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
-                    <FileText className="h-4 w-4 text-blue-600" />
+                  <div
+                    className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg"
+                    style={{ background: 'hsl(220 40% 12%)', border: '1px solid hsl(216 32% 18%)' }}
+                  >
+                    <FileIcon mime={doc.mime_type} name={doc.name} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{doc.name}</p>
-                    <p className="text-xs text-gray-400">
-                      {formatBytes(doc.size_bytes)} · {doc.chunk_count} trechos · {formatDate(doc.created_at)}
+                    <p className="text-sm font-medium truncate" style={{ color: 'hsl(213 31% 91%)' }}>
+                      {doc.name}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: 'hsl(215 18% 42%)' }}>
+                      {formatBytes(doc.size_bytes)}
+                      <span className="mx-1.5" style={{ color: 'hsl(216 32% 22%)' }}>·</span>
+                      <span style={{ color: 'hsl(262 80% 65%)' }}>{doc.chunk_count} trechos</span>
+                      <span className="mx-1.5" style={{ color: 'hsl(216 32% 22%)' }}>·</span>
+                      {formatDate(doc.created_at)}
                     </p>
                   </div>
                 </div>
+
                 <button
                   onClick={() => handleDelete(doc.id, doc.name)}
                   disabled={deletingId === doc.id}
-                  className="shrink-0 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                  className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg transition-all disabled:opacity-40"
+                  style={{ color: 'hsl(215 18% 42%)' }}
+                  onMouseEnter={e => {
+                    ;(e.currentTarget as HTMLElement).style.background = 'hsl(0 70% 40% / 0.15)'
+                    ;(e.currentTarget as HTMLElement).style.color = 'hsl(0 70% 60%)'
+                  }}
+                  onMouseLeave={e => {
+                    ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+                    ;(e.currentTarget as HTMLElement).style.color = 'hsl(215 18% 42%)'
+                  }}
                   title="Excluir documento"
                 >
-                  {deletingId === doc.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
+                  {deletingId === doc.id
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Trash2 className="h-4 w-4" />
+                  }
                 </button>
               </div>
             ))}
