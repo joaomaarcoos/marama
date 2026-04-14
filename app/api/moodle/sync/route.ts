@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { getEnrolledStudents, SYNC_COURSE_IDS } from '@/lib/moodle'
+import { syncContactsSnapshot } from '@/lib/contacts'
 
 const BATCH_SIZE = 100
 
@@ -62,6 +63,8 @@ export async function POST(request: NextRequest) {
         processed += batch.length
       }
     }
+
+    await syncContactsSnapshot()
 
     return NextResponse.json({
       synced: allStudents.length,

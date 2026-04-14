@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   Send,
+  User,
   Users,
   FileText,
   LogOut,
@@ -29,6 +30,7 @@ import { useState, useEffect } from 'react'
 const navItems = [
   { href: '/dashboard',  label: 'Dashboard',          icon: LayoutDashboard },
   { href: '/conversas',  label: 'Conversas',           icon: MessageSquare },
+  { href: '/contatos',   label: 'Contatos',            icon: User },
   { href: '/prompt',     label: 'Prompt da MARA',      icon: FileText },
   { href: '/documentos', label: 'Base de Conhecimento',icon: BookOpen },
   { href: '/disparos',   label: 'Disparos',            icon: Send },

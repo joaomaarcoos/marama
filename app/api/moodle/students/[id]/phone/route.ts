@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { normalizePhone } from '@/lib/utils'
+import { syncContactsSnapshot } from '@/lib/contacts'
 
 export async function PATCH(
   request: Request,
@@ -20,6 +21,7 @@ export async function PATCH(
       .update({ phone: null })
       .eq('id', params.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await syncContactsSnapshot()
     return NextResponse.json({ phone: null })
   }
 
@@ -49,6 +51,7 @@ export async function PATCH(
     .eq('id', params.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await syncContactsSnapshot()
 
   return NextResponse.json({ phone: normalized })
 }

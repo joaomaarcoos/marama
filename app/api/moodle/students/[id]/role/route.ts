@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
+import { syncContactsSnapshot } from '@/lib/contacts'
 
 // PATCH /api/moodle/students/[id]/role — toggle student role between 'aluno' and 'gestor'
 export async function PATCH(
@@ -24,6 +25,7 @@ export async function PATCH(
     .eq('id', params.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await syncContactsSnapshot()
 
   return NextResponse.json({ success: true, role })
 }

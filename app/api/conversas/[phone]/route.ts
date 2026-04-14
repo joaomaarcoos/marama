@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { findChats } from '@/lib/evolution'
+import { syncContactsSnapshot } from '@/lib/contacts'
 
 export async function GET(
   _request: NextRequest,
@@ -61,5 +62,6 @@ export async function PATCH(
     .eq('phone', phone)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await syncContactsSnapshot()
   return NextResponse.json({ ok: true })
 }

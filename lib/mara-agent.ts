@@ -2,8 +2,8 @@ import { adminClient } from './supabase/admin'
 import { buildSystemPrompt } from './prompt-builder'
 import { sendText, downloadMedia } from './evolution'
 import { chatCompletion, transcribeAudio, buildImageMessage, ChatMessage } from './openai'
-import { normalizePhone, normalizeCpf, extractCpf } from './utils'
 import { searchRelevantChunks, buildRagContext } from './rag'
+import { resolveKnownContact, syncContactsSnapshot, type ContactProfile, type ContactStudentRecord } from './contacts'
 import {
   getUserGradeOverview,
   getCourseCompletion,
@@ -33,10 +33,10 @@ export interface MessageRouting {
 }
 
 interface StudentRow {
-  id: string
-  moodle_id: number | null
-  full_name: string
-  email: string | null
+  id: ContactStudentRecord['id']
+  moodle_id: ContactStudentRecord['moodle_id']
+  full_name: ContactStudentRecord['full_name']
+  email: ContactStudentRecord['email']
   courses: MoodleCourse[]
   role: 'aluno' | 'gestor'
 }
@@ -44,8 +44,9 @@ interface StudentRow {
 type MoodleIntent = 'notas' | 'certificado' | 'progresso' | 'matricula'
 
 type Identity =
-  | { type: 'aluno'; student: StudentRow }
-  | { type: 'gestor'; student: StudentRow }
+  | { type: 'aluno'; student: StudentRow; contact: ContactProfile | null }
+  | { type: 'gestor'; student: StudentRow; contact: ContactProfile | null }
+  | { type: 'contato'; contact: ContactProfile }
   | { type: 'desconhecido' }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -88,39 +89,27 @@ const MOODLE_INTENT_KEYWORDS: Record<MoodleIntent, string[]> = {
 // ─── Identity Resolution ──────────────────────────────────────────────────────
 
 async function resolveIdentity(phone: string, messageText?: string): Promise<Identity> {
-  const normalized = normalizePhone(phone)
+  const { profile, student } = await resolveKnownContact(phone, messageText)
 
-  if (normalized) {
-    const { data: student } = await adminClient
-      .from('students')
-      .select('id, moodle_id, full_name, email, courses, role')
-      .or(`phone.eq.${normalized},phone2.eq.${normalized}`)
-      .single()
+  if (student) {
+    const typedStudent: StudentRow = {
+      id: student.id,
+      moodle_id: student.moodle_id,
+      full_name: student.full_name,
+      email: student.email,
+      courses: student.courses as MoodleCourse[],
+      role: student.role === 'gestor' ? 'gestor' : 'aluno',
+    }
 
-    if (student) {
-      const s = student as StudentRow
-      return { type: s.role === 'gestor' ? 'gestor' : 'aluno', student: s }
+    return {
+      type: typedStudent.role === 'gestor' ? 'gestor' : 'aluno',
+      student: typedStudent,
+      contact: profile,
     }
   }
 
-  if (messageText) {
-    const cpf = extractCpf(messageText)
-    const normalizedCpf = normalizeCpf(cpf)
-    if (normalizedCpf) {
-      const { data: student } = await adminClient
-        .from('students')
-        .select('id, moodle_id, full_name, email, courses, role, phone')
-        .eq('cpf', normalizedCpf)
-        .single()
-
-      if (student) {
-        if (!student.phone && normalized) {
-          await adminClient.from('students').update({ phone: normalized }).eq('id', student.id)
-        }
-        const s = student as StudentRow
-        return { type: s.role === 'gestor' ? 'gestor' : 'aluno', student: s }
-      }
-    }
+  if (profile) {
+    return { type: 'contato', contact: profile }
   }
 
   return { type: 'desconhecido' }
@@ -135,7 +124,22 @@ function buildIdentityContext(identity: Identity): string | null {
     )
   }
 
-  const { student } = identity
+  if (identity.type === 'contato') {
+    const labels =
+      identity.contact.labels.length > 0
+        ? identity.contact.labels.join(', ')
+        : 'nenhuma etiqueta cadastrada'
+
+    return (
+      `Contato conhecido no atendimento: ${identity.contact.displayName}. ` +
+      `Telefone principal: ${identity.contact.canonicalPhone ?? 'nao identificado'}. ` +
+      `Etiquetas internas: ${labels}. ` +
+      'Nao existe vinculo confirmado com Moodle neste momento. ' +
+      'Atenda usando o contexto operacional ja conhecido e peca CPF apenas se for necessario vincular dados academicos.'
+    )
+  }
+
+  const { student, contact } = identity
   const courses = Array.isArray(student.courses) ? student.courses : []
   const courseList =
     courses.length > 0
@@ -249,9 +253,11 @@ export async function processMessages(
           .update({ lgpd_accepted_at: new Date().toISOString() })
           .eq('phone', phone)
         await sendText(replyTarget, LGPD_ACK)
+        await syncContactsSnapshot()
         return
       } else {
         await sendText(replyTarget, LGPD_NOTICE)
+        await syncContactsSnapshot()
         return
       }
     }
@@ -308,7 +314,7 @@ export async function processMessages(
     const identity = await resolveIdentity(phone, messageText)
     const identityContext = buildIdentityContext(identity)
 
-    if (identity.type !== 'desconhecido') {
+    if (identity.type === 'aluno' || identity.type === 'gestor') {
       await adminClient
         .from('conversations')
         .update({ student_id: identity.student.id })
@@ -364,6 +370,7 @@ export async function processMessages(
       .eq('phone', phone)
 
     await sendText(replyTarget, response)
+    await syncContactsSnapshot()
   } catch (error) {
     console.error('[MARA Agent] Erro ao processar mensagem:', error)
     try {

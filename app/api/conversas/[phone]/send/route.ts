@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { sendMedia, sendText } from '@/lib/evolution'
+import { syncContactsSnapshot } from '@/lib/contacts'
 
 type MediaKind = 'image' | 'audio' | 'document'
 
@@ -101,6 +102,8 @@ export async function POST(
     if (conversationError) {
       throw conversationError
     }
+
+    await syncContactsSnapshot()
 
     return NextResponse.json({ ok: true, message })
   } catch (error) {
