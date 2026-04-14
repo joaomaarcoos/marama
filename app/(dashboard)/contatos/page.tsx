@@ -3,6 +3,7 @@ import { Search, Users, GraduationCap, Tags, ArrowRight, CircleHelp } from 'luci
 import { adminClient } from '@/lib/supabase/admin'
 import { listContactProfiles, type ContactProfile } from '@/lib/contacts'
 import { formatDate, formatPhone } from '@/lib/utils'
+import ContactsToolbar from '@/components/contacts-toolbar'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,22 +62,23 @@ export default async function ContatosPage({ searchParams }: PageProps) {
 
   return (
     <div className="animate-fade-up">
-      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1
-            className="text-2xl font-bold tracking-tight"
-            style={{ color: 'hsl(213 31% 91%)' }}
-          >
-            Contatos
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6" style={{ color: 'hsl(215 18% 55%)' }}>
-            Este modulo centraliza a identidade operacional de cada pessoa atendida pela MARA.
-            Ele cruza conversas, dados internos e vinculos do Moodle para mostrar quem ja esta
-            reconhecido, o que ainda nao esta vinculado e onde faltam dados.
-          </p>
-        </div>
+      <div className="mb-8 flex flex-col gap-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1
+              className="text-2xl font-bold tracking-tight"
+              style={{ color: 'hsl(213 31% 91%)' }}
+            >
+              Contatos
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6" style={{ color: 'hsl(215 18% 55%)' }}>
+              Este modulo centraliza a identidade operacional de cada pessoa atendida pela MARA.
+              Ele cruza conversas, dados internos e vinculos do Moodle para mostrar quem ja esta
+              reconhecido, o que ainda nao esta vinculado e onde faltam dados.
+            </p>
+          </div>
 
-        <form className="flex w-full max-w-xl items-center gap-3 lg:w-auto" method="GET">
+          <form className="flex w-full max-w-xl items-center gap-3 lg:w-auto" method="GET">
           <div
             className="flex flex-1 items-center gap-2 rounded-xl px-3 py-2"
             style={{
@@ -105,18 +107,21 @@ export default async function ContatosPage({ searchParams }: PageProps) {
             Buscar
           </button>
           {query && (
-            <Link
-              href="/contatos"
-              className="rounded-xl px-3 py-2 text-sm"
-              style={{
-                color: 'hsl(215 18% 55%)',
-                border: '1px solid hsl(216 32% 15%)',
-              }}
-            >
-              Limpar
-            </Link>
-          )}
-        </form>
+              <Link
+                href="/contatos"
+                className="rounded-xl px-3 py-2 text-sm"
+                style={{
+                  color: 'hsl(215 18% 55%)',
+                  border: '1px solid hsl(216 32% 15%)',
+                }}
+              >
+                Limpar
+              </Link>
+            )}
+          </form>
+        </div>
+
+        <ContactsToolbar />
       </div>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

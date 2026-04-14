@@ -146,14 +146,18 @@ function buildIdentityContext(identity: Identity): string | null {
       ? courses.map((c: MoodleCourse) => c.fullname || c.shortname).join(', ')
       : 'nenhum curso encontrado'
 
+  const labelsPart = identity.contact?.labels?.length
+    ? ` Etiquetas internas: ${identity.contact.labels.join(', ')}.`
+    : ''
+
   if (identity.type === 'gestor') {
-    return `Pessoa identificada: ${student.full_name} (GESTOR do programa). Email: ${student.email ?? 'não informado'}.`
+    return `Pessoa identificada: ${student.full_name} (GESTOR do programa). Email: ${student.email ?? 'não informado'}.${labelsPart}`
   }
 
   return (
     `Aluno identificado: ${student.full_name}. ` +
     `Email: ${student.email ?? 'não informado'}. ` +
-    `Cursos matriculados: ${courseList}.`
+    `Cursos matriculados: ${courseList}.${labelsPart}`
   )
 }
 
