@@ -16,7 +16,11 @@ function getSupabaseAnonKey() {
 
 const publicApiPrefixes = ['/api/webhook', '/api/health']
 const publicPagePaths = ['/login']
-const protectedPaths = ['/dashboard', '/prompt', '/disparos', '/moodle', '/conversas', '/documentos', '/usuarios']
+const protectedPaths = [
+  '/dashboard', '/prompt', '/disparos', '/moodle', '/conversas',
+  '/documentos', '/usuarios', '/relatorios', '/contatos', '/logs',
+  '/conexao', '/tutores',
+]
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
