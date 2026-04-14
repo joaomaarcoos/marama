@@ -229,9 +229,9 @@ export async function getAttendanceReport(window: AttendanceWindowKey = '30d'): 
   if (labelsResult.error) throw new Error(labelsResult.error.message)
   if (messagesResult.error) throw new Error(messagesResult.error.message)
 
-  const conversations = (conversationsResult.data ?? []) as ConversationRow[]
-  const labels = (labelsResult.data ?? []) as LabelRow[]
-  const messages = (messagesResult.data ?? []) as ChatMessageRow[]
+  const conversations = (conversationsResult.data ?? []) as unknown as ConversationRow[]
+  const labels = (labelsResult.data ?? []) as unknown as LabelRow[]
+  const messages = (messagesResult.data ?? []) as unknown as ChatMessageRow[]
   const labelMap = new Map(labels.map((label) => [label.id, label]))
 
   const messageStats = new Map<string, { user: number; assistant: number }>()

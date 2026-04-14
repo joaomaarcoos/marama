@@ -581,7 +581,7 @@ export default function RelatoriosPage() {
               Nenhuma etiqueta encontrada no período. Adicione etiquetas nas conversas para visualizar os tópicos.
             </div>
           ) : (
-            <div className="divide-y" style={{ divideColor: 'hsl(216 32% 13%)' }}>
+            <div>
               {data.topics.map((topic, i) => (
                 <div
                   key={topic.label}

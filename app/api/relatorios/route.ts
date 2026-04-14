@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     entry.count++
     entry.phones.push(c.phone as string)
   }
-  const byAgent = [...agentMap.values()].sort((a, b) => b.count - a.count)
+  const byAgent = Array.from(agentMap.values()).sort((a, b) => b.count - a.count)
 
   // --- Topics from labels ---
   const topicCount = new Map<string, { label: string; color: string; count: number }>()
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
       topicCount.get(id)!.count++
     }
   }
-  const topics = [...topicCount.values()].sort((a, b) => b.count - a.count).slice(0, 10)
+  const topics = Array.from(topicCount.values()).sort((a, b) => b.count - a.count).slice(0, 10)
 
   // --- Daily timeline (last N days) ---
   const dayBuckets = new Map<string, { mara: number; human: number }>()
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
     if (c.assigned_to) bucket.human++
     else bucket.mara++
   }
-  const timeline = [...dayBuckets.entries()]
+  const timeline = Array.from(dayBuckets.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, counts]) => ({ date, ...counts }))
 
