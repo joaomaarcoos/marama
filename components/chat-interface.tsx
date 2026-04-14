@@ -10,7 +10,7 @@ import {
   SendHorizontal, Mic, Square, Image as ImageIcon, FileText, AudioLines,
 } from 'lucide-react'
 import { formatPhone } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
+// Supabase browser client removido — currentUser vem do server component via prop
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1315,20 +1315,20 @@ function ChatPanel({
 
 // ─── Main Interface ───────────────────────────────────────────────────────────
 
-export default function ChatInterface({ selectedPhone }: { selectedPhone?: string }) {
+export default function ChatInterface({
+  selectedPhone,
+  initialCurrentUser,
+}: {
+  selectedPhone?: string
+  initialCurrentUser?: { id: string; email: string } | null
+}) {
   const router = useRouter()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [allLabels, setAllLabels] = useState<Label[]>([])
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<Tab>('todas')
   const [loadingList, setLoadingList] = useState(true)
-  const [currentUser, setCurrentUser] = useState<{ id: string; email: string } | null>(null)
-
-  useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      if (data.user) setCurrentUser({ id: data.user.id, email: data.user.email ?? '' })
-    })
-  }, [])
+  const [currentUser] = useState<{ id: string; email: string } | null>(initialCurrentUser ?? null)
 
   const loadConversations = useCallback(async () => {
     const res = await fetch('/api/conversas')
