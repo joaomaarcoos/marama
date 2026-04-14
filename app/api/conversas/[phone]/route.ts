@@ -21,7 +21,10 @@ export async function GET(
       .eq('session_id', phone)
       .order('created_at', { ascending: true })
       .limit(200),
-    findChats(),
+    findChats().catch((err) => {
+      console.warn('[conversas/phone] findChats falhou — abrindo conversa sem dados WhatsApp:', err?.message)
+      return []
+    }),
   ])
 
   const conversation = conversationResult.data

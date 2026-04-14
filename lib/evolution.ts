@@ -247,6 +247,12 @@ export async function findChats(): Promise<EvolutionChatContact[]> {
   })
 
   if (!res.ok) {
+    // Erros de disponibilidade (5xx, gateway, timeout) não devem derrubar a conversa
+    if (res.status >= 500 || res.status === 502 || res.status === 503 || res.status === 504) {
+      console.warn(`[findChats] Evolution API indisponivel (${res.status}) — continuando sem dados de chat`)
+      return []
+    }
+
     const message = await parseEvolutionError(res, 'Erro ao buscar chats')
     const normalized = message.toLowerCase()
 
