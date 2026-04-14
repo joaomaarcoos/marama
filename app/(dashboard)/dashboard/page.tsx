@@ -1,28 +1,65 @@
 import { createClient } from '@/lib/supabase/server'
+import { hasSupabasePublicEnv } from '@/lib/supabase/env'
 import { MessageSquare, Users, Send, FileText } from 'lucide-react'
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
+export const dynamic = 'force-dynamic'
 
-  const [
-    { count: conversationsCount },
-    { count: studentsCount },
-    { count: campaignsCount },
-    { count: promptsCount },
-  ] = await Promise.all([
-    supabase
-      .from('conversations')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'active'),
-    supabase.from('students').select('*', { count: 'exact', head: true }),
-    supabase
-      .from('blast_campaigns')
-      .select('*', { count: 'exact', head: true }),
-    supabase
-      .from('prompt_sections')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_active', true),
-  ])
+export default async function DashboardPage() {
+  if (!hasSupabasePublicEnv()) {
+    return (
+      <div className="animate-fade-up">
+        <div
+          className="rounded-xl px-5 py-4"
+          style={{
+            background: 'hsl(220 40% 8%)',
+            border: '1px solid hsl(216 32% 15%)',
+          }}
+        >
+          <h1
+            className="text-xl font-bold tracking-tight"
+            style={{ color: 'hsl(213 31% 91%)' }}
+          >
+            Configuracao do Supabase ausente
+          </h1>
+          <p className="mt-2 text-sm" style={{ color: 'hsl(215 18% 55%)' }}>
+            O dashboard nao conseguiu ler as variaveis do Supabase no runtime atual da VPS.
+            Revalide o container com `docker exec ... env | grep SUPABASE`.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  let conversationsCount = 0
+  let studentsCount = 0
+  let campaignsCount = 0
+  let promptsCount = 0
+
+  try {
+    const supabase = await createClient()
+
+    const [conversationsResult, studentsResult, campaignsResult, promptsResult] = await Promise.all([
+      supabase
+        .from('conversations')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active'),
+      supabase.from('students').select('*', { count: 'exact', head: true }),
+      supabase
+        .from('blast_campaigns')
+        .select('*', { count: 'exact', head: true }),
+      supabase
+        .from('prompt_sections')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true),
+    ])
+
+    conversationsCount = conversationsResult.count ?? 0
+    studentsCount = studentsResult.count ?? 0
+    campaignsCount = campaignsResult.count ?? 0
+    promptsCount = promptsResult.count ?? 0
+  } catch (error) {
+    console.error('[dashboard] Falha ao carregar metricas do Supabase:', error)
+  }
 
   const cards = [
     {

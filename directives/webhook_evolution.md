@@ -34,6 +34,8 @@ Esta diretiva descreve a primeira versao da camada 1 para um fluxo que hoje aind
 - JSON normalizado com:
   - `event`
   - `phone`
+  - `jid_original`
+  - `jid_real`
   - `message.type`
   - `message.text`
   - `message.caption`
@@ -58,6 +60,10 @@ Esta diretiva descreve a primeira versao da camada 1 para um fluxo que hoje aind
 - Eventos diferentes de `messages.upsert` e `MESSAGES_UPSERT` devem ser ignorados.
 - Mensagens enviadas pela propria instancia (`fromMe=true`) devem ser ignoradas.
 - Mensagens de grupo (`@g.us`) devem ser ignoradas.
+- Quando `remoteJid` vier como `@lid`, nunca tente converter manualmente para `@s.whatsapp.net`.
+- Para `@lid`, priorize nesta ordem: `remoteJidAlt`, `participantAlt`, `senderPn`.
+- Se existir identificador alternativo, use-o como `phone` canonico e preserve o `@lid` como `jid_original`.
+- Se nao existir campo alternativo, trate o `@lid` como identificador temporario e nao tente adivinhar o numero real.
 - Mensagens sem texto podem virar:
   - audio com `mediaId`
   - image com `caption` e `mediaId`

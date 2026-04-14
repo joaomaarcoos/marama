@@ -8,6 +8,53 @@ from typing import Any
 SUPPORTED_EVENTS = {"messages.upsert", "MESSAGES_UPSERT"}
 
 
+def normalize_conversation_id(value: Any) -> str | None:
+    if not value:
+        return None
+    raw = str(value).strip()
+    if not raw or raw.endswith("@g.us"):
+        return None
+    if raw.endswith("@lid"):
+        return raw
+    if "@" in raw:
+        raw = raw.split("@", 1)[0]
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    if len(digits) < 8:
+        return raw or None
+    if digits.startswith("55") and len(digits) >= 12:
+        return digits
+    if len(digits) in (10, 11):
+        return f"55{digits}"
+    return digits
+
+
+def resolve_contact_ids(data: dict[str, Any], key: dict[str, Any]) -> dict[str, str] | None:
+    original_jid = key.get("remoteJid")
+    original_id = normalize_conversation_id(original_jid)
+    if not original_id:
+        return None
+
+    candidates = [
+        key.get("remoteJidAlt"),
+        data.get("remoteJidAlt"),
+        key.get("participantAlt"),
+        data.get("participantAlt"),
+        key.get("senderPn"),
+        data.get("senderPn"),
+        key.get("participant"),
+        data.get("participant"),
+        original_jid,
+    ]
+    preferred_real = next((value for value in candidates if value and not str(value).endswith("@lid")), None)
+    real_id = normalize_conversation_id(preferred_real)
+
+    return {
+        "jid_original": str(original_jid),
+        "jid_real": str(preferred_real) if preferred_real else str(original_jid),
+        "conversation_id": real_id or original_id,
+    }
+
+
 def load_payload(payload_path: str) -> dict[str, Any]:
     if payload_path == "-":
         return json.load(sys.stdin)
@@ -24,18 +71,18 @@ def normalize_payload(body: dict[str, Any]) -> dict[str, Any] | None:
     if key.get("fromMe") is True:
         return None
 
-    remote_jid = key.get("remoteJid")
-    if not remote_jid or str(remote_jid).endswith("@g.us"):
+    resolved_contact = resolve_contact_ids(data, key)
+    if not resolved_contact:
         return None
-
-    phone = str(remote_jid).replace("@s.whatsapp.net", "").replace("@c.us", "")
     message_data = data.get("message") or {}
     if not isinstance(message_data, dict):
         return None
 
     normalized = {
         "event": event,
-        "phone": phone,
+        "phone": resolved_contact["conversation_id"],
+        "jid_original": resolved_contact["jid_original"],
+        "jid_real": resolved_contact["jid_real"],
         "message": {
             "type": "unknown",
             "text": None,

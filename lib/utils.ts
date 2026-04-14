@@ -16,6 +16,26 @@ export function normalizePhone(phone: string | null | undefined): string | null 
   return digits
 }
 
+export function normalizeConversationId(value: string | null | undefined): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (trimmed.endsWith('@g.us')) return null
+  if (trimmed.endsWith('@lid')) return trimmed
+  if (trimmed.includes('@')) {
+    const local = trimmed.replace(/@.*/, '')
+    return normalizePhone(local) ?? trimmed
+  }
+  return normalizePhone(trimmed) ?? trimmed
+}
+
+export function toWhatsAppJid(value: string | null | undefined): string | null {
+  const normalized = normalizeConversationId(value)
+  if (!normalized) return null
+  if (normalized.includes('@')) return normalized
+  return `${normalized}@s.whatsapp.net`
+}
+
 export function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '')
   if (digits.length === 13) {

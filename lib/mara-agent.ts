@@ -26,6 +26,12 @@ export interface WebhookMessage {
   mimetype?: string
 }
 
+export interface MessageRouting {
+  replyTarget?: string
+  jidOriginal?: string | null
+  jidReal?: string | null
+}
+
 interface StudentRow {
   id: string
   moodle_id: number | null
@@ -203,8 +209,14 @@ async function fetchMoodleContext(student: StudentRow, intent: MoodleIntent): Pr
 
 // ─── Main Orchestrator ────────────────────────────────────────────────────────
 
-export async function processMessages(phone: string, messages: WebhookMessage[]): Promise<void> {
+export async function processMessages(
+  phone: string,
+  messages: WebhookMessage[],
+  routing: MessageRouting = {}
+): Promise<void> {
   try {
+    const replyTarget = routing.replyTarget ?? phone
+
     // 1. Upsert conversation + fetch LGPD/followup state
     await adminClient.from('conversations').upsert(
       {
@@ -236,10 +248,10 @@ export async function processMessages(phone: string, messages: WebhookMessage[])
           .from('conversations')
           .update({ lgpd_accepted_at: new Date().toISOString() })
           .eq('phone', phone)
-        await sendText(phone, LGPD_ACK)
+        await sendText(replyTarget, LGPD_ACK)
         return
       } else {
-        await sendText(phone, LGPD_NOTICE)
+        await sendText(replyTarget, LGPD_NOTICE)
         return
       }
     }
@@ -351,11 +363,11 @@ export async function processMessages(phone: string, messages: WebhookMessage[])
       .update({ last_message: response.slice(0, 200), last_message_at: new Date().toISOString() })
       .eq('phone', phone)
 
-    await sendText(phone, response)
+    await sendText(replyTarget, response)
   } catch (error) {
     console.error('[MARA Agent] Erro ao processar mensagem:', error)
     try {
-      await sendText(phone, FALLBACK_MESSAGE)
+      await sendText(routing.replyTarget ?? phone, FALLBACK_MESSAGE)
     } catch {
       console.error('[MARA Agent] Falha ao enviar mensagem de fallback')
     }

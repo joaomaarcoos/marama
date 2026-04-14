@@ -5,21 +5,26 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
 export async function login(formData: FormData) {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const credentials = {
-    email: formData.get('email') as string,
-    password: formData.get('password') as string,
+    const credentials = {
+      email: formData.get('email') as string,
+      password: formData.get('password') as string,
+    }
+
+    const { error } = await supabase.auth.signInWithPassword(credentials)
+
+    if (error) {
+      return { error: 'Email ou senha incorretos.' }
+    }
+
+    revalidatePath('/', 'layout')
+    redirect('/dashboard')
+  } catch (error) {
+    console.error('[login] Falha ao autenticar com o Supabase:', error)
+    return { error: 'Nao foi possivel autenticar agora. Tente novamente em instantes.' }
   }
-
-  const { error } = await supabase.auth.signInWithPassword(credentials)
-
-  if (error) {
-    return { error: 'Email ou senha incorretos.' }
-  }
-
-  revalidatePath('/', 'layout')
-  redirect('/dashboard')
 }
 
 export async function logout() {

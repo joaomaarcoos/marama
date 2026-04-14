@@ -6,7 +6,8 @@ import {
   MessageSquare, Search, User, Bot, Clock, CheckCircle2, XCircle,
   AlertCircle, RefreshCw, Tag, UserCheck, UserPlus, X, ChevronDown,
   RotateCcw, LogOut, Plus, Trash2, Info, GraduationCap, Mail,
-  Phone, Calendar, ChevronRight,
+  Phone, Calendar, ChevronRight, ChevronLeft, Smile, Paperclip,
+  SendHorizontal, Mic, Square, Image as ImageIcon, FileText, AudioLines,
 } from 'lucide-react'
 import { formatPhone } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -21,6 +22,7 @@ interface Label {
 
 interface Conversation {
   phone: string
+  contact_name?: string | null
   last_message: string | null
   last_message_at: string | null
   status: string
@@ -29,6 +31,9 @@ interface Conversation {
   assigned_name: string | null
   labels: string[] | null
   lgpd_accepted_at: string | null
+  whatsapp_name?: string | null
+  whatsapp_profile_pic_url?: string | null
+  whatsapp_updated_at?: string | null
   students: { full_name: string; email: string } | null
 }
 
@@ -38,9 +43,25 @@ interface Message {
   created_at: string
 }
 
+interface PendingAttachment {
+  file: File
+  kind: 'image' | 'audio' | 'document'
+  source: 'upload' | 'recording'
+}
+
 interface ConversationDetail {
   conversation: Conversation & {
-    students: { full_name: string; email: string; courses: unknown[] } | null
+    students: {
+      full_name: string
+      email: string | null
+      courses: unknown[]
+      role?: string | null
+      username?: string | null
+      phone?: string | null
+      phone2?: string | null
+      cpf?: string | null
+      moodle_id?: number | null
+    } | null
   }
   messages: Message[]
 }
@@ -54,6 +75,8 @@ const COLOR_SWATCHES = [
   '#22c55e', '#10b981', '#06b6d4', '#3b82f6',
   '#6366f1', '#8b5cf6', '#ec4899', '#94a3b8',
 ]
+
+const QUICK_EMOJIS = ['😀', '👍', '🙏', '❤️', '🎉', '👀', '✅', '📎', '😊', '🙌', '🤝', '📚']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -86,6 +109,30 @@ function fullDate(iso: string): string {
 
 function initials(name: string): string {
   return name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function detectAttachmentKind(file: File): PendingAttachment['kind'] {
+  if (file.type.startsWith('image/')) return 'image'
+  if (file.type.startsWith('audio/')) return 'audio'
+  return 'document'
+}
+
+function getConversationDisplayName(conv: Pick<Conversation, 'contact_name' | 'whatsapp_name' | 'phone' | 'students'>): string {
+  return conv.contact_name?.trim()
+    || conv.students?.full_name?.trim()
+    || conv.whatsapp_name?.trim()
+    || formatPhone(conv.phone)
+}
+
+function getConversationAvatarLabel(conv: Pick<Conversation, 'contact_name' | 'whatsapp_name' | 'phone' | 'students'>): string {
+  const candidate = conv.contact_name?.trim() || conv.students?.full_name?.trim() || conv.whatsapp_name?.trim()
+  return candidate ? initials(candidate) : formatPhone(conv.phone).slice(-2)
 }
 
 function isClosed(conv: Pick<Conversation, 'status' | 'followup_stage'>): boolean {
@@ -313,7 +360,7 @@ function ConvItem({
   onClick: () => void
   currentUserId: string | null
 }) {
-  const name = conv.students?.full_name ?? formatPhone(conv.phone)
+  const name = getConversationDisplayName(conv)
   const sm = statusMeta(conv)
   const StatusIcon = sm.icon
   const labelIds = conv.labels ?? []
@@ -327,9 +374,11 @@ function ConvItem({
       data-selected={selected}
       data-closed={closed}
     >
-      <div className="chat-avatar" data-identified={!!conv.students}>
-        {conv.students ? initials(name) : <User size={16} />}
-      </div>
+      <ContactAvatar
+        name={name}
+        photoUrl={conv.whatsapp_profile_pic_url}
+        identified={!!(conv.students || conv.contact_name || conv.whatsapp_name)}
+      />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-0.5">
           <span className="chat-conv-name truncate">{name}</span>
@@ -487,6 +536,180 @@ function ContactPanel({
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
+function ContactDetailsPanel({
+  conversation,
+  allLabels,
+  onClose,
+  onSaveName,
+  savingName,
+}: {
+  conversation: ConversationDetail['conversation']
+  allLabels: Label[]
+  onClose: () => void
+  onSaveName: (value: string) => Promise<void>
+  savingName: boolean
+}) {
+  const student = conversation.students
+  const labelIds = conversation.labels ?? []
+  const labelMap = Object.fromEntries(allLabels.map(l => [l.id, l]))
+  const courses = Array.isArray(student?.courses)
+    ? (student.courses as { fullname?: string; shortname?: string }[])
+    : []
+  const displayName = getConversationDisplayName(conversation)
+  const [editableName, setEditableName] = useState(conversation.contact_name ?? '')
+
+  useEffect(() => {
+    setEditableName(conversation.contact_name ?? '')
+  }, [conversation.contact_name, conversation.phone])
+
+  const currentName = conversation.contact_name?.trim() ?? ''
+  const nextName = editableName.trim()
+  const nameChanged = nextName !== currentName
+
+  const Row = ({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value?: string | null }) => {
+    if (!value) return null
+    return (
+      <div className="contact-panel-row">
+        <Icon size={13} className="shrink-0" style={{ color: 'var(--chat-avatar-text)' }} />
+        <div className="min-w-0">
+          <p className="contact-panel-label">{label}</p>
+          <p className="contact-panel-value">{value}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="contact-panel">
+      <div className="contact-panel-header">
+        <span className="contact-panel-title">Informacoes do contato</span>
+        <button onClick={onClose} className="chat-icon-btn" title="Fechar">
+          <ChevronRight size={15} />
+        </button>
+      </div>
+
+      <div className="contact-panel-body">
+        <div className="contact-panel-hero">
+          <ContactAvatar
+            name={displayName}
+            photoUrl={conversation.whatsapp_profile_pic_url}
+            identified={!!(student || conversation.contact_name || conversation.whatsapp_name)}
+            size="hero"
+          />
+          <p className="contact-panel-name">{displayName}</p>
+          <p className="contact-panel-phone-sm">{formatPhone(conversation.phone)}</p>
+          {conversation.whatsapp_name && conversation.whatsapp_name !== displayName && (
+            <p className="contact-panel-helper">WhatsApp: {conversation.whatsapp_name}</p>
+          )}
+        </div>
+
+        <div className="contact-panel-section">
+          <p className="contact-panel-section-title">
+            <User size={12} /> Identificacao
+          </p>
+          <div className="contact-panel-edit-row">
+            <input
+              className="contact-panel-input"
+              placeholder="Adicionar nome do contato"
+              value={editableName}
+              onChange={(event) => setEditableName(event.target.value)}
+            />
+            <button
+              className="contact-panel-save"
+              onClick={() => void onSaveName(editableName)}
+              disabled={savingName || !nameChanged}
+            >
+              {savingName ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+          <p className="contact-panel-helper">
+            Nome interno para a equipe. Em branco, o sistema usa o nome do WhatsApp ou o telefone.
+          </p>
+        </div>
+
+        <div className="contact-panel-section">
+          <p className="contact-panel-section-title">
+            <Phone size={12} /> WhatsApp
+          </p>
+          <Row icon={Phone} label="Telefone" value={formatPhone(conversation.phone)} />
+          <Row icon={User} label="Nome do WhatsApp" value={conversation.whatsapp_name} />
+          <Row icon={UserCheck} label="Nome salvo na plataforma" value={conversation.contact_name} />
+          <Row
+            icon={Calendar}
+            label="Perfil atualizado"
+            value={conversation.whatsapp_updated_at ? new Date(conversation.whatsapp_updated_at).toLocaleString('pt-BR') : null}
+          />
+        </div>
+
+        <div className="contact-panel-section">
+          <p className="contact-panel-section-title">
+            <Info size={12} /> Atendimento
+          </p>
+          <Row icon={Mail} label="E-mail" value={student?.email} />
+          <Row icon={UserCheck} label="Atribuida a" value={conversation.assigned_name ? conversation.assigned_name.split('@')[0] : null} />
+          <Row
+            icon={CheckCircle2}
+            label="LGPD aceita em"
+            value={conversation.lgpd_accepted_at ? new Date(conversation.lgpd_accepted_at).toLocaleDateString('pt-BR') : null}
+          />
+          <Row
+            icon={Calendar}
+            label="Ultima mensagem"
+            value={conversation.last_message_at ? new Date(conversation.last_message_at).toLocaleString('pt-BR') : null}
+          />
+        </div>
+
+        {student && (
+          <div className="contact-panel-section">
+            <p className="contact-panel-section-title">
+              <GraduationCap size={12} /> Moodle
+            </p>
+            <Row icon={User} label="Nome no Moodle" value={student.full_name} />
+            <Row icon={Mail} label="E-mail" value={student.email} />
+            <Row icon={Info} label="Perfil" value={student.role} />
+            <Row icon={UserCheck} label="Usuario" value={student.username} />
+            <Row icon={Phone} label="Telefone principal" value={student.phone ? formatPhone(student.phone) : null} />
+            <Row icon={Phone} label="Telefone alternativo" value={student.phone2 ? formatPhone(student.phone2) : null} />
+            <Row icon={Info} label="Moodle ID" value={student.moodle_id ? String(student.moodle_id) : null} />
+            <Row icon={Info} label="CPF" value={student.cpf} />
+          </div>
+        )}
+
+        {courses.length > 0 && (
+          <div className="contact-panel-section">
+            <p className="contact-panel-section-title">
+              <GraduationCap size={12} /> Cursos
+            </p>
+            {courses.map((course, index) => (
+              <div key={index} className="contact-panel-course">
+                {course.fullname ?? course.shortname ?? '-'}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {labelIds.length > 0 && (
+          <div className="contact-panel-section">
+            <p className="contact-panel-section-title">
+              <Tag size={12} /> Etiquetas
+            </p>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {labelIds.map(id => {
+                const label = labelMap[id]
+                return label ? (
+                  <span key={id} className="chat-label-chip" style={{ '--label-color': label.color } as React.CSSProperties}>
+                    {label.name}
+                  </span>
+                ) : null
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function EmptyPane() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 chat-empty-pane">
@@ -497,6 +720,69 @@ function EmptyPane() {
         <p className="chat-empty-title">Nenhuma conversa selecionada</p>
         <p className="chat-empty-sub">Selecione uma conversa ao lado</p>
       </div>
+    </div>
+  )
+}
+
+function ComposerAttachmentChip({
+  attachment,
+  onRemove,
+}: {
+  attachment: PendingAttachment
+  onRemove: () => void
+}) {
+  const Icon = attachment.kind === 'image'
+    ? ImageIcon
+    : attachment.kind === 'audio'
+      ? AudioLines
+      : FileText
+
+  return (
+    <div className="chat-composer-attachment">
+      <div className="chat-composer-attachment-icon">
+        <Icon size={14} />
+      </div>
+      <div className="min-w-0">
+        <p className="chat-composer-attachment-name truncate">{attachment.file.name}</p>
+        <p className="chat-composer-attachment-meta">
+          {attachment.kind === 'image' ? 'Imagem' : attachment.kind === 'audio' ? 'Audio' : 'Arquivo'}
+          {' · '}
+          {formatBytes(attachment.file.size)}
+        </p>
+      </div>
+      <button onClick={onRemove} className="chat-icon-btn" title="Remover anexo">
+        <X size={12} />
+      </button>
+    </div>
+  )
+}
+
+function ContactAvatar({
+  name,
+  photoUrl,
+  identified,
+  size = 'default',
+}: {
+  name: string
+  photoUrl?: string | null
+  identified: boolean
+  size?: 'default' | 'large' | 'hero'
+}) {
+  const className = size === 'large' ? 'chat-avatar chat-avatar-lg' : size === 'hero' ? 'chat-avatar chat-avatar-hero' : 'chat-avatar'
+
+  if (photoUrl) {
+    return (
+      <img
+        src={photoUrl}
+        alt={name}
+        className={`${className} chat-avatar-photo`}
+      />
+    )
+  }
+
+  return (
+    <div className={className} data-identified={identified}>
+      {initials(name)}
     </div>
   )
 }
@@ -522,6 +808,19 @@ function ChatPanel({
   const [infoOpen, setInfoOpen] = useState(false)
   const [acting, setActing] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [draft, setDraft] = useState('')
+  const [sending, setSending] = useState(false)
+  const [savingName, setSavingName] = useState(false)
+  const [composerError, setComposerError] = useState<string | null>(null)
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null)
+  const [emojiOpen, setEmojiOpen] = useState(false)
+  const [recording, setRecording] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const emojiRef = useRef<HTMLDivElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
 
   const load = useCallback(async () => {
     try {
@@ -537,6 +836,24 @@ function ChatPanel({
   useEffect(() => {
     if (data?.messages?.length) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [data?.messages?.length])
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (emojiRef.current && !emojiRef.current.contains(event.target as Node)) {
+        setEmojiOpen(false)
+      }
+    }
+
+    if (emojiOpen) {
+      document.addEventListener('mousedown', handleOutsideClick)
+      return () => document.removeEventListener('mousedown', handleOutsideClick)
+    }
+  }, [emojiOpen])
+  useEffect(() => () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+    }
+    mediaStreamRef.current?.getTracks().forEach(track => track.stop())
+  }, [])
 
   const act = async (fn: () => Promise<void>) => {
     setActing(true)
@@ -553,6 +870,137 @@ function ChatPanel({
     await load()
   }
 
+  const handleSaveName = async (value: string) => {
+    setSavingName(true)
+    try {
+      await patchConversation(phone, { contact_name: value.trim() || null })
+      await load()
+      onRefresh()
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  const insertEmoji = (emoji: string) => {
+    setDraft(current => `${current}${emoji}`)
+    setEmojiOpen(false)
+    textareaRef.current?.focus()
+  }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setPendingAttachment({
+      file,
+      kind: detectAttachmentKind(file),
+      source: 'upload',
+    })
+    setComposerError(null)
+    event.target.value = ''
+  }
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop()
+  }
+
+  const toggleRecording = async () => {
+    if (recording) {
+      stopRecording()
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+
+      audioChunksRef.current = []
+      mediaStreamRef.current = stream
+      mediaRecorderRef.current = recorder
+
+      recorder.addEventListener('dataavailable', (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      })
+
+      recorder.addEventListener('stop', () => {
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        if (blob.size > 0) {
+          const extension = recorder.mimeType.includes('ogg') ? 'ogg' : 'webm'
+          const file = new File([blob], `audio-${Date.now()}.${extension}`, { type: recorder.mimeType || 'audio/webm' })
+          setPendingAttachment({
+            file,
+            kind: 'audio',
+            source: 'recording',
+          })
+          setComposerError(null)
+        }
+
+        mediaStreamRef.current?.getTracks().forEach(track => track.stop())
+        mediaStreamRef.current = null
+        mediaRecorderRef.current = null
+        setRecording(false)
+      })
+
+      recorder.start()
+      setRecording(true)
+      setComposerError(null)
+    } catch (error) {
+      console.error('[chat] Falha ao iniciar gravacao:', error)
+      setComposerError('Nao foi possivel acessar o microfone neste navegador.')
+    }
+  }
+
+  const sendMessage = async () => {
+    const trimmed = draft.trim()
+    if (!trimmed && !pendingAttachment) return
+
+    setSending(true)
+    setComposerError(null)
+
+    const formData = new FormData()
+    if (trimmed) formData.append('text', trimmed)
+    if (pendingAttachment) formData.append('file', pendingAttachment.file)
+
+    try {
+      const res = await fetch(`/api/conversas/${encodeURIComponent(phone)}/send`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      const payload = await res.json()
+      if (!res.ok) {
+        throw new Error(payload.error ?? 'Falha ao enviar mensagem')
+      }
+
+      if (payload.message) {
+        setData(current => current ? {
+          ...current,
+          messages: [...current.messages, payload.message as Message],
+          conversation: {
+            ...current.conversation,
+            last_message: payload.message.content,
+            last_message_at: payload.message.created_at,
+          },
+        } : current)
+      }
+
+      setDraft('')
+      setPendingAttachment(null)
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '38px'
+      }
+      await load()
+      onRefresh()
+    } catch (error) {
+      console.error('[chat] Falha ao enviar mensagem:', error)
+      setComposerError(error instanceof Error ? error.message : 'Nao foi possivel enviar a mensagem.')
+    } finally {
+      setSending(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -564,7 +1012,7 @@ function ChatPanel({
 
   const { conversation, messages } = data
   const student = conversation?.students
-  const name = student?.full_name ?? formatPhone(phone)
+  const name = getConversationDisplayName(conversation)
   const sm = statusMeta(conversation)
   const StatusIcon = sm.icon
   const labelIds = conversation.labels ?? []
@@ -582,22 +1030,16 @@ function ChatPanel({
   }
 
   return (
-    <div className="flex-1 flex overflow-hidden">
-      {/* Contact info panel (left of messages) */}
-      {infoOpen && data && (
-        <ContactPanel
-          conversation={data.conversation}
-          allLabels={allLabels}
-          onClose={() => setInfoOpen(false)}
-        />
-      )}
-
+    <div className="chat-main-shell">
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
       {/* Header */}
       <div className="chat-panel-header">
-        <div className="chat-avatar chat-avatar-lg" data-identified={!!student}>
-          {student ? initials(name) : <User size={20} />}
-        </div>
+        <ContactAvatar
+          name={name}
+          photoUrl={conversation.whatsapp_profile_pic_url}
+          identified={!!(student || conversation.contact_name || conversation.whatsapp_name)}
+          size="large"
+        />
         <div className="flex-1 min-w-0">
           <p className="chat-panel-name truncate">{name}</p>
           <p className="chat-panel-phone">{formatPhone(phone)}</p>
@@ -717,12 +1159,20 @@ function ChatPanel({
               <div key={gi}>
                 <div className="chat-date-sep"><span>{group.date}</span></div>
                 {group.msgs.map((msg, i) => {
-                  const isBot = msg.role === 'assistant'
+                  const isOutbound = msg.role === 'assistant'
                   const isLast = gi === groups.length - 1 && i === group.msgs.length - 1
                   return (
-                    <div key={i} className={`chat-bubble-row ${isBot ? 'chat-bubble-row--bot' : 'chat-bubble-row--user'}`}>
-                      {isBot && <div className="chat-bubble-avatar"><Bot size={12} /></div>}
-                      <div className={`chat-bubble ${isBot ? 'chat-bubble--bot' : 'chat-bubble--user'} ${isLast && isBot && !closed ? 'chat-bubble--latest' : ''}`}>
+                    <div key={i} className={`chat-bubble-row ${isOutbound ? 'chat-bubble-row--outgoing' : 'chat-bubble-row--incoming'}`}>
+                      {!isOutbound && (
+                        <div className="chat-bubble-avatar">
+                          <ContactAvatar
+                            name={name}
+                            photoUrl={conversation.whatsapp_profile_pic_url}
+                            identified={!!(student || conversation.contact_name || conversation.whatsapp_name)}
+                          />
+                        </div>
+                      )}
+                      <div className={`chat-bubble ${isOutbound ? 'chat-bubble--outgoing' : 'chat-bubble--incoming'} ${isLast && isOutbound && !closed ? 'chat-bubble--latest' : ''}`}>
                         <p className="chat-bubble-text">{msg.content}</p>
                         <span className="chat-bubble-time">{fullTime(msg.created_at)}</span>
                       </div>
@@ -735,7 +1185,130 @@ function ChatPanel({
           </div>
         )}
       </div>
-      </div> {/* end inner flex-col */}
+
+      <div className="chat-composer-shell" data-disabled={closed || sending}>
+        {pendingAttachment && (
+          <div className="chat-composer-attachments">
+            <ComposerAttachmentChip
+              attachment={pendingAttachment}
+              onRemove={() => setPendingAttachment(null)}
+            />
+          </div>
+        )}
+
+        {composerError && (
+          <div className="chat-composer-error">
+            <AlertCircle size={14} />
+            <span>{composerError}</span>
+          </div>
+        )}
+
+        <div className="chat-composer-row">
+          <div className="relative" ref={emojiRef}>
+            <button
+              onClick={() => setEmojiOpen(value => !value)}
+              className="chat-composer-tool"
+              title="Inserir emoji"
+              disabled={closed || sending}
+            >
+              <Smile size={16} />
+            </button>
+            {emojiOpen && (
+              <div className="chat-emoji-picker">
+                {QUICK_EMOJIS.map(emoji => (
+                  <button
+                    key={emoji}
+                    className="chat-emoji-btn"
+                    onClick={() => insertEmoji(emoji)}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="chat-composer-tool"
+            title="Enviar arquivo"
+            disabled={closed || sending}
+          >
+            <Paperclip size={16} />
+          </button>
+
+          <button
+            onClick={toggleRecording}
+            className="chat-composer-tool"
+            title={recording ? 'Parar gravacao' : 'Gravar audio'}
+            disabled={closed || sending}
+            data-recording={recording}
+          >
+            {recording ? <Square size={15} /> : <Mic size={16} />}
+          </button>
+
+          <div className="chat-composer-input-wrap">
+            <textarea
+              ref={textareaRef}
+              className="chat-composer-input"
+              placeholder={closed ? 'Reabra a conversa para responder.' : 'Digite uma mensagem'}
+              value={draft}
+              onChange={(event) => {
+                setDraft(event.target.value)
+                event.currentTarget.style.height = '38px'
+                event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 140)}px`
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  void sendMessage()
+                }
+              }}
+              rows={1}
+              disabled={closed || sending}
+            />
+          </div>
+
+          <button
+            onClick={() => void sendMessage()}
+            className="chat-composer-send"
+            disabled={closed || sending || (!draft.trim() && !pendingAttachment)}
+            title="Enviar mensagem"
+          >
+            {sending ? <RefreshCw size={16} className="animate-spin" /> : <SendHorizontal size={16} />}
+          </button>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.rar"
+          onChange={handleFileChange}
+        />
+      </div>
+      </div>
+
+      <div className="chat-contact-drawer-wrap" data-open={infoOpen}>
+        <button
+          onClick={() => setInfoOpen(value => !value)}
+          className="chat-contact-toggle"
+          title={infoOpen ? 'Ocultar informacoes do contato' : 'Mostrar informacoes do contato'}
+          data-open={infoOpen}
+        >
+          {infoOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+
+        {infoOpen && (
+          <ContactDetailsPanel
+            conversation={data.conversation}
+            allLabels={allLabels}
+            onClose={() => setInfoOpen(false)}
+            onSaveName={handleSaveName}
+            savingName={savingName}
+          />
+        )}
+      </div>
     </div>
   )
 }
@@ -786,7 +1359,12 @@ export default function ChatInterface({ selectedPhone }: { selectedPhone?: strin
 
   const filtered = filterByTab(conversations, tab, uid).filter(c => {
     const q = search.toLowerCase()
-    return !q || c.students?.full_name?.toLowerCase().includes(q) || c.phone.includes(q) || c.last_message?.toLowerCase().includes(q)
+    return !q
+      || c.contact_name?.toLowerCase().includes(q)
+      || c.whatsapp_name?.toLowerCase().includes(q)
+      || c.students?.full_name?.toLowerCase().includes(q)
+      || c.phone.includes(q)
+      || c.last_message?.toLowerCase().includes(q)
   })
 
   return (

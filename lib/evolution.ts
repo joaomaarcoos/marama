@@ -21,6 +21,10 @@ function getHeaders() {
   }
 }
 
+function normalizePhoneFromJid(jid: string): string {
+  return jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace(/[^0-9]/g, '')
+}
+
 function getWebhookUrl() {
   const appUrl = getRequiredEnv('NEXT_PUBLIC_APP_URL')
   const url = new URL('/api/webhook/evolution', appUrl)
@@ -224,4 +228,52 @@ export async function disconnectInstance(): Promise<void> {
     const body = await res.text()
     throw new Error(`Evolution API logout error: ${res.status} ${body}`)
   }
+}
+
+export interface EvolutionChatContact {
+  remoteJid: string
+  phone: string
+  pushName: string | null
+  profilePicUrl: string | null
+  updatedAt: string | null
+}
+
+export async function findChats(): Promise<EvolutionChatContact[]> {
+  const { baseUrl, instance } = getEvolutionConfig()
+  const res = await fetch(`${baseUrl}/chat/findChats/${instance}`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({}),
+  })
+
+  if (!res.ok) {
+    const message = await parseEvolutionError(res, 'Erro ao buscar chats')
+    const normalized = message.toLowerCase()
+
+    if (
+      res.status === 404 ||
+      normalized.includes('instance does not exist') ||
+      normalized.includes('instance not found') ||
+      normalized.includes('does not exist')
+    ) {
+      return []
+    }
+
+    throw new Error(`Evolution API findChats error: ${res.status} ${message}`)
+  }
+
+  const data = await res.json() as Array<{
+    remoteJid: string
+    pushName?: string | null
+    profilePicUrl?: string | null
+    updatedAt?: string | null
+  }>
+
+  return (Array.isArray(data) ? data : []).map((chat) => ({
+    remoteJid: chat.remoteJid,
+    phone: normalizePhoneFromJid(chat.remoteJid),
+    pushName: chat.pushName ?? null,
+    profilePicUrl: chat.profilePicUrl ?? null,
+    updatedAt: chat.updatedAt ?? null,
+  }))
 }
