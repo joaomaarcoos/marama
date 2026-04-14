@@ -1,5 +1,17 @@
 import { adminClient } from './supabase/admin'
 
+function getBrasiliaDatetime(): string {
+  return new Date().toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export async function buildSystemPrompt(
   identityContext?: string | null,
   ragContext?: string | null,
@@ -17,6 +29,9 @@ export async function buildSystemPrompt(
 
   const parts = sections.map(s => `## ${s.title}\n${s.content}`)
   let prompt = parts.join('\n\n')
+
+  // Injeta data e hora atual (fuso de Brasília) para que a MARA possa situar respostas temporais
+  prompt += `\n\n## Data e Hora Atual\nAgora são ${getBrasiliaDatetime()} (horário de Brasília).`
 
   if (identityContext) {
     prompt += `\n\n## Contexto do Usuário\n${identityContext}`
