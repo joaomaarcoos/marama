@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, Trash2, FileText, Loader2, FileType, FileCode } from 'lucide-react'
+import { Upload, Trash2, FileText, Loader2, FileType, FileCode, Pencil, Check, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface Document {
@@ -43,6 +43,9 @@ export default function DocumentUploader({ initialDocuments }: { initialDocument
   const [documents, setDocuments] = useState<Document[]>(initialDocuments)
   const [uploading, setUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [savingRename, setSavingRename] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -88,6 +91,42 @@ export default function DocumentUploader({ initialDocuments }: { initialDocument
     setDragOver(false)
     const file = e.dataTransfer.files[0]
     if (file) await uploadFile(file)
+  }
+
+  const startRename = (doc: Document) => {
+    setRenamingId(doc.id)
+    setRenameValue(doc.name)
+  }
+
+  const cancelRename = () => {
+    setRenamingId(null)
+    setRenameValue('')
+  }
+
+  const confirmRename = async (id: string) => {
+    const trimmed = renameValue.trim()
+    if (!trimmed) return
+    setSavingRename(true)
+    try {
+      const res = await fetch(`/api/documentos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      })
+      if (res.ok) {
+        setDocuments((prev) => prev.map((d) => d.id === id ? { ...d, name: trimmed } : d))
+        showMessage('success', 'Documento renomeado.')
+      } else {
+        const data = await res.json()
+        showMessage('error', data.error ?? 'Erro ao renomear.')
+      }
+    } catch {
+      showMessage('error', 'Erro ao conectar com o servidor.')
+    } finally {
+      setSavingRename(false)
+      setRenamingId(null)
+      setRenameValue('')
+    }
   }
 
   const handleDelete = async (id: string, name: string) => {
@@ -220,17 +259,54 @@ export default function DocumentUploader({ initialDocuments }: { initialDocument
                 className="px-5 py-4 flex items-center justify-between gap-4"
                 style={{ borderTop: i === 0 ? 'none' : '1px solid hsl(216 32% 12%)' }}
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div
                     className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg"
                     style={{ background: 'hsl(220 40% 12%)', border: '1px solid hsl(216 32% 18%)' }}
                   >
                     <FileIcon mime={doc.mime_type} name={doc.name} />
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: 'hsl(213 31% 91%)' }}>
-                      {doc.name}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    {renamingId === doc.id ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={e => setRenameValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') confirmRename(doc.id)
+                            if (e.key === 'Escape') cancelRename()
+                          }}
+                          className="flex-1 rounded-lg px-2 py-1 text-sm outline-none"
+                          style={{
+                            background: 'hsl(220 40% 14%)',
+                            border: '1px solid hsl(262 80% 65% / 0.4)',
+                            color: 'hsl(213 31% 91%)',
+                          }}
+                        />
+                        <button
+                          onClick={() => confirmRename(doc.id)}
+                          disabled={savingRename}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg"
+                          style={{ background: 'hsl(160 84% 39% / 0.15)', color: 'hsl(160 84% 55%)' }}
+                          title="Confirmar"
+                        >
+                          {savingRename ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          onClick={cancelRename}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg"
+                          style={{ background: 'hsl(0 70% 40% / 0.12)', color: 'hsl(0 70% 60%)' }}
+                          title="Cancelar"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-medium truncate" style={{ color: 'hsl(213 31% 91%)' }}>
+                        {doc.name}
+                      </p>
+                    )}
                     <p className="text-xs mt-0.5" style={{ color: 'hsl(215 18% 42%)' }}>
                       {formatBytes(doc.size_bytes)}
                       <span className="mx-1.5" style={{ color: 'hsl(216 32% 22%)' }}>·</span>
@@ -241,26 +317,46 @@ export default function DocumentUploader({ initialDocuments }: { initialDocument
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleDelete(doc.id, doc.name)}
-                  disabled={deletingId === doc.id}
-                  className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg transition-all disabled:opacity-40"
-                  style={{ color: 'hsl(215 18% 42%)' }}
-                  onMouseEnter={e => {
-                    ;(e.currentTarget as HTMLElement).style.background = 'hsl(0 70% 40% / 0.15)'
-                    ;(e.currentTarget as HTMLElement).style.color = 'hsl(0 70% 60%)'
-                  }}
-                  onMouseLeave={e => {
-                    ;(e.currentTarget as HTMLElement).style.background = 'transparent'
-                    ;(e.currentTarget as HTMLElement).style.color = 'hsl(215 18% 42%)'
-                  }}
-                  title="Excluir documento"
-                >
-                  {deletingId === doc.id
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <Trash2 className="h-4 w-4" />
-                  }
-                </button>
+                <div className="shrink-0 flex items-center gap-1">
+                  {renamingId !== doc.id && (
+                    <button
+                      onClick={() => startRename(doc)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg transition-all"
+                      style={{ color: 'hsl(215 18% 42%)' }}
+                      onMouseEnter={e => {
+                        ;(e.currentTarget as HTMLElement).style.background = 'hsl(262 80% 65% / 0.12)'
+                        ;(e.currentTarget as HTMLElement).style.color = 'hsl(262 80% 65%)'
+                      }}
+                      onMouseLeave={e => {
+                        ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+                        ;(e.currentTarget as HTMLElement).style.color = 'hsl(215 18% 42%)'
+                      }}
+                      title="Renomear documento"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDelete(doc.id, doc.name)}
+                    disabled={deletingId === doc.id}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg transition-all disabled:opacity-40"
+                    style={{ color: 'hsl(215 18% 42%)' }}
+                    onMouseEnter={e => {
+                      ;(e.currentTarget as HTMLElement).style.background = 'hsl(0 70% 40% / 0.15)'
+                      ;(e.currentTarget as HTMLElement).style.color = 'hsl(0 70% 60%)'
+                    }}
+                    onMouseLeave={e => {
+                      ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+                      ;(e.currentTarget as HTMLElement).style.color = 'hsl(215 18% 42%)'
+                    }}
+                    title="Excluir documento"
+                  >
+                    {deletingId === doc.id
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Trash2 className="h-4 w-4" />
+                    }
+                  </button>
+                </div>
               </div>
             ))}
           </div>

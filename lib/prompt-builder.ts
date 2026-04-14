@@ -42,7 +42,7 @@ export async function buildSystemPrompt(
   }
 
   if (ragContext) {
-    prompt += `\n\n${ragContext}`
+    prompt += `\n\n## Instrução sobre a Base de Conhecimento\nOs trechos abaixo foram recuperados automaticamente da base de conhecimento do programa. Use essas informações como fonte primária para responder a pergunta do usuário. Se a resposta estiver nos trechos, responda com base neles diretamente.\n\n${ragContext}`
   }
 
   return prompt

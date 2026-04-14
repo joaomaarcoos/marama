@@ -115,18 +115,19 @@ export async function embedAndStoreDocument(
 
 /**
  * Busca chunks relevantes para uma query por similaridade de cosseno.
- * threshold 0.5 e matchCount 6 aumentam recall sem ruído excessivo.
+ * threshold 0.3 amplia o recall para perguntas semânticas indiretas.
+ * matchCount 8 garante contexto suficiente sem poluir o prompt.
  */
 export async function searchRelevantChunks(
   query: string,
-  matchThreshold = 0.5,
-  matchCount = 6
+  matchThreshold = 0.3,
+  matchCount = 8
 ): Promise<MatchedChunk[]> {
   try {
     const queryEmbedding = await createEmbedding(query)
 
     const { data, error } = await adminClient.rpc('match_document_chunks', {
-      query_embedding: JSON.stringify(queryEmbedding),
+      query_embedding: queryEmbedding,  // passa como array — PostgREST converte para vector
       match_threshold: matchThreshold,
       match_count: matchCount,
     })
@@ -136,7 +137,14 @@ export async function searchRelevantChunks(
       return []
     }
 
-    return (data as MatchedChunk[]) ?? []
+    const chunks = (data as MatchedChunk[]) ?? []
+    if (chunks.length > 0) {
+      console.log(`[RAG] ${chunks.length} chunk(s) encontrado(s) — similaridade: ${chunks.map(c => c.similarity.toFixed(2)).join(', ')}`)
+    } else {
+      console.log('[RAG] Nenhum chunk encontrado para esta query')
+    }
+
+    return chunks
   } catch (err) {
     console.error('[RAG] searchRelevantChunks falhou:', err)
     return []
