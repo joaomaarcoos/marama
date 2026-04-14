@@ -109,7 +109,13 @@
       "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA''; npx next build\")",
       "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA''; git add components/mara-orb.tsx; git commit -m ''fix: non-null assertion em ctx para passar o build TypeScript''; git push origin master\")",
       "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA'; npx next build 2>&1 | Select-String -Pattern 'error|Error|warning|✓|✗|Failed' | Select-Object -Last 20\")",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA'; git add 'app/\\(dashboard\\)/conversas/' components/chat-interface.tsx 'app/api/conversas/' app/globals.css; git commit -m 'feat: pagina conversas redesenhada como interface de chat split-panel'; git push origin master\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA'; git add components/chat-interface.tsx 'app/api/conversas/' app/globals.css; git commit -m 'feat: abas de filtro, etiquetas, atribuicao e encerrar/reabrir conversa'; git push origin master\")",
+      "Bash(powershell.exe -Command \"New-Item -ItemType Directory -Force 'C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA\\\\app\\\\api\\\\labels\\\\[id]' | Out-Null\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA'; git add components/chat-interface.tsx app/globals.css app/api/labels/; git commit -m 'feat: criacao de etiquetas personalizadas, atribuicao ao contato e distinção encerramento manual vs automatico'; git push origin master\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA'; git status --short; git log --oneline -3\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA'; git add app/api/conversas/route.ts app/api/whatsapp/webhook-url/route.ts; git commit -m 'fix: force-dynamic nas rotas api/conversas e webhook-url para evitar erro no build Docker'; git push origin master\")"
     ]
   },
   "mcpServers": {

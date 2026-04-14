@@ -215,7 +215,7 @@ function isLidIdentifier(value: string | null | undefined) {
   return Boolean(value && value.trim().endsWith('@lid'))
 }
 
-function isMissingContactsRelationError(error: unknown) {
+function isContactsPersistenceUnavailable(error: unknown) {
   const message =
     error && typeof error === 'object' && 'message' in error
       ? String(error.message)
@@ -225,6 +225,10 @@ function isMissingContactsRelationError(error: unknown) {
     || message.includes('relation "contact_aliases" does not exist')
     || message.includes("Could not find the table 'public.contacts'")
     || message.includes("Could not find the table 'public.contact_aliases'")
+    || message.includes("Could not find the 'contact_id' column")
+    || message.includes("Could not find a relationship between 'contacts' and 'contact_aliases'")
+    || message.includes('PGRST')
+    || message.includes('Bad Request')
 }
 
 function normalizeEmbeddedStudent(value: unknown): ContactStudentRecord | null {
@@ -549,17 +553,49 @@ function mapPersistedRow(row: PersistedContactRow): ContactProfile {
 }
 
 async function loadPersistedProfiles(): Promise<ContactProfile[] | null> {
-  const { data, error } = await adminClient
+  const { data: contactsData, error: contactsError } = await adminClient
     .from('contacts')
-    .select('id, display_name, internal_name, student_name, canonical_phone, email, cpf, username, moodle_id, student_id, role, courses, labels, conversation_phones, last_message_at, last_message, assigned_name, lgpd_accepted_at, status, followup_stage, message_count, has_moodle_data, has_operational_data, knowledge_level, contact_aliases(alias_type, alias_value, normalized_value, is_primary)')
+    .select('id, display_name, internal_name, student_name, canonical_phone, email, cpf, username, moodle_id, student_id, role, courses, labels, conversation_phones, last_message_at, last_message, assigned_name, lgpd_accepted_at, status, followup_stage, message_count, has_moodle_data, has_operational_data, knowledge_level')
     .order('last_message_at', { ascending: false })
 
-  if (error) {
-    if (isMissingContactsRelationError(error)) return null
-    throw new Error(error.message)
+  if (contactsError) {
+    if (isContactsPersistenceUnavailable(contactsError)) return null
+    throw new Error(contactsError.message)
   }
 
-  return (data ?? []).map((row) => mapPersistedRow(row as PersistedContactRow))
+  const { data: aliasesData, error: aliasesError } = await adminClient
+    .from('contact_aliases')
+    .select('contact_id, alias_type, alias_value, normalized_value, is_primary')
+
+  if (aliasesError) {
+    if (isContactsPersistenceUnavailable(aliasesError)) return null
+    throw new Error(aliasesError.message)
+  }
+
+  const aliasesByContact = new Map<string, PersistedAliasRow[]>()
+  for (const row of aliasesData ?? []) {
+    const candidate = row as Record<string, unknown>
+    const contactId = typeof candidate.contact_id === 'string' ? candidate.contact_id : null
+    if (!contactId) continue
+
+    const aliasRow: PersistedAliasRow = {
+      alias_type: typeof candidate.alias_type === 'string' ? candidate.alias_type : 'unknown',
+      alias_value: typeof candidate.alias_value === 'string' ? candidate.alias_value : '',
+      normalized_value: typeof candidate.normalized_value === 'string' ? candidate.normalized_value : '',
+      is_primary: typeof candidate.is_primary === 'boolean' ? candidate.is_primary : null,
+    }
+
+    const current = aliasesByContact.get(contactId) ?? []
+    current.push(aliasRow)
+    aliasesByContact.set(contactId, current)
+  }
+
+  return (contactsData ?? []).map((row) =>
+    mapPersistedRow({
+      ...(row as PersistedContactRow),
+      contact_aliases: aliasesByContact.get(String((row as Record<string, unknown>).id)) ?? [],
+    })
+  )
 }
 
 function buildPersistedContactRow(profile: ContactProfile) {
@@ -693,7 +729,7 @@ async function persistDerivedProfiles(profiles: ContactProfile[]): Promise<boole
     .select('id')
 
   if (existingError) {
-    if (isMissingContactsRelationError(existingError)) return false
+    if (isContactsPersistenceUnavailable(existingError)) return false
     throw new Error(existingError.message)
   }
 
@@ -706,14 +742,20 @@ async function persistDerivedProfiles(profiles: ContactProfile[]): Promise<boole
       .from('contacts')
       .upsert(profiles.map(buildPersistedContactRow), { onConflict: 'id' })
 
-    if (upsertContactsError) throw new Error(upsertContactsError.message)
+    if (upsertContactsError) {
+      if (isContactsPersistenceUnavailable(upsertContactsError)) return false
+      throw new Error(upsertContactsError.message)
+    }
 
     const { error: deleteAliasError } = await adminClient
       .from('contact_aliases')
       .delete()
       .in('contact_id', ids)
 
-    if (deleteAliasError) throw new Error(deleteAliasError.message)
+    if (deleteAliasError) {
+      if (isContactsPersistenceUnavailable(deleteAliasError)) return false
+      throw new Error(deleteAliasError.message)
+    }
 
     const aliases = profiles.flatMap(buildPersistedAliases)
     if (aliases.length > 0) {
@@ -721,7 +763,10 @@ async function persistDerivedProfiles(profiles: ContactProfile[]): Promise<boole
         .from('contact_aliases')
         .insert(aliases)
 
-      if (insertAliasError) throw new Error(insertAliasError.message)
+      if (insertAliasError) {
+        if (isContactsPersistenceUnavailable(insertAliasError)) return false
+        throw new Error(insertAliasError.message)
+      }
     }
 
     for (const profile of profiles) {
@@ -731,7 +776,10 @@ async function persistDerivedProfiles(profiles: ContactProfile[]): Promise<boole
           .update({ contact_id: profile.id })
           .eq('id', profile.studentId)
 
-        if (updateStudentError) throw new Error(updateStudentError.message)
+        if (updateStudentError) {
+          if (isContactsPersistenceUnavailable(updateStudentError)) return false
+          throw new Error(updateStudentError.message)
+        }
       }
 
       if (profile.conversationPhones.length > 0) {
@@ -740,7 +788,10 @@ async function persistDerivedProfiles(profiles: ContactProfile[]): Promise<boole
           .update({ contact_id: profile.id })
           .in('phone', profile.conversationPhones)
 
-        if (updateConversationError) throw new Error(updateConversationError.message)
+        if (updateConversationError) {
+          if (isContactsPersistenceUnavailable(updateConversationError)) return false
+          throw new Error(updateConversationError.message)
+        }
       }
     }
   }
@@ -751,14 +802,20 @@ async function persistDerivedProfiles(profiles: ContactProfile[]): Promise<boole
       .delete()
       .in('contact_id', obsoleteIds)
 
-    if (deleteObsoleteAliasesError) throw new Error(deleteObsoleteAliasesError.message)
+    if (deleteObsoleteAliasesError) {
+      if (isContactsPersistenceUnavailable(deleteObsoleteAliasesError)) return false
+      throw new Error(deleteObsoleteAliasesError.message)
+    }
 
     const { error: deleteObsoleteContactsError } = await adminClient
       .from('contacts')
       .delete()
       .in('id', obsoleteIds)
 
-    if (deleteObsoleteContactsError) throw new Error(deleteObsoleteContactsError.message)
+    if (deleteObsoleteContactsError) {
+      if (isContactsPersistenceUnavailable(deleteObsoleteContactsError)) return false
+      throw new Error(deleteObsoleteContactsError.message)
+    }
   }
 
   return true
@@ -766,7 +823,11 @@ async function persistDerivedProfiles(profiles: ContactProfile[]): Promise<boole
 
 export async function syncContactsSnapshot(): Promise<ContactProfile[]> {
   const derivedProfiles = buildProfilesFromSources(await loadContactSources())
-  await persistDerivedProfiles(derivedProfiles)
+  try {
+    await persistDerivedProfiles(derivedProfiles)
+  } catch (error) {
+    console.warn('[contacts] Persistencia indisponivel, usando agregacao derivada:', error)
+  }
   return derivedProfiles
 }
 

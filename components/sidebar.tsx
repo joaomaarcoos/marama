@@ -21,6 +21,7 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  BarChart2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/theme-provider'
@@ -39,6 +40,7 @@ const navItems = [
   { href: '/usuarios',   label: 'Usuários',            icon: ShieldCheck },
   { href: '/conexao',    label: 'Conexão WhatsApp',    icon: Smartphone },
   { href: '/logs',       label: 'Logs Evolution',      icon: ScrollText },
+  { href: '/relatorios', label: 'Relatórios',           icon: BarChart2 },
 ]
 
 export function Sidebar() {
