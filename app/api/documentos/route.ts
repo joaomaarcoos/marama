@@ -4,11 +4,11 @@ import { adminClient } from '@/lib/supabase/admin'
 import { embedAndStoreDocument } from '@/lib/rag'
 
 async function parsePdf(buffer: Buffer): Promise<string> {
-  // Carrega pdf-parse (v1) dentro da função para evitar que pdfjs-dist seja
-  // inicializado no startup do servidor — a inicialização do módulo exige APIs
-  // de DOM que não existem no Node.js (DOMMatrix, ImageData, Path2D).
+  // Importa diretamente o arquivo da lib, evitando o index.js do pdf-parse v1
+  // que tenta abrir './test/data/05-versions-space.pdf' ao ser carregado —
+  // arquivo inexistente em produção (ENOENT).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfParse = (require as any)('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>
+  const pdfParse = (require as any)('pdf-parse/lib/pdf-parse.js') as (buf: Buffer) => Promise<{ text: string }>
   const data = await pdfParse(buffer)
   return data.text
 }
