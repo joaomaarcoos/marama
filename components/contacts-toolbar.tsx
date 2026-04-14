@@ -3,11 +3,11 @@
 import { useRef, useState } from 'react'
 import { Download, Upload, FileDown, Loader2 } from 'lucide-react'
 
-const TEMPLATE_HEADER = 'nome,telefone,email,cpf'
+const TEMPLATE_HEADER = 'nome,telefone,email,cpf,etiquetas'
 const TEMPLATE_ROWS = [
-  'João Silva,5598987654321,joao@email.com,123.456.789-00',
-  'Maria Santos,5598912345678,,',
-  'Pedro Alves,5598999887766,pedro@email.com,',
+  'João Silva,5598987654321,joao@email.com,123.456.789-00,interessado;pendente',
+  'Maria Santos,5598912345678,,,inscrita 2026',
+  'Pedro Alves,5598999887766,pedro@email.com,,',
 ]
 const TEMPLATE_CSV = [TEMPLATE_HEADER, ...TEMPLATE_ROWS].join('\r\n')
 
