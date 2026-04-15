@@ -552,11 +552,24 @@ function mapPersistedRow(row: PersistedContactRow): ContactProfile {
   }
 }
 
-async function loadPersistedProfiles(): Promise<ContactProfile[] | null> {
-  const { data: contactsData, error: contactsError } = await adminClient
+async function loadPersistedProfiles(filters: { source?: 'moodle' | 'atendimento'; labelId?: string } = {}): Promise<ContactProfile[] | null> {
+  let query = adminClient
     .from('contacts')
     .select('id, display_name, internal_name, student_name, canonical_phone, email, cpf, username, moodle_id, student_id, role, courses, labels, conversation_phones, last_message_at, last_message, assigned_name, lgpd_accepted_at, status, followup_stage, message_count, has_moodle_data, has_operational_data, knowledge_level')
-    .order('last_message_at', { ascending: false })
+    .order('display_name', { ascending: true })
+    .range(0, 9999)
+
+  if (filters.source === 'moodle') {
+    query = query.eq('has_moodle_data', true)
+  } else if (filters.source === 'atendimento') {
+    query = query.eq('has_moodle_data', false)
+  }
+
+  if (filters.labelId) {
+    query = query.contains('labels', [filters.labelId])
+  }
+
+  const { data: contactsData, error: contactsError } = await query
 
   if (contactsError) {
     if (isContactsPersistenceUnavailable(contactsError)) return null
@@ -850,9 +863,12 @@ export async function syncContactsSnapshot(): Promise<ContactProfile[]> {
   return derivedProfiles
 }
 
-async function loadProfilesForRead(): Promise<ContactProfile[]> {
-  const persisted = await loadPersistedProfiles()
+async function loadProfilesForRead(filters: { source?: 'moodle' | 'atendimento'; labelId?: string } = {}): Promise<ContactProfile[]> {
+  const persisted = await loadPersistedProfiles(filters)
   if (persisted && persisted.length > 0) return persisted
+
+  // If filters are active, don't try to build from scratch — return empty
+  if (filters.source || filters.labelId) return []
 
   const derived = buildProfilesFromSources(await loadContactSources())
 
@@ -865,8 +881,8 @@ async function loadProfilesForRead(): Promise<ContactProfile[]> {
   return derived
 }
 
-export async function listContactProfiles(options: { search?: string } = {}): Promise<ContactProfile[]> {
-  const profiles = await loadProfilesForRead()
+export async function listContactProfiles(options: { search?: string; source?: 'moodle' | 'atendimento'; labelId?: string } = {}): Promise<ContactProfile[]> {
+  const profiles = await loadProfilesForRead({ source: options.source, labelId: options.labelId })
   return filterProfiles(profiles, options.search)
 }
 

@@ -30,6 +30,7 @@ export interface MessageRouting {
   replyTarget?: string
   jidOriginal?: string | null
   jidReal?: string | null
+  pushName?: string | null
 }
 
 interface StudentRow {
@@ -235,6 +236,15 @@ export async function processMessages(
       },
       { onConflict: 'phone' }
     )
+
+    // Capture pushName as contact_name only when the field is still null
+    if (routing.pushName) {
+      await adminClient
+        .from('conversations')
+        .update({ contact_name: routing.pushName })
+        .eq('phone', phone)
+        .is('contact_name', null)
+    }
 
     const { data: conv } = await adminClient
       .from('conversations')

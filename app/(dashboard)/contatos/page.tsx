@@ -8,7 +8,7 @@ import ContactsToolbar from '@/components/contacts-toolbar'
 export const dynamic = 'force-dynamic'
 
 interface PageProps {
-  searchParams: { q?: string }
+  searchParams: { q?: string; source?: string; label?: string }
 }
 
 interface LabelRow {
@@ -46,14 +46,29 @@ function DetailLink({ profile }: { profile: ContactProfile }) {
 
 export default async function ContatosPage({ searchParams }: PageProps) {
   const query = searchParams.q?.trim() ?? ''
+  const sourceParam = searchParams.source === 'moodle' || searchParams.source === 'atendimento' ? searchParams.source : undefined
+  const labelParam = searchParams.label?.trim() || undefined
 
   const [profiles, labelsResult] = await Promise.all([
-    listContactProfiles({ search: query }),
-    adminClient.from('labels').select('id, name, color').order('created_at', { ascending: true }),
+    listContactProfiles({ search: query, source: sourceParam, labelId: labelParam }),
+    adminClient.from('labels').select('id, name, color').order('name', { ascending: true }),
   ])
 
   const labels = (labelsResult.data ?? []) as LabelRow[]
   const labelMap = new Map(labels.map((label) => [label.id, label]))
+  const activeLabel = labelParam ? labelMap.get(labelParam) : undefined
+
+  function buildHref(overrides: { q?: string; source?: string; label?: string }) {
+    const p = new URLSearchParams()
+    const q = overrides.q !== undefined ? overrides.q : query
+    const src = overrides.source !== undefined ? overrides.source : sourceParam
+    const lbl = overrides.label !== undefined ? overrides.label : labelParam
+    if (q) p.set('q', q)
+    if (src) p.set('source', src)
+    if (lbl) p.set('label', lbl)
+    const s = p.toString()
+    return `/contatos${s ? `?${s}` : ''}`
+  }
 
   const total = profiles.length
   const withMoodle = profiles.filter((profile) => profile.hasMoodleData).length
@@ -79,34 +94,36 @@ export default async function ContatosPage({ searchParams }: PageProps) {
           </div>
 
           <form className="flex w-full max-w-xl items-center gap-3 lg:w-auto" method="GET">
-          <div
-            className="flex flex-1 items-center gap-2 rounded-xl px-3 py-2"
-            style={{
-              background: 'hsl(220 40% 8%)',
-              border: '1px solid hsl(216 32% 15%)',
-            }}
-          >
-            <Search className="h-4 w-4" style={{ color: 'hsl(215 18% 40%)' }} />
-            <input
-              type="search"
-              name="q"
-              defaultValue={query}
-              placeholder="Buscar por nome, telefone, CPF, email ou curso"
-              className="w-full bg-transparent text-sm outline-none placeholder:text-[hsl(215_18%_40%)]"
-              style={{ color: 'hsl(213 31% 92%)' }}
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-xl px-4 py-2 text-sm font-medium transition-opacity hover:opacity-90"
-            style={{
-              color: 'hsl(220 26% 8%)',
-              background: 'hsl(160 84% 39%)',
-            }}
-          >
-            Buscar
-          </button>
-          {query && (
+            {sourceParam && <input type="hidden" name="source" value={sourceParam} />}
+            {labelParam && <input type="hidden" name="label" value={labelParam} />}
+            <div
+              className="flex flex-1 items-center gap-2 rounded-xl px-3 py-2"
+              style={{
+                background: 'hsl(220 40% 8%)',
+                border: '1px solid hsl(216 32% 15%)',
+              }}
+            >
+              <Search className="h-4 w-4" style={{ color: 'hsl(215 18% 40%)' }} />
+              <input
+                type="search"
+                name="q"
+                defaultValue={query}
+                placeholder="Buscar por nome, telefone, CPF, email ou curso"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-[hsl(215_18%_40%)]"
+                style={{ color: 'hsl(213 31% 92%)' }}
+              />
+            </div>
+            <button
+              type="submit"
+              className="rounded-xl px-4 py-2 text-sm font-medium transition-opacity hover:opacity-90"
+              style={{
+                color: 'hsl(220 26% 8%)',
+                background: 'hsl(160 84% 39%)',
+              }}
+            >
+              Buscar
+            </button>
+            {(query || sourceParam || labelParam) && (
               <Link
                 href="/contatos"
                 className="rounded-xl px-3 py-2 text-sm"
@@ -119,6 +136,60 @@ export default async function ContatosPage({ searchParams }: PageProps) {
               </Link>
             )}
           </form>
+        </div>
+
+        {/* Source filter pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          {([
+            { key: undefined, label: 'Todos' },
+            { key: 'moodle', label: 'Moodle' },
+            { key: 'atendimento', label: 'Atendimento' },
+          ] as { key: string | undefined; label: string }[]).map(({ key, label }) => {
+            const active = sourceParam === key
+            return (
+              <Link
+                key={label}
+                href={buildHref({ source: key })}
+                className="rounded-full px-3 py-1 text-xs font-medium transition-all"
+                style={
+                  active
+                    ? { background: 'hsl(160 84% 39%)', color: 'hsl(220 26% 8%)' }
+                    : { background: 'hsl(220 40% 10%)', color: 'hsl(215 18% 55%)', border: '1px solid hsl(216 32% 18%)' }
+                }
+              >
+                {label}
+              </Link>
+            )
+          })}
+
+          {labels.length > 0 && (
+            <span className="mx-1 h-4 w-px" style={{ background: 'hsl(216 32% 18%)' }} />
+          )}
+
+          {/* Label chips — scrollable if many */}
+          <div className="flex flex-wrap gap-2">
+            {labels.map((label) => {
+              const active = labelParam === label.id
+              return (
+                <Link
+                  key={label.id}
+                  href={buildHref({ label: active ? undefined : label.id })}
+                  className="rounded-full px-3 py-1 text-xs font-medium transition-all"
+                  style={
+                    active
+                      ? { background: label.color, color: 'hsl(220 26% 8%)' }
+                      : {
+                          color: label.color,
+                          background: `${label.color}1a`,
+                          border: `1px solid ${label.color}33`,
+                        }
+                  }
+                >
+                  {label.name}
+                </Link>
+              )
+            })}
+          </div>
         </div>
 
         <ContactsToolbar />
@@ -176,8 +247,8 @@ export default async function ContatosPage({ searchParams }: PageProps) {
             Nenhum contato encontrado.
           </p>
           <p className="mt-2 text-sm" style={{ color: 'hsl(215 18% 55%)' }}>
-            {query
-              ? 'Ajuste a busca ou limpe os filtros para ver todos os contatos conhecidos.'
+            {(query || sourceParam || labelParam)
+              ? `Nenhum contato encontrado com os filtros ativos${activeLabel ? ` (etiqueta: ${activeLabel.name})` : ''}.`
               : 'Assim que chegarem conversas ou dados do Moodle, os contatos consolidados aparecerao aqui.'}
           </p>
         </div>

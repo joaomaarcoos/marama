@@ -20,6 +20,7 @@ interface PendingMessage {
 interface PendingEntry {
   messages: PendingMessage[]
   replyTarget: string
+  pushName: string | null
   timer: ReturnType<typeof setTimeout>
 }
 
@@ -130,17 +131,20 @@ async function rekeyConversation(fromId: string, toId: string) {
   if (deleteConversationError) throw deleteConversationError
 }
 
-function enqueue(sessionId: string, replyTarget: string, message: PendingMessage) {
+function enqueue(sessionId: string, replyTarget: string, message: PendingMessage, pushName: string | null) {
   const existing = pending.get(sessionId)
 
   if (existing) {
     clearTimeout(existing.timer)
     existing.messages.push(message)
     existing.replyTarget = replyTarget
+    // Keep the first non-null pushName seen for this batch
+    if (!existing.pushName && pushName) existing.pushName = pushName
   } else {
     pending.set(sessionId, {
       messages: [message],
       replyTarget,
+      pushName,
       timer: undefined as unknown as ReturnType<typeof setTimeout>,
     })
   }
@@ -148,9 +152,10 @@ function enqueue(sessionId: string, replyTarget: string, message: PendingMessage
   const entry = pending.get(sessionId)!
   entry.timer = setTimeout(async () => {
     const messages = [...entry.messages]
+    const resolvedPushName = entry.pushName
     pending.delete(sessionId)
     try {
-      await processMessages(sessionId, messages, { replyTarget: entry.replyTarget })
+      await processMessages(sessionId, messages, { replyTarget: entry.replyTarget, pushName: resolvedPushName })
     } catch (err) {
       console.error('[Webhook] Erro ao processar mensagens:', err)
     }
@@ -189,6 +194,8 @@ async function handleWebhookEvent(body: Record<string, unknown>) {
   const routing = resolveContactRouting(data, key)
   if (!routing) return
 
+  const pushName = typeof data.pushName === 'string' ? data.pushName.trim() || null : null
+
   if (routing.originalId.endsWith('@lid') && routing.originalId !== routing.sessionId) {
     await rekeyConversation(routing.originalId, routing.sessionId)
   }
@@ -224,5 +231,5 @@ async function handleWebhookEvent(body: Record<string, unknown>) {
 
   if (msg.type === 'unknown' && !msg.text) return
 
-  enqueue(routing.sessionId, routing.replyTarget, msg)
+  enqueue(routing.sessionId, routing.replyTarget, msg, pushName)
 }
