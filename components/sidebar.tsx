@@ -35,7 +35,7 @@ const navItems = [
   { href: '/prompt',     label: 'Prompt da MARA',      icon: FileText },
   { href: '/documentos', label: 'Base de Conhecimento',icon: BookOpen },
   { href: '/disparos',   label: 'Disparos',            icon: Send },
-  { href: '/moodle',     label: 'Alunos (Moodle)',     icon: Users },
+  { href: '/alunos',     label: 'Alunos',               icon: GraduationCap },
   { href: '/tutores',    label: 'Tutores / Professores',icon: GraduationCap },
   { href: '/usuarios',   label: 'Usuários',            icon: ShieldCheck },
   { href: '/conexao',    label: 'Conexão WhatsApp',    icon: Smartphone },

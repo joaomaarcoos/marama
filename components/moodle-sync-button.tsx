@@ -40,31 +40,40 @@ export function MoodleSyncButton() {
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div className="flex flex-col items-end gap-2 shrink-0">
       <button
         onClick={handleSync}
         disabled={loading}
-        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+        className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all disabled:opacity-50"
+        style={{
+          background: 'hsl(160 84% 39% / 0.15)',
+          border: '1px solid hsl(160 84% 39% / 0.35)',
+          color: 'hsl(160 84% 50%)',
+        }}
       >
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <RefreshCw className="h-4 w-4" />
-        )}
+        {loading
+          ? <Loader2 className="h-4 w-4 animate-spin" />
+          : <RefreshCw className="h-4 w-4" />}
         {loading ? 'Sincronizando...' : 'Sincronizar Moodle'}
       </button>
 
       {result && (
-        <div className="flex items-center gap-2 text-green-700 bg-green-50 px-3 py-2 rounded-lg text-xs">
-          <CheckCircle className="h-4 w-4" />
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
+          style={{ background: 'hsl(160 84% 39% / 0.1)', color: 'hsl(160 84% 55%)', border: '1px solid hsl(160 84% 39% / 0.2)' }}
+        >
+          <CheckCircle className="h-3.5 w-3.5" />
           {result.synced} alunos · {result.courses_scanned} cursos
-          {result.errors.length > 0 && <span className="text-yellow-600"> · {result.errors.length} erros</span>}
+          {result.errors.length > 0 && <span style={{ color: 'hsl(38 92% 60%)' }}> · {result.errors.length} erros</span>}
         </div>
       )}
 
       {error && (
-        <div className="flex items-center gap-2 text-red-700 bg-red-50 px-3 py-2 rounded-lg text-xs">
-          <AlertCircle className="h-4 w-4" />
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
+          style={{ background: 'hsl(0 84% 39% / 0.1)', color: 'hsl(0 84% 60%)', border: '1px solid hsl(0 84% 39% / 0.2)' }}
+        >
+          <AlertCircle className="h-3.5 w-3.5" />
           {error}
         </div>
       )}

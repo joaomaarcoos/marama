@@ -90,6 +90,9 @@ export interface EnrolledStudent {
   fullname: string
   email: string
   username: string
+  phone1: string | null   // telefone principal do perfil Moodle
+  phone2: string | null   // telefone secundário
+  idnumber: string | null // campo idnumber do Moodle — geralmente contém o CPF
   courses: { id: number; fullname: string; shortname: string }[]
 }
 
@@ -98,7 +101,17 @@ export interface EnrolledStudent {
 /** Get all students enrolled in a specific course (role=student only) */
 export async function getEnrolledStudents(courseId: number): Promise<EnrolledStudent[]> {
   try {
-    const data = await moodleGet<{ id: number; fullname: string; email: string; username: string; roles: { shortname: string }[]; enrolledcourses?: { id: number; fullname: string; shortname: string }[] }[]>(
+    const data = await moodleGet<{
+      id: number
+      fullname: string
+      email: string
+      username: string
+      phone1?: string
+      phone2?: string
+      idnumber?: string
+      roles: { shortname: string }[]
+      enrolledcourses?: { id: number; fullname: string; shortname: string }[]
+    }[]>(
       'core_enrol_get_enrolled_users',
       { courseid: String(courseId) }
     )
@@ -110,6 +123,9 @@ export async function getEnrolledStudents(courseId: number): Promise<EnrolledStu
         fullname: u.fullname,
         email: u.email ?? '',
         username: u.username ?? '',
+        phone1: u.phone1 && u.phone1.trim() ? u.phone1.trim() : null,
+        phone2: u.phone2 && u.phone2.trim() ? u.phone2.trim() : null,
+        idnumber: u.idnumber && u.idnumber.trim() ? u.idnumber.trim() : null,
         courses: u.enrolledcourses ?? [],
       }))
   } catch {
@@ -337,6 +353,128 @@ export async function getAllTutors(): Promise<TutorAggregate[]> {
   return Array.from(map.values()).sort((a, b) => b.lastaccess - a.lastaccess)
 }
 
+// ─── Password Management ──────────────────────────────────────────────────────
+
+/**
+ * Gera uma senha temporária segura de 8 caracteres (letras + números).
+ * Evita caracteres ambíguos: 0/O, 1/l/I.
+ */
+export function generateTempPassword(): string {
+  const upper = 'ABCDEFGHJKMNPQRSTUVWXYZ'
+  const lower = 'abcdefghjkmnpqrstuvwxyz'
+  const digits = '23456789'
+  const all = upper + lower + digits
+
+  const pick = (set: string) => set[Math.floor(Math.random() * set.length)]
+
+  // Garantir ao menos 1 de cada grupo
+  const required = [pick(upper), pick(lower), pick(digits)]
+  const rest = Array.from({ length: 5 }, () => pick(all))
+
+  // Embaralhar
+  const combined = [...required, ...rest]
+  for (let i = combined.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [combined[i], combined[j]] = [combined[j], combined[i]]
+  }
+  return combined.join('')
+}
+
+/**
+ * Troca a senha de um usuário diretamente via token admin.
+ * Requires: core_user_update_users
+ */
+export async function setUserPassword(moodleId: number, newPassword: string): Promise<void> {
+  const url = new URL(`${getRequiredEnv('MOODLE_URL')}/webservice/rest/server.php`)
+  url.searchParams.set('wstoken', getRequiredEnv('MOODLE_WSTOKEN'))
+  url.searchParams.set('moodlewsrestformat', 'json')
+  url.searchParams.set('wsfunction', 'core_user_update_users')
+
+  const body = new URLSearchParams()
+  body.set('users[0][id]', String(moodleId))
+  body.set('users[0][password]', newPassword)
+
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+    cache: 'no-store',
+  })
+
+  if (!res.ok) throw new Error(`Moodle HTTP error ${res.status}: core_user_update_users`)
+
+  const data = await res.json()
+  if (data?.exception) throw new Error(`Moodle API error: ${data.message}`)
+
+  // warnings indicam problemas (ex: senha fraca, usuário inexistente)
+  if (Array.isArray(data?.warnings) && data.warnings.length > 0) {
+    const msg = data.warnings.map((w: { message: string }) => w.message).join('; ')
+    throw new Error(`Moodle warning ao trocar senha: ${msg}`)
+  }
+}
+
+/**
+ * Dispara email de redefinição de senha para o usuário.
+ * Requires: core_auth_request_password_reset
+ */
+export async function requestPasswordReset(username: string, email: string): Promise<void> {
+  const url = new URL(`${getRequiredEnv('MOODLE_URL')}/webservice/rest/server.php`)
+  url.searchParams.set('wstoken', getRequiredEnv('MOODLE_WSTOKEN'))
+  url.searchParams.set('moodlewsrestformat', 'json')
+  url.searchParams.set('wsfunction', 'core_auth_request_password_reset')
+
+  const body = new URLSearchParams()
+  body.set('username', username)
+  body.set('email', email)
+
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+    cache: 'no-store',
+  })
+
+  if (!res.ok) throw new Error(`Moodle HTTP error ${res.status}: core_auth_request_password_reset`)
+
+  const data = await res.json()
+  if (data?.exception) throw new Error(`Moodle API error: ${data.message}`)
+}
+
+// ─── Grade Items (notas detalhadas por atividade) ─────────────────────────────
+
+export interface GradeItem {
+  id: number
+  itemname: string | null
+  itemtype: string          // 'course' | 'category' | 'mod'
+  itemmodule: string | null // 'quiz' | 'assign' | 'forum' | null
+  graderaw: number | null
+  grademin: number
+  grademax: number
+  gradeformatted: string
+  percentageformatted: string
+  feedback: string
+}
+
+/**
+ * Notas detalhadas por item de avaliação (quiz, tarefa, fórum, etc.) de um curso.
+ * Requires: gradereport_user_get_grade_items
+ */
+export async function getGradeItems(userId: number, courseId: number): Promise<GradeItem[]> {
+  try {
+    const data = await moodleGet<{ usergrades: Array<{ gradeitems: GradeItem[] }> }>(
+      'gradereport_user_get_grade_items',
+      { courseid: String(courseId), userid: String(userId) }
+    )
+    const items = data?.usergrades?.[0]?.gradeitems ?? []
+    // Excluir a linha de nota total do curso e subcategorias sem nome
+    return items.filter(
+      (item) => item.itemtype === 'mod' && item.itemname
+    )
+  } catch {
+    return []
+  }
+}
+
 // ─── Context Formatters (for MARA system prompt injection) ─────────────────────
 
 export function formatGradeContext(grades: CourseGrade[], courses: MoodleCourse[]): string {
@@ -384,4 +522,19 @@ export function formatEnrollmentContext(enrollments: EnrollmentInfo[]): string {
       return `${e.coursename}: ${status} | início: ${inicio} | prazo: ${fim}`
     })
     .join('\n')
+}
+
+export function formatDetailedGradeContext(items: GradeItem[], courseName: string): string {
+  if (!items.length) return `Nenhuma nota lançada em "${courseName}" ainda.`
+
+  const lines = items.map((item) => {
+    const name = item.itemname ?? 'Atividade'
+    const mod = item.itemmodule ? ` (${item.itemmodule})` : ''
+    const grade = item.gradeformatted ?? 'não lançada'
+    const max = item.grademax ? ` / ${item.grademax.toFixed(2)}` : ''
+    const pct = item.percentageformatted ? ` — ${item.percentageformatted}` : ''
+    return `• ${name}${mod}: ${grade}${max}${pct}`
+  })
+
+  return `Notas detalhadas — ${courseName}:\n${lines.join('\n')}`
 }

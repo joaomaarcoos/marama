@@ -10,12 +10,17 @@ import {
   getCourseCompletion,
   getCourseActivitiesCompletion,
   getUserEnrollmentInfo,
+  getGradeItems,
+  setUserPassword,
+  generateTempPassword,
   formatGradeContext,
   formatCompletionContext,
   formatActivitiesContext,
   formatEnrollmentContext,
+  formatDetailedGradeContext,
   MoodleCourse,
 } from './moodle'
+import { normalizeCpf } from './utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,7 +48,15 @@ interface StudentRow {
   role: 'aluno' | 'gestor'
 }
 
-type MoodleIntent = 'notas' | 'certificado' | 'progresso' | 'matricula'
+type MoodleIntent = 'notas' | 'notas-detalhadas' | 'certificado' | 'progresso' | 'matricula'
+type PasswordResetStep = 'ask_cpf' | 'confirm_name'
+
+interface PasswordResetAction {
+  type: 'password_reset'
+  step: PasswordResetStep
+  moodle_id?: number
+  full_name?: string
+}
 
 type Identity =
   | { type: 'aluno'; student: StudentRow; contact: ContactProfile | null }
@@ -66,6 +79,10 @@ const CLOSING_MESSAGE =
   `Seu atendimento foi encerrado por inatividade. Fique à vontade para entrar em contato novamente sempre que precisar. Até logo! 👋`
 
 const MOODLE_INTENT_KEYWORDS: Record<MoodleIntent, string[]> = {
+  'notas-detalhadas': [
+    'quiz', 'tarefa', 'avaliação', 'avaliacao', 'item', 'detalhe', 'detalhes',
+    'nota da tarefa', 'nota do quiz', 'nota da avaliação', 'passei',
+  ],
   notas: ['nota', 'notas', 'grade', 'média', 'media', 'desempenho', 'pontuação', 'pontuacao'],
   certificado: [
     'certificado', 'certificar', 'certificação', 'certificacao',
@@ -79,6 +96,18 @@ const MOODLE_INTENT_KEYWORDS: Record<MoodleIntent, string[]> = {
     'matrícula', 'matricula', 'matriculado', 'inscrito', 'inscrição',
     'inscricao', 'situação', 'situacao', 'status', 'ativo', 'suspens',
   ],
+}
+
+const PASSWORD_RESET_KEYWORDS = [
+  'trocar senha', 'mudar senha', 'esqueci senha', 'esqueci a senha',
+  'redefinir senha', 'nova senha', 'não consigo entrar', 'nao consigo entrar',
+  'acesso moodle', 'acesso ao moodle', 'minha senha', 'resetar senha',
+  'reset senha', 'recuperar senha',
+]
+
+function detectPasswordResetIntent(text: string): boolean {
+  const lower = text.toLowerCase()
+  return PASSWORD_RESET_KEYWORDS.some((kw) => lower.includes(kw))
 }
 
 // ─── Identity Resolution ──────────────────────────────────────────────────────
@@ -134,7 +163,7 @@ function buildIdentityContext(identity: Identity): string | null {
     )
   }
 
-  const { student, contact } = identity
+  const { student } = identity
   const courses = Array.isArray(student.courses) ? student.courses : []
   const courseList =
     courses.length > 0
@@ -176,6 +205,11 @@ async function fetchMoodleContext(student: StudentRow, intent: MoodleIntent): Pr
 
   try {
     switch (intent) {
+      case 'notas-detalhadas': {
+        if (!firstCourse) return 'Nenhum curso matriculado para verificar notas.'
+        const items = await getGradeItems(student.moodle_id, firstCourse.id)
+        return `### Notas Detalhadas\n${formatDetailedGradeContext(items, firstCourse.fullname || firstCourse.shortname)}`
+      }
       case 'notas': {
         const grades = await getUserGradeOverview(student.moodle_id)
         return `### Notas\n${formatGradeContext(grades, courses)}`
@@ -203,10 +237,106 @@ async function fetchMoodleContext(student: StudentRow, intent: MoodleIntent): Pr
         const enrollments = await getUserEnrollmentInfo(student.moodle_id)
         return `### Situação de Matrícula\n${formatEnrollmentContext(enrollments)}`
       }
+      default:
+        return null
     }
   } catch (err) {
     console.error(`[MARA] Moodle on-demand fetch error (${intent}):`, err)
     return null
+  }
+}
+
+// ─── Password Reset Flow (stateful, multi-turn) ───────────────────────────────
+
+async function handlePasswordResetFlow(
+  phone: string,
+  replyTarget: string,
+  userText: string,
+  action: PasswordResetAction
+): Promise<void> {
+  const reply = async (text: string) => {
+    await sendText(replyTarget, text)
+    await adminClient.from('chatmemory').insert({ session_id: phone, role: 'assistant', content: text })
+    await adminClient.from('conversations').update({ last_message: text.slice(0, 200), last_message_at: new Date().toISOString() }).eq('phone', phone)
+  }
+
+  // Salvar mensagem do usuário no histórico
+  await adminClient.from('chatmemory').insert({ session_id: phone, role: 'user', content: userText })
+
+  // ─── Etapa 1: aguardando CPF ──────────────────────────────────────────────
+  if (action.step === 'ask_cpf') {
+    const cpf = normalizeCpf(userText)
+
+    if (!cpf) {
+      await reply('Não reconheci um CPF válido. Por favor, informe no formato XXX.XXX.XXX-XX ou somente os 11 dígitos.')
+      return
+    }
+
+    // Buscar pelo CPF na tabela contacts (fonte unificada) ou diretamente em students
+    const { data: studentFromContacts } = await adminClient
+      .from('students')
+      .select('id, moodle_id, full_name')
+      .eq('cpf', cpf)
+      .not('moodle_id', 'is', null)
+      .maybeSingle()
+
+    const student = studentFromContacts
+
+    if (!student) {
+      await reply('Não encontrei nenhum cadastro com esse CPF. Verifique e tente novamente, ou entre em contato com o suporte.')
+      return
+    }
+
+    // Avança para confirmação de nome
+    await adminClient
+      .from('conversations')
+      .update({ pending_action: { type: 'password_reset', step: 'confirm_name', moodle_id: student.moodle_id, full_name: student.full_name } })
+      .eq('phone', phone)
+
+    await reply(`Encontrei o cadastro de *${student.full_name}*. Confirma que é você? Responda *SIM* para prosseguir ou *NÃO* para cancelar.`)
+    return
+  }
+
+  // ─── Etapa 2: aguardando confirmação do nome ──────────────────────────────
+  if (action.step === 'confirm_name') {
+    const lower = userText.toLowerCase().trim()
+    const isYes = /^(sim|s|yes|confirmo|confirma|ok|isso|é isso|isso mesmo)/.test(lower)
+    const isNo  = /^(n[ãa]o|no|cancelar|cancela|errado|nao)/.test(lower)
+
+    if (!isYes && !isNo) {
+      await reply('Por favor, responda *SIM* para confirmar e redefinir sua senha, ou *NÃO* para cancelar.')
+      return
+    }
+
+    // Limpar estado em qualquer desfecho
+    await adminClient.from('conversations').update({ pending_action: null }).eq('phone', phone)
+
+    if (isNo) {
+      await reply('Operação cancelada. Se precisar de ajuda, é só chamar! 😊')
+      return
+    }
+
+    // Gerar senha temporária e aplicar
+    if (!action.moodle_id) {
+      await reply('Ocorreu um erro interno. Por favor, tente novamente mais tarde.')
+      return
+    }
+
+    try {
+      const tempPassword = generateTempPassword()
+      await setUserPassword(action.moodle_id, tempPassword)
+      const moodleUrl = process.env.MOODLE_URL ?? 'o portal do Moodle'
+      await reply(
+        `✅ Pronto! Sua senha temporária do Moodle é:\n\n*${tempPassword}*\n\n` +
+        `Acesse ${moodleUrl} e faça login com essa senha. ` +
+        `Após entrar, vá em *Perfil → Mudar Senha* e defina uma senha pessoal. ` +
+        `Recomendamos trocar a senha no primeiro acesso. 🔐`
+      )
+    } catch (err) {
+      console.error('[MARA] Erro ao trocar senha Moodle:', err)
+      await reply('Não foi possível redefinir a senha no momento. Por favor, tente mais tarde ou procure o suporte.')
+    }
+    return
   }
 }
 
@@ -254,7 +384,7 @@ export async function processMessages(
 
     const { data: conv } = await adminClient
       .from('conversations')
-      .select('lgpd_accepted_at, followup_stage')
+      .select('lgpd_accepted_at, followup_stage, pending_action')
       .eq('phone', phone)
       .single()
 
@@ -283,6 +413,14 @@ export async function processMessages(
         .from('conversations')
         .update({ followup_stage: null, followup_sent_at: null })
         .eq('phone', phone)
+    }
+
+    // 3b. Password reset flow — fluxo multi-turno stateful, desvia do pipeline normal
+    const pendingAction = conv?.pending_action as PasswordResetAction | null | undefined
+    if (pendingAction?.type === 'password_reset') {
+      await handlePasswordResetFlow(phone, replyTarget, combinedRawText, pendingAction)
+      await syncContactsSnapshot()
+      return
     }
 
     // 5. Build combined user content from all messages in the batch
@@ -348,6 +486,32 @@ export async function processMessages(
     const queryText = typeof userContent === 'string' ? userContent : JSON.stringify(userContent)
     const ragChunks = await searchRelevantChunks(queryText)
     const ragContext = buildRagContext(ragChunks)
+
+    // 7b. Detectar intent de troca de senha — inicia fluxo multi-turno
+    if (detectPasswordResetIntent(queryText)) {
+      const moodleUrl = process.env.MOODLE_URL ?? 'o portal do Moodle'
+      // Verificar se o aluno tem moodle_id (só alunos com vínculo Moodle)
+      const hasMoodle = (identity.type === 'aluno' || identity.type === 'gestor') && identity.student.moodle_id
+      if (!hasMoodle) {
+        // Sem vínculo Moodle — GPT responde normalmente com contexto padrão
+      } else {
+        // Iniciar fluxo de verificação de CPF
+        await adminClient
+          .from('conversations')
+          .update({ pending_action: { type: 'password_reset', step: 'ask_cpf' } })
+          .eq('phone', phone)
+
+        const startMsg = `Para redefinir sua senha de acesso ao Moodle (${moodleUrl}), preciso confirmar sua identidade. 🔐\n\nPor favor, me informe seu *CPF* (somente números ou com pontuação).`
+        await sendText(replyTarget, startMsg)
+        await adminClient.from('chatmemory').insert([
+          { session_id: phone, role: 'user', content: combinedRawText },
+          { session_id: phone, role: 'assistant', content: startMsg },
+        ])
+        await adminClient.from('conversations').update({ last_message: startMsg.slice(0, 200), last_message_at: new Date().toISOString() }).eq('phone', phone)
+        await syncContactsSnapshot()
+        return
+      }
+    }
 
     // 8. Moodle on-demand
     let moodleContext: string | null = null

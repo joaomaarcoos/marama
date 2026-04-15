@@ -5,6 +5,29 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Dado um número brasileiro normalizado (somente dígitos, prefixo 55),
+ * retorna ambas as variantes: com e sem o nono dígito celular.
+ * Ex: "5598981234567" → ["5598981234567", "559881234567"]
+ *     "559881234567"  → ["559881234567",  "5598981234567"]
+ * Usado em queries para garantir que não perdemos a ligação por diferença de formato.
+ */
+export function brazilPhoneCandidates(phone: string): string[] {
+  const candidates = new Set<string>([phone])
+  if (phone.startsWith('55')) {
+    if (phone.length === 13) {
+      // tem nono dígito (pos 4 = '9') — gera versão sem ele (12 dígitos)
+      const ddd = phone.slice(2, 4)
+      if (phone[4] === '9') candidates.add('55' + ddd + phone.slice(5))
+    } else if (phone.length === 12) {
+      // sem nono dígito — gera versão com ele (13 dígitos)
+      const ddd = phone.slice(2, 4)
+      candidates.add('55' + ddd + '9' + phone.slice(4))
+    }
+  }
+  return Array.from(candidates)
+}
+
 export function normalizePhone(phone: string | null | undefined): string | null {
   if (!phone) return null
   // Remove tudo que não for dígito

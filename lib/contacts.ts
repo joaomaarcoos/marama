@@ -1,5 +1,5 @@
 import { adminClient } from './supabase/admin'
-import { extractCpf, normalizeConversationId, normalizeCpf, normalizePhone } from './utils'
+import { brazilPhoneCandidates, extractCpf, normalizeConversationId, normalizeCpf, normalizePhone } from './utils'
 
 type ContactRole = 'aluno' | 'gestor' | null
 
@@ -250,12 +250,24 @@ function phoneAliasesFromValue(value: string | null | undefined): string[] {
   if (normalizedConversation) aliases.add(normalizedConversation)
 
   const normalizedDigits = isLidIdentifier(trimmed) ? null : normalizePhone(trimmed)
-  if (normalizedDigits) aliases.add(normalizedDigits)
+  if (normalizedDigits) {
+    aliases.add(normalizedDigits)
+    // Adicionar ambas as variantes do nono dígito brasileiro para garantir matching
+    // independente do formato usado pelo WhatsApp ou pelo Moodle.
+    for (const variant of brazilPhoneCandidates(normalizedDigits)) {
+      aliases.add(variant)
+    }
+  }
 
   if (trimmed.includes('@') && !isLidIdentifier(trimmed)) {
     const local = trimmed.replace(/@.*/, '')
     const normalizedLocal = normalizePhone(local)
-    if (normalizedLocal) aliases.add(normalizedLocal)
+    if (normalizedLocal) {
+      aliases.add(normalizedLocal)
+      for (const variant of brazilPhoneCandidates(normalizedLocal)) {
+        aliases.add(variant)
+      }
+    }
   }
 
   return Array.from(aliases)
@@ -894,10 +906,18 @@ export async function getContactProfileById(contactId: string): Promise<ContactP
 async function findStudentByPhone(phone: string | null): Promise<ContactStudentRecord | null> {
   if (!phone) return null
 
+  // Gerar ambas as variantes (com/sem nono dígito) para não perder o match
+  // quando Moodle e WhatsApp usam formatos diferentes.
+  const candidates = brazilPhoneCandidates(phone)
+
+  const orFilter = candidates
+    .flatMap(p => [`phone.eq.${p}`, `phone2.eq.${p}`])
+    .join(',')
+
   const { data, error } = await adminClient
     .from('students')
     .select('id, moodle_id, full_name, email, phone, phone2, username, cpf, role, courses')
-    .or(`phone.eq.${phone},phone2.eq.${phone}`)
+    .or(orFilter)
     .limit(1)
 
   if (error) throw new Error(error.message)
@@ -961,11 +981,16 @@ export async function resolveKnownContact(
   messageText?: string
 ): Promise<ResolvedContactMatch> {
   const normalizedDigits = isLidIdentifier(phone) ? null : normalizePhone(phone)
+
+  // Incluir ambas as variantes do nono dígito para garantir que encontramos
+  // a conversa/aluno independente do formato armazenado.
   const phoneCandidates = Array.from(
-    new Set(
-      [phone, normalizeConversationId(phone), normalizedDigits]
-        .filter((candidate): candidate is string => Boolean(candidate))
-    )
+    new Set([
+      phone,
+      normalizeConversationId(phone),
+      normalizedDigits,
+      ...(normalizedDigits ? brazilPhoneCandidates(normalizedDigits) : []),
+    ].filter((candidate): candidate is string => Boolean(candidate)))
   )
 
   const conversation = await findConversationByPhoneCandidates(phoneCandidates)
