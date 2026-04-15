@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getConversationPhoneCandidates } from '@/lib/mara-pause'
 import { adminClient } from '@/lib/supabase/admin'
 import { sendText } from '@/lib/evolution'
+import { syncContactsSnapshot } from '@/lib/contacts'
 
 function toDisplayName(user: { email?: string | null; user_metadata?: Record<string, unknown> | null }) {
   const metadataName = typeof user.user_metadata?.full_name === 'string'
@@ -21,6 +22,12 @@ function toDisplayName(user: { email?: string | null; user_metadata?: Record<str
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+function buildHumanSignedText(text: string, attendantName: string) {
+  const trimmed = text.trim()
+  if (!trimmed) return ''
+  return `*${attendantName}*\n\n${trimmed}`
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -36,10 +43,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const nowIso = new Date().toISOString()
     const pausedUntil = new Date(Date.now() + 90 * 60 * 1000).toISOString()
     const phoneCandidates = getConversationPhoneCandidates(phone.trim())
+    const canonicalPhone = phoneCandidates[0] ?? phone.trim()
     const attendantName = toDisplayName(user)
-    const signedMessage = `${attendantName}\n\n${message.trim()}`
+    const signedMessage = buildHumanSignedText(message, attendantName)
 
     await adminClient
       .from('conversations')
@@ -51,6 +60,36 @@ export async function POST(request: NextRequest) {
       .in('phone', phoneCandidates)
 
     await sendText(phone.trim(), signedMessage)
+
+    const { error: upsertConversationError } = await adminClient
+      .from('conversations')
+      .upsert({
+        phone: canonicalPhone,
+        status: 'active',
+        last_message: signedMessage.slice(0, 200),
+        last_message_at: nowIso,
+        assigned_to: user.id,
+        assigned_name: attendantName,
+        mara_paused_until: pausedUntil,
+      }, { onConflict: 'phone' })
+
+    if (upsertConversationError) {
+      throw upsertConversationError
+    }
+
+    const { error: insertHistoryError } = await adminClient
+      .from('chatmemory')
+      .insert({
+        session_id: canonicalPhone,
+        role: 'assistant',
+        content: signedMessage,
+      })
+
+    if (insertHistoryError) {
+      throw insertHistoryError
+    }
+
+    await syncContactsSnapshot()
 
     return NextResponse.json({ ok: true })
   } catch (error) {

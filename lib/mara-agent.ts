@@ -221,10 +221,10 @@ export async function processMessages(
     const replyTarget = routing.replyTarget ?? phone
     const abortIfPaused = async (stage: string) => {
       const pauseState = await getMaraPauseState(phone)
-      if (!pauseState.pausedUntil && !pauseState.humanHandoffActive) return false
+      if (!pauseState.pausedUntil && !pauseState.humanHandoffActive && !pauseState.manualPaused) return false
 
       console.log(
-        `[MARA] Conversa ${phone} bloqueada para MARA (${stage}; pausa=${pauseState.pausedUntil ?? 'sem prazo'}; atendimento_humano=${pauseState.humanHandoffActive ? (pauseState.assignedName ?? 'sim') : 'nao'}; candidatos: ${pauseState.candidates.join(',')})`
+        `[MARA] Conversa ${phone} bloqueada para MARA (${stage}; pausa=${pauseState.pausedUntil ?? 'sem prazo'}; pausa_manual=${pauseState.manualPaused ? 'sim' : 'nao'}; atendimento_humano=${pauseState.humanHandoffActive ? (pauseState.assignedName ?? 'sim') : 'nao'}; candidatos: ${pauseState.candidates.join(',')})`
       )
       return true
     }
@@ -399,7 +399,7 @@ export async function processMessages(
     console.error('[MARA Agent] Erro ao processar mensagem:', error)
     try {
       const pauseState = await getMaraPauseState(phone)
-      if (pauseState.pausedUntil || pauseState.humanHandoffActive) {
+      if (pauseState.pausedUntil || pauseState.humanHandoffActive || pauseState.manualPaused) {
         console.log(`[MARA] Fallback suprimido para ${phone} — bloqueio ativo para atendimento humano`)
         return
       }
@@ -423,13 +423,14 @@ export async function checkInactivity(): Promise<{ followups: number; closings: 
   // Conversas ativas há mais de 90 minutos sem follow-up enviado
   const { data: idleConvs } = await adminClient
     .from('conversations')
-    .select('phone, mara_paused_until, assigned_to, assigned_name')
+    .select('phone, mara_paused_until, mara_manual_paused, assigned_to, assigned_name')
     .eq('status', 'active')
     .is('followup_stage', null)
     .lt('last_message_at', ninetyMinutesAgo)
 
   for (const conv of idleConvs ?? []) {
     if (conv.assigned_to || conv.assigned_name) continue
+    if (conv.mara_manual_paused) continue
     if (conv.mara_paused_until && new Date(conv.mara_paused_until) > new Date()) continue
 
     try {
@@ -447,12 +448,13 @@ export async function checkInactivity(): Promise<{ followups: number; closings: 
   // Conversas em follow-up há mais de 1 hora sem resposta
   const { data: staleConvs } = await adminClient
     .from('conversations')
-    .select('phone, mara_paused_until, assigned_to, assigned_name')
+    .select('phone, mara_paused_until, mara_manual_paused, assigned_to, assigned_name')
     .eq('followup_stage', 'followup_1')
     .lt('followup_sent_at', sixtyMinutesAgo)
 
   for (const conv of staleConvs ?? []) {
     if (conv.assigned_to || conv.assigned_name) continue
+    if (conv.mara_manual_paused) continue
     if (conv.mara_paused_until && new Date(conv.mara_paused_until) > new Date()) continue
 
     try {
@@ -465,6 +467,7 @@ export async function checkInactivity(): Promise<{ followups: number; closings: 
           assigned_to: null,
           assigned_name: null,
           mara_paused_until: null,
+          mara_manual_paused: false,
         })
         .eq('phone', conv.phone)
       closings++

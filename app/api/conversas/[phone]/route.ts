@@ -57,6 +57,7 @@ export async function PATCH(
     labels?: string[]
     followup_stage?: string | null
     contact_name?: string | null
+    mara_manual_paused?: boolean
   }
   const updatePayload: Record<string, unknown> = { ...body }
 
@@ -75,6 +76,7 @@ export async function PATCH(
     updatePayload.assigned_to = null
     updatePayload.assigned_name = null
     updatePayload.mara_paused_until = null
+    updatePayload.mara_manual_paused = false
   }
 
   const { error } = await adminClient

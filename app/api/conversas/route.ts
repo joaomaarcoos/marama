@@ -8,7 +8,7 @@ export async function GET() {
   const [conversationsResult, chatsResult] = await Promise.allSettled([
     adminClient
       .from('conversations')
-      .select('phone, contact_name, last_message, last_message_at, status, followup_stage, assigned_to, assigned_name, labels, students(full_name, email)')
+      .select('phone, contact_name, last_message, last_message_at, status, followup_stage, assigned_to, assigned_name, labels, mara_paused_until, mara_manual_paused, students(full_name, email)')
       .order('last_message_at', { ascending: false })
       .limit(200),
     findChats(),

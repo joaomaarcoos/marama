@@ -29,7 +29,7 @@ function toDisplayName(user: { email?: string | null; user_metadata?: Record<str
 function buildHumanSignedText(text: string, attendantName: string) {
   const trimmed = text.trim()
   if (!trimmed) return ''
-  return `${attendantName}\n\n${trimmed}`
+  return `*${attendantName}*\n\n${trimmed}`
 }
 
 function detectMediaKind(file: File): MediaKind {

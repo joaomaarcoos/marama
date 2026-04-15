@@ -118,6 +118,13 @@ async function rekeyConversation(fromId: string, toId: string) {
       followup_sent_at: toConversation.followup_sent_at ?? fromConversation.followup_sent_at,
       assigned_to: toConversation.assigned_to ?? fromConversation.assigned_to,
       assigned_name: toConversation.assigned_name ?? fromConversation.assigned_name,
+      mara_paused_until:
+        toConversation.mara_paused_until && fromConversation.mara_paused_until
+          ? (new Date(toConversation.mara_paused_until).getTime() >= new Date(fromConversation.mara_paused_until).getTime()
+            ? toConversation.mara_paused_until
+            : fromConversation.mara_paused_until)
+          : (toConversation.mara_paused_until ?? fromConversation.mara_paused_until),
+      mara_manual_paused: Boolean(toConversation.mara_manual_paused || fromConversation.mara_manual_paused),
       labels: mergedLabels,
       updated_at: new Date().toISOString(),
     })
@@ -158,7 +165,7 @@ function enqueue(sessionId: string, replyTarget: string, message: PendingMessage
     pending.delete(sessionId)
     try {
       const pauseState = await getMaraPauseState(sessionId)
-      if (pauseState.pausedUntil || pauseState.humanHandoffActive) {
+      if (pauseState.pausedUntil || pauseState.humanHandoffActive || pauseState.manualPaused) {
         console.log(`[Webhook] Conversa bloqueada para MARA (candidatos: ${pauseState.candidates.join(',')}) — descartando lote`)
         return
       }
@@ -306,7 +313,7 @@ async function handleWebhookEvent(body: Record<string, unknown>) {
   // Usa ambos os formatos do número brasileiro (com/sem nono dígito) para garantir
   // que o mismatch de formato não impeça a detecção da pausa.
   const preQueuePauseState = await getMaraPauseState(routing.sessionId)
-  if (preQueuePauseState.pausedUntil || preQueuePauseState.humanHandoffActive) {
+  if (preQueuePauseState.pausedUntil || preQueuePauseState.humanHandoffActive || preQueuePauseState.manualPaused) {
     console.log(`[Webhook] Conversa bloqueada para MARA (candidatos: ${preQueuePauseState.candidates.join(',')}) — não enfileirado`)
     return
   }

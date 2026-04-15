@@ -34,23 +34,31 @@ export function getConversationPhoneCandidates(phone: string): string[] {
 export async function getMaraPauseState(phone: string): Promise<{
   candidates: string[]
   pausedUntil: string | null
+  manualPaused: boolean
   humanHandoffActive: boolean
   assignedName: string | null
 }> {
   const candidates = getConversationPhoneCandidates(phone)
 
   if (candidates.length === 0) {
-    return { candidates, pausedUntil: null, humanHandoffActive: false, assignedName: null }
+    return {
+      candidates,
+      pausedUntil: null,
+      manualPaused: false,
+      humanHandoffActive: false,
+      assignedName: null,
+    }
   }
 
   const { data, error } = await adminClient
     .from('conversations')
-    .select('mara_paused_until, assigned_to, assigned_name')
+    .select('mara_paused_until, mara_manual_paused, assigned_to, assigned_name')
     .in('phone', candidates)
 
   if (error) throw error
 
   const now = Date.now()
+  const manualPaused = (data ?? []).some((row) => row.mara_manual_paused === true)
   const assignedName = (data ?? [])
     .map((row) => row.assigned_name)
     .find((value): value is string => typeof value === 'string' && value.trim().length > 0) ?? null
@@ -64,5 +72,5 @@ export async function getMaraPauseState(phone: string): Promise<{
     .filter((value) => new Date(value).getTime() > now)
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null
 
-  return { candidates, pausedUntil, humanHandoffActive, assignedName }
+  return { candidates, pausedUntil, manualPaused, humanHandoffActive, assignedName }
 }

@@ -8,8 +8,10 @@ import {
   RotateCcw, LogOut, Plus, Trash2, Info, GraduationCap, Mail,
   Phone, Calendar, ChevronRight, ChevronLeft, Smile, Paperclip,
   SendHorizontal, Mic, Square, Image as ImageIcon, FileText, AudioLines,
+  PauseCircle, Play,
 } from 'lucide-react'
 import { formatPhone } from '@/lib/utils'
+import { EmojiPicker } from '@/components/emoji-picker'
 // Supabase browser client removido — currentUser vem do server component via prop
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -31,6 +33,8 @@ interface Conversation {
   assigned_name: string | null
   labels: string[] | null
   lgpd_accepted_at: string | null
+  mara_paused_until?: string | null
+  mara_manual_paused?: boolean | null
   whatsapp_name?: string | null
   whatsapp_profile_pic_url?: string | null
   whatsapp_updated_at?: string | null
@@ -75,8 +79,6 @@ const COLOR_SWATCHES = [
   '#22c55e', '#10b981', '#06b6d4', '#3b82f6',
   '#6366f1', '#8b5cf6', '#ec4899', '#94a3b8',
 ]
-
-const QUICK_EMOJIS = ['😀', '👍', '🙏', '❤️', '🎉', '👀', '✅', '📎', '😊', '🙌', '🤝', '📚']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -156,11 +158,43 @@ function statusMeta(conv: Conversation) {
 }
 
 async function patchConversation(phone: string, body: Record<string, unknown>) {
-  await fetch(`/api/conversas/${encodeURIComponent(phone)}`, {
+  const response = await fetch(`/api/conversas/${encodeURIComponent(phone)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+
+  if (!response.ok) {
+    throw new Error('Nao foi possivel atualizar a conversa.')
+  }
+}
+
+function getAssignedDisplayName(name: string | null | undefined): string | null {
+  if (!name?.trim()) return null
+  return name.split('@')[0]?.trim() || name.trim()
+}
+
+function getPauseBadgeMeta(
+  conv: Pick<Conversation, 'assigned_to' | 'assigned_name' | 'mara_paused_until' | 'mara_manual_paused'>
+) {
+  const reasons: string[] = []
+  const hasHumanOwner =
+    (typeof conv.assigned_to === 'string' && conv.assigned_to.trim().length > 0) ||
+    (typeof conv.assigned_name === 'string' && conv.assigned_name.trim().length > 0)
+  const timedPauseActive =
+    typeof conv.mara_paused_until === 'string' &&
+    conv.mara_paused_until.length > 0 &&
+    new Date(conv.mara_paused_until).getTime() > Date.now()
+
+  if (hasHumanOwner) reasons.push('atendimento humano')
+  if (conv.mara_manual_paused) reasons.push('manual')
+  if (timedPauseActive) reasons.push(`ate ${fullTime(conv.mara_paused_until!)}`)
+
+  return {
+    blocked: reasons.length > 0,
+    title: reasons.length > 0 ? `MARA pausada: ${reasons.join(' | ')}` : null,
+    label: reasons.length > 0 ? `MARA pausada · ${reasons.join(' · ')}` : null,
+  }
 }
 
 // ─── Label Chips ──────────────────────────────────────────────────────────────
@@ -271,28 +305,30 @@ function LabelPicker({
         </p>
       )}
 
-      {allLabels.map(l => {
-        const active = currentIds.includes(l.id)
-        return (
-          <div key={l.id} className="chat-label-picker-item group">
-            <button
-              className="flex items-center gap-2 flex-1 min-w-0"
-              onClick={() => onToggle(l.id)}
-            >
-              <span className="chat-label-dot" style={{ background: l.color }} />
-              <span className="flex-1 text-left truncate">{l.name}</span>
-              {active && <CheckCircle2 size={12} style={{ color: l.color, flexShrink: 0 }} />}
-            </button>
-            <button
-              onClick={() => handleDelete(l.id)}
-              className="chat-label-delete opacity-0 group-hover:opacity-100"
-              title="Remover etiqueta"
-            >
-              <Trash2 size={11} />
-            </button>
-          </div>
-        )
-      })}
+      <div className="chat-label-picker-list">
+        {allLabels.map(l => {
+          const active = currentIds.includes(l.id)
+          return (
+            <div key={l.id} className="chat-label-picker-item group">
+              <button
+                className="flex items-center gap-2 flex-1 min-w-0"
+                onClick={() => onToggle(l.id)}
+              >
+                <span className="chat-label-dot" style={{ background: l.color }} />
+                <span className="flex-1 text-left truncate">{l.name}</span>
+                {active && <CheckCircle2 size={12} style={{ color: l.color, flexShrink: 0 }} />}
+              </button>
+              <button
+                onClick={() => handleDelete(l.id)}
+                className="chat-label-delete opacity-0 group-hover:opacity-100"
+                title="Remover etiqueta"
+              >
+                <Trash2 size={11} />
+              </button>
+            </div>
+          )
+        })}
+      </div>
 
       {/* Create new label */}
       {creating ? (
@@ -363,6 +399,7 @@ function ConvItem({
   const name = getConversationDisplayName(conv)
   const sm = statusMeta(conv)
   const StatusIcon = sm.icon
+  const pauseBadge = getPauseBadgeMeta(conv)
   const labelIds = conv.labels ?? []
   const closed = isClosed(conv)
   const isAssignedToMe = conv.assigned_to === currentUserId
@@ -389,7 +426,14 @@ function ConvItem({
         </div>
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="chat-conv-preview truncate">{conv.last_message ?? '—'}</span>
-          <StatusIcon size={11} className="shrink-0" style={{ color: sm.color }} />
+          <div className="flex items-center gap-1.5 shrink-0">
+            {pauseBadge.blocked && (
+              <span title={pauseBadge.title ?? undefined}>
+                <PauseCircle size={11} style={{ color: 'var(--chat-status-waiting)' }} />
+              </span>
+            )}
+            <StatusIcon size={11} className="shrink-0" style={{ color: sm.color }} />
+          </div>
         </div>
         {labelIds.length > 0 && (
           <LabelChips labelIds={labelIds} allLabels={allLabels} max={3} />
@@ -479,7 +523,7 @@ function ContactPanel({
           <Row icon={Phone} label="Telefone" value={formatPhone(conversation.phone)} />
           {student?.email && <Row icon={Mail} label="E-mail" value={student.email} />}
           {conversation.assigned_name && (
-            <Row icon={UserCheck} label="Atribuída a" value={conversation.assigned_name.split('@')[0]} />
+            <Row icon={UserCheck} label="Atribuída a" value={getAssignedDisplayName(conversation.assigned_name) ?? conversation.assigned_name} />
           )}
           {conversation.lgpd_accepted_at && (
             <Row
@@ -646,7 +690,7 @@ function ContactDetailsPanel({
             <Info size={12} /> Atendimento
           </p>
           <Row icon={Mail} label="E-mail" value={student?.email} />
-          <Row icon={UserCheck} label="Atribuida a" value={conversation.assigned_name ? conversation.assigned_name.split('@')[0] : null} />
+          <Row icon={UserCheck} label="Atribuida a" value={getAssignedDisplayName(conversation.assigned_name) ?? null} />
           <Row
             icon={CheckCircle2}
             label="LGPD aceita em"
@@ -1015,11 +1059,13 @@ function ChatPanel({
   const name = getConversationDisplayName(conversation)
   const sm = statusMeta(conversation)
   const StatusIcon = sm.icon
+  const pauseBadge = getPauseBadgeMeta(conversation)
   const labelIds = conversation.labels ?? []
   const closed = isClosed(conversation)
   const closeSource = closedBy(conversation)
   const isAssignedToMe = conversation.assigned_to === currentUser?.id
   const isAssignedToOther = !!conversation.assigned_to && !isAssignedToMe
+  const assignedDisplayName = getAssignedDisplayName(conversation.assigned_name)
 
   const groups: { date: string; msgs: Message[] }[] = []
   for (const msg of messages) {
@@ -1051,6 +1097,18 @@ function ChatPanel({
             {sm.label}
           </span>
 
+          {/* Badge pausa MARA */}
+          {pauseBadge.blocked && pauseBadge.label && (
+            <span
+              className="chat-status-badge"
+              title={pauseBadge.title ?? undefined}
+              style={{ '--badge-color': 'var(--chat-status-waiting)' } as React.CSSProperties}
+            >
+              <PauseCircle size={11} />
+              {pauseBadge.label}
+            </span>
+          )}
+
           {/* Labels */}
           <div className="relative">
             <button onClick={() => setLabelOpen(v => !v)} className="chat-action-btn" title="Etiquetas">
@@ -1076,6 +1134,17 @@ function ChatPanel({
               <span className="hidden sm:inline">Atribuir</span>
             </button>
           )}
+          {!closed && (
+            <button
+              onClick={() => act(() => patchConversation(phone, { mara_manual_paused: !conversation.mara_manual_paused }))}
+              disabled={acting}
+              className={`chat-action-btn ${conversation.mara_manual_paused ? 'chat-action-btn--manual-active' : 'chat-action-btn--manual'}`}
+              title={conversation.mara_manual_paused ? 'Remover pausa manual da MARA' : 'Pausar MARA manualmente'}
+            >
+              {conversation.mara_manual_paused ? <Play size={14} /> : <PauseCircle size={14} />}
+              <span className="hidden sm:inline">{conversation.mara_manual_paused ? 'Reativar MARA' : 'Pausar MARA'}</span>
+            </button>
+          )}
           {isAssignedToMe && (
             <button onClick={() => act(() => patchConversation(phone, { assigned_to: null, assigned_name: null }))} disabled={acting} className="chat-action-btn chat-action-btn--assigned">
               <UserCheck size={14} />
@@ -1085,7 +1154,7 @@ function ChatPanel({
           {isAssignedToOther && (
             <span className="chat-assigned-other" title={`Atribuída a ${conversation.assigned_name}`}>
               <UserCheck size={12} />
-              <span className="truncate max-w-[80px]">{conversation.assigned_name?.split('@')[0]}</span>
+              <span className="truncate max-w-[80px]">{assignedDisplayName}</span>
             </span>
           )}
 
@@ -1133,7 +1202,7 @@ function ChatPanel({
           {conversation.assigned_name && (
             <span className={student?.email ? 'ml-auto' : ''} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <UserCheck size={11} />
-              {conversation.assigned_name.split('@')[0]}
+              {assignedDisplayName}
             </span>
           )}
         </div>
@@ -1214,17 +1283,7 @@ function ChatPanel({
               <Smile size={16} />
             </button>
             {emojiOpen && (
-              <div className="chat-emoji-picker">
-                {QUICK_EMOJIS.map(emoji => (
-                  <button
-                    key={emoji}
-                    className="chat-emoji-btn"
-                    onClick={() => insertEmoji(emoji)}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
+              <EmojiPicker onInsert={insertEmoji} />
             )}
           </div>
 

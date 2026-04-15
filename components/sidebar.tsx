@@ -65,7 +65,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={cn('flex flex-col min-h-screen shrink-0 transition-all duration-200', w)}
+      className={cn('flex flex-col h-screen overflow-y-auto shrink-0 transition-all duration-200', w)}
       style={{
         background: 'hsl(var(--sidebar-bg))',
         borderRight: '1px solid hsl(var(--sidebar-border))',
