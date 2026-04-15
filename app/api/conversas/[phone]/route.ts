@@ -58,10 +58,28 @@ export async function PATCH(
     followup_stage?: string | null
     contact_name?: string | null
   }
+  const updatePayload: Record<string, unknown> = { ...body }
+
+  if ('assigned_to' in body || 'assigned_name' in body) {
+    const hasHumanOwner =
+      (typeof body.assigned_to === 'string' && body.assigned_to.trim().length > 0) ||
+      (typeof body.assigned_name === 'string' && body.assigned_name.trim().length > 0)
+
+    updatePayload.mara_paused_until = hasHumanOwner
+      ? new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
+      : null
+  }
+
+  const isClosingConversation = body.status === 'closed' || body.followup_stage === 'closed'
+  if (isClosingConversation) {
+    updatePayload.assigned_to = null
+    updatePayload.assigned_name = null
+    updatePayload.mara_paused_until = null
+  }
 
   const { error } = await adminClient
     .from('conversations')
-    .update(body)
+    .update(updatePayload)
     .eq('phone', phone)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

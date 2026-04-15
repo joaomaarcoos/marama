@@ -69,6 +69,14 @@ Esta diretiva descreve a primeira versao da camada 1 para um fluxo que hoje aind
   - image com `caption` e `mediaId`
   - document com placeholder textual
 - Se `WEBHOOK_SECRET` estiver configurado, trate mismatch como erro operacional e corrija antes de prosseguir.
+- A pausa de atendimento humano (`mara_paused_until`) precisa ser revalidada em tres pontos:
+  - antes de enfileirar a mensagem
+  - depois do debounce e antes de chamar o agente
+  - imediatamente antes de qualquer envio outbound da MARA, porque o humano pode assumir enquanto a resposta ainda esta sendo gerada
+- A mesma pausa tambem deve bloquear follow-up e encerramento automatico por inatividade enquanto estiver ativa.
+- Eventos `fromMe=true` nao podem ser ignorados cegamente:
+  - primeiro diferencie saidas automaticas do backend por fingerprint recente (telefone + conteudo)
+  - se o `fromMe` nao bater com uma saida automatica recente, trate como takeover humano e grave `mara_paused_until`
 
 ## Limites da V1
 - A resposta com IA continua no app (`lib/mara-agent.ts`).

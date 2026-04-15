@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { processMessages } from '@/lib/mara-agent'
+import { consumeRecentSystemOutbound, createOutboundFingerprint } from '@/lib/evolution'
 import { startInactivityScheduler } from '@/lib/inactivity-scheduler'
+import { getConversationPhoneCandidates, getMaraPauseState } from '@/lib/mara-pause'
 import { adminClient } from '@/lib/supabase/admin'
 import { normalizeConversationId, toWhatsAppJid } from '@/lib/utils'
 
@@ -155,6 +157,12 @@ function enqueue(sessionId: string, replyTarget: string, message: PendingMessage
     const resolvedPushName = entry.pushName
     pending.delete(sessionId)
     try {
+      const pauseState = await getMaraPauseState(sessionId)
+      if (pauseState.pausedUntil || pauseState.humanHandoffActive) {
+        console.log(`[Webhook] Conversa bloqueada para MARA (candidatos: ${pauseState.candidates.join(',')}) — descartando lote`)
+        return
+      }
+
       await processMessages(sessionId, messages, { replyTarget: entry.replyTarget, pushName: resolvedPushName })
     } catch (err) {
       console.error('[Webhook] Erro ao processar mensagens:', err)
@@ -190,11 +198,22 @@ async function handleWebhookEvent(body: Record<string, unknown>) {
 
   const key = data.key as Record<string, unknown>
   if (!key) return
-  if (key.fromMe === true) return
+
+  // Filtrar mensagens enviadas pelo próprio sistema — Evolution API pode colocar
+  // fromMe em locais diferentes dependendo da versão. Checamos todas as posições.
+  const fromMe =
+    key.fromMe === true ||
+    key.fromMe === 'true' ||
+    (data as Record<string, unknown>).fromMe === true ||
+    (data as Record<string, unknown>).fromMe === 'true' ||
+    body.fromMe === true ||
+    body.fromMe === 'true'
+
   const routing = resolveContactRouting(data, key)
   if (!routing) return
 
   const pushName = typeof data.pushName === 'string' ? data.pushName.trim() || null : null
+  const outboundSource = typeof data.source === 'string' ? data.source.trim().toLowerCase() : null
 
   if (routing.originalId.endsWith('@lid') && routing.originalId !== routing.sessionId) {
     await rekeyConversation(routing.originalId, routing.sessionId)
@@ -230,6 +249,67 @@ async function handleWebhookEvent(body: Record<string, unknown>) {
   }
 
   if (msg.type === 'unknown' && !msg.text) return
+
+  if (fromMe) {
+    const definitelyHumanSource = outboundSource !== null && outboundSource !== 'web'
+    const outboundFingerprint = createOutboundFingerprint({
+      text: msg.text,
+      mediaType: msg.type === 'image' || msg.type === 'audio' || msg.type === 'document' ? msg.type : null,
+      caption: msg.caption,
+    })
+
+    const isSystemOutbound = consumeRecentSystemOutbound(routing.sessionId, outboundFingerprint)
+    if (!definitelyHumanSource && isSystemOutbound) {
+      console.log(`[Webhook] Saida automatica reconhecida (${routing.sessionId}) — ignorando fromMe`)
+      return
+    }
+
+    const pausedUntil = new Date(Date.now() + 90 * 60 * 1000).toISOString()
+    const phoneCandidates = getConversationPhoneCandidates(routing.sessionId)
+    const { data: existingConversations, error: selectConversationError } = await adminClient
+      .from('conversations')
+      .select('phone, assigned_name')
+      .in('phone', phoneCandidates)
+
+    if (selectConversationError) throw selectConversationError
+
+    if ((existingConversations ?? []).length > 0) {
+      const { error: pauseUpdateError } = await adminClient
+        .from('conversations')
+        .update({
+          mara_paused_until: pausedUntil,
+          last_message_at: new Date().toISOString(),
+          assigned_name: existingConversations?.[0]?.assigned_name ?? 'Em atendimento',
+        })
+        .in('phone', phoneCandidates)
+
+      if (pauseUpdateError) throw pauseUpdateError
+    } else {
+      const { error: pauseInsertError } = await adminClient
+        .from('conversations')
+        .upsert({
+          phone: routing.sessionId,
+          status: 'active',
+          last_message_at: new Date().toISOString(),
+          mara_paused_until: pausedUntil,
+          assigned_name: 'Em atendimento',
+        }, { onConflict: 'phone' })
+
+      if (pauseInsertError) throw pauseInsertError
+    }
+
+    console.log(`[Webhook] Saida manual detectada para ${routing.sessionId} (source=${outboundSource ?? 'desconhecida'}) — MARA pausada ate ${pausedUntil}`)
+    return
+  }
+
+  // Verificar flag de pausa ANTES de enfileirar.
+  // Usa ambos os formatos do número brasileiro (com/sem nono dígito) para garantir
+  // que o mismatch de formato não impeça a detecção da pausa.
+  const preQueuePauseState = await getMaraPauseState(routing.sessionId)
+  if (preQueuePauseState.pausedUntil || preQueuePauseState.humanHandoffActive) {
+    console.log(`[Webhook] Conversa bloqueada para MARA (candidatos: ${preQueuePauseState.candidates.join(',')}) — não enfileirado`)
+    return
+  }
 
   enqueue(routing.sessionId, routing.replyTarget, msg, pushName)
 }

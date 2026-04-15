@@ -1,4 +1,5 @@
 import { adminClient } from './supabase/admin'
+import { getMaraPauseState } from './mara-pause'
 import { buildSystemPrompt } from './prompt-builder'
 import { sendText, downloadMedia } from './evolution'
 import { chatCompletion, transcribeAudio, buildImageMessage, ChatMessage } from './openai'
@@ -55,21 +56,14 @@ type Identity =
 const FALLBACK_MESSAGE =
   'Olá! Estou com dificuldades técnicas no momento. Por favor, tente novamente em instantes. 🙏'
 
-const LGPD_NOTICE =
-  `Olá! 👋 Antes de prosseguir, preciso te informar que este atendimento é realizado pela *MARA*, assistente virtual do *Maranhão Profissionalizado*.\n\n` +
-  `Ao continuar esta conversa, você concorda com o tratamento dos seus dados pessoais conforme a *Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018)*, utilizados exclusivamente para fins de suporte educacional.\n\n` +
-  `Para prosseguir, responda *SIM* ou *Concordo*. ✅`
-
 const LGPD_ACK =
-  `Ótimo! Seus dados estão protegidos e o atendimento pode começar. 😊 Como posso te ajudar hoje?`
+  `Olá! 👋 Bem-vindo ao atendimento virtual da *MARA*, assistente do *Maranhão Profissionalizado*. Ao continuar esta conversa, você concorda com o uso dos seus dados para fins de suporte educacional (LGPD — Lei nº 13.709/2018). 😊 Como posso te ajudar hoje?`
 
 const FOLLOWUP_MESSAGE =
   `Oi, ainda está por aí? 😊 Fico à disposição se precisar de mais alguma ajuda com seus estudos!`
 
 const CLOSING_MESSAGE =
   `Seu atendimento foi encerrado por inatividade. Fique à vontade para entrar em contato novamente sempre que precisar. Até logo! 👋`
-
-const CONSENT_REGEX = /\b(sim|s|concordo|aceito|ok|tudo\s*bem|claro|certo|pode|beleza|positivo|afirmativo|aceito\s*sim|concordo\s*sim)\b/i
 
 const MOODLE_INTENT_KEYWORDS: Record<MoodleIntent, string[]> = {
   notas: ['nota', 'notas', 'grade', 'média', 'media', 'desempenho', 'pontuação', 'pontuacao'],
@@ -225,6 +219,18 @@ export async function processMessages(
 ): Promise<void> {
   try {
     const replyTarget = routing.replyTarget ?? phone
+    const abortIfPaused = async (stage: string) => {
+      const pauseState = await getMaraPauseState(phone)
+      if (!pauseState.pausedUntil && !pauseState.humanHandoffActive) return false
+
+      console.log(
+        `[MARA] Conversa ${phone} bloqueada para MARA (${stage}; pausa=${pauseState.pausedUntil ?? 'sem prazo'}; atendimento_humano=${pauseState.humanHandoffActive ? (pauseState.assignedName ?? 'sim') : 'nao'}; candidatos: ${pauseState.candidates.join(',')})`
+      )
+      return true
+    }
+
+    // 0. Pausa por atendimento humano — verificar ANTES de qualquer escrita no banco
+    if (await abortIfPaused('antes de iniciar o processamento')) return
 
     // 1. Upsert conversation + fetch LGPD/followup state
     await adminClient.from('conversations').upsert(
@@ -257,23 +263,18 @@ export async function processMessages(
       .join(' ')
       .trim()
 
-    // 2. LGPD gate — first-time users must consent before any GPT processing
+    // 2. LGPD gate — qualquer mensagem enviada equivale a consentimento implícito
     if (!conv?.lgpd_accepted_at) {
-      const isConsent = CONSENT_REGEX.test(combinedRawText)
+      await adminClient
+        .from('conversations')
+        .update({ lgpd_accepted_at: new Date().toISOString() })
+        .eq('phone', phone)
 
-      if (isConsent) {
-        await adminClient
-          .from('conversations')
-          .update({ lgpd_accepted_at: new Date().toISOString() })
-          .eq('phone', phone)
-        await sendText(replyTarget, LGPD_ACK)
-        await syncContactsSnapshot()
-        return
-      } else {
-        await sendText(replyTarget, LGPD_NOTICE)
-        await syncContactsSnapshot()
-        return
-      }
+      if (await abortIfPaused('antes do envio do aceite LGPD')) return
+
+      await sendText(replyTarget, LGPD_ACK)
+      await syncContactsSnapshot()
+      return
     }
 
     // 3. Inactivity reset — if user was in follow-up, receiving any message resets it
@@ -284,7 +285,7 @@ export async function processMessages(
         .eq('phone', phone)
     }
 
-    // 4. Build combined user content from all messages in the batch
+    // 5. Build combined user content from all messages in the batch
     let combinedText = ''
     let imageContent: { base64: string; mimetype: string; caption?: string } | null = null
 
@@ -367,15 +368,25 @@ export async function processMessages(
       { role: 'user', content: userContent },
     ]
 
-    const response = await chatCompletion(chatMessages)
-
-    // 10. Save to chatmemory
     const userContentText = typeof userContent === 'string' ? userContent : JSON.stringify(userContent)
 
-    await adminClient.from('chatmemory').insert([
-      { session_id: phone, role: 'user', content: userContentText },
-      { session_id: phone, role: 'assistant', content: response },
-    ])
+    await adminClient.from('chatmemory').insert({
+      session_id: phone,
+      role: 'user',
+      content: userContentText,
+    })
+
+    const response = await chatCompletion(chatMessages)
+
+    if (await abortIfPaused('imediatamente antes do envio da resposta')) return
+
+    // 10. Save to chatmemory
+    await sendText(replyTarget, response)
+    await adminClient.from('chatmemory').insert({
+      session_id: phone,
+      role: 'assistant',
+      content: response,
+    })
 
     // 11. Update conversation + reply
     await adminClient
@@ -383,11 +394,15 @@ export async function processMessages(
       .update({ last_message: response.slice(0, 200), last_message_at: new Date().toISOString() })
       .eq('phone', phone)
 
-    await sendText(replyTarget, response)
     await syncContactsSnapshot()
   } catch (error) {
     console.error('[MARA Agent] Erro ao processar mensagem:', error)
     try {
+      const pauseState = await getMaraPauseState(phone)
+      if (pauseState.pausedUntil || pauseState.humanHandoffActive) {
+        console.log(`[MARA] Fallback suprimido para ${phone} — bloqueio ativo para atendimento humano`)
+        return
+      }
       await sendText(routing.replyTarget ?? phone, FALLBACK_MESSAGE)
     } catch {
       console.error('[MARA Agent] Falha ao enviar mensagem de fallback')
@@ -408,12 +423,15 @@ export async function checkInactivity(): Promise<{ followups: number; closings: 
   // Conversas ativas há mais de 90 minutos sem follow-up enviado
   const { data: idleConvs } = await adminClient
     .from('conversations')
-    .select('phone')
+    .select('phone, mara_paused_until, assigned_to, assigned_name')
     .eq('status', 'active')
     .is('followup_stage', null)
     .lt('last_message_at', ninetyMinutesAgo)
 
   for (const conv of idleConvs ?? []) {
+    if (conv.assigned_to || conv.assigned_name) continue
+    if (conv.mara_paused_until && new Date(conv.mara_paused_until) > new Date()) continue
+
     try {
       await sendText(conv.phone, FOLLOWUP_MESSAGE)
       await adminClient
@@ -429,16 +447,25 @@ export async function checkInactivity(): Promise<{ followups: number; closings: 
   // Conversas em follow-up há mais de 1 hora sem resposta
   const { data: staleConvs } = await adminClient
     .from('conversations')
-    .select('phone')
+    .select('phone, mara_paused_until, assigned_to, assigned_name')
     .eq('followup_stage', 'followup_1')
     .lt('followup_sent_at', sixtyMinutesAgo)
 
   for (const conv of staleConvs ?? []) {
+    if (conv.assigned_to || conv.assigned_name) continue
+    if (conv.mara_paused_until && new Date(conv.mara_paused_until) > new Date()) continue
+
     try {
       await sendText(conv.phone, CLOSING_MESSAGE)
       await adminClient
         .from('conversations')
-        .update({ followup_stage: 'closed', status: 'closed' })
+        .update({
+          followup_stage: 'closed',
+          status: 'closed',
+          assigned_to: null,
+          assigned_name: null,
+          mara_paused_until: null,
+        })
         .eq('phone', conv.phone)
       closings++
     } catch (err) {

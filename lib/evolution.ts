@@ -1,3 +1,5 @@
+import { getConversationPhoneCandidates } from './mara-pause'
+
 function getRequiredEnv(name: string): string {
   const value = process.env[name]
   if (!value) {
@@ -23,6 +25,75 @@ function getHeaders() {
 
 function normalizePhoneFromJid(jid: string): string {
   return jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace(/[^0-9]/g, '')
+}
+
+type OutboundMediaType = 'image' | 'audio' | 'document'
+
+interface RecentSystemOutboundEntry {
+  fingerprint: string
+  expiresAt: number
+}
+
+const SYSTEM_OUTBOUND_TTL_MS = 45_000
+const recentSystemOutbounds = new Map<string, RecentSystemOutboundEntry[]>()
+
+function normalizeOutboundFingerprint(value: string | null | undefined): string {
+  return (value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+export function createOutboundFingerprint(input: {
+  text?: string | null
+  mediaType?: OutboundMediaType | null
+  caption?: string | null
+}): string {
+  const textFingerprint = normalizeOutboundFingerprint(input.text)
+  if (textFingerprint) return textFingerprint
+
+  const captionFingerprint = normalizeOutboundFingerprint(input.caption)
+  if (captionFingerprint) return captionFingerprint
+
+  if (input.mediaType) return `[${input.mediaType}]`
+  return '[sem-conteudo]'
+}
+
+function pruneRecentSystemOutbounds(now: number) {
+  for (const [phone, entries] of Array.from(recentSystemOutbounds.entries())) {
+    const validEntries = entries.filter((entry: RecentSystemOutboundEntry) => entry.expiresAt > now)
+    if (validEntries.length === 0) recentSystemOutbounds.delete(phone)
+    else recentSystemOutbounds.set(phone, validEntries)
+  }
+}
+
+function rememberRecentSystemOutbound(phone: string, fingerprint: string) {
+  const now = Date.now()
+  pruneRecentSystemOutbounds(now)
+
+  for (const candidate of getConversationPhoneCandidates(phone)) {
+    const entries = recentSystemOutbounds.get(candidate) ?? []
+    entries.push({ fingerprint, expiresAt: now + SYSTEM_OUTBOUND_TTL_MS })
+    recentSystemOutbounds.set(candidate, entries)
+  }
+}
+
+export function consumeRecentSystemOutbound(phone: string, fingerprint: string): boolean {
+  const now = Date.now()
+  pruneRecentSystemOutbounds(now)
+
+  for (const candidate of getConversationPhoneCandidates(phone)) {
+    const entries = recentSystemOutbounds.get(candidate) ?? []
+    const matchIndex = entries.findIndex((entry) => entry.fingerprint === fingerprint)
+    if (matchIndex === -1) continue
+
+    entries.splice(matchIndex, 1)
+    if (entries.length === 0) recentSystemOutbounds.delete(candidate)
+    else recentSystemOutbounds.set(candidate, entries)
+    return true
+  }
+
+  return false
 }
 
 function getWebhookUrl() {
@@ -103,6 +174,8 @@ export async function createInstance(): Promise<{ instanceName: string; alreadyE
 }
 
 export async function sendText(phone: string, text: string): Promise<void> {
+  rememberRecentSystemOutbound(phone, createOutboundFingerprint({ text }))
+
   const { baseUrl, instance } = getEvolutionConfig()
   const res = await fetch(`${baseUrl}/message/sendText/${instance}`, {
     method: 'POST',
@@ -122,9 +195,11 @@ export async function sendText(phone: string, text: string): Promise<void> {
 export async function sendMedia(
   phone: string,
   mediaUrl: string,
-  mediatype: 'image' | 'audio' | 'document',
+  mediatype: OutboundMediaType,
   caption?: string
 ): Promise<void> {
+  rememberRecentSystemOutbound(phone, createOutboundFingerprint({ mediaType: mediatype, caption }))
+
   const { baseUrl, instance } = getEvolutionConfig()
   const res = await fetch(`${baseUrl}/message/sendMedia/${instance}`, {
     method: 'POST',
