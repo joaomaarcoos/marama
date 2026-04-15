@@ -726,7 +726,7 @@ function buildPersistedAliases(profile: ContactProfile) {
 async function persistDerivedProfiles(profiles: ContactProfile[]): Promise<boolean> {
   const { data: existing, error: existingError } = await adminClient
     .from('contacts')
-    .select('id')
+    .select('id, labels')
 
   if (existingError) {
     if (isContactsPersistenceUnavailable(existingError)) return false
@@ -737,10 +737,29 @@ async function persistDerivedProfiles(profiles: ContactProfile[]): Promise<boole
   const existingIds = (existing ?? []).map((row) => String((row as Record<string, unknown>).id))
   const obsoleteIds = existingIds.filter((id) => !ids.includes(id))
 
+  // Preserve manually-assigned labels that the derived profile doesn't carry
+  // (labels come from conversations; contacts without conversations keep their existing labels)
+  const existingLabelsById = new Map<string, string[]>()
+  for (const row of existing ?? []) {
+    const r = row as Record<string, unknown>
+    const id = String(r.id)
+    const labels = Array.isArray(r.labels) ? r.labels.filter((l): l is string => typeof l === 'string') : []
+    if (labels.length > 0) existingLabelsById.set(id, labels)
+  }
+
   if (profiles.length > 0) {
+    const rows = profiles.map((profile) => {
+      const row = buildPersistedContactRow(profile)
+      // If derived profile has no labels but the stored contact does, keep stored labels
+      if (row.labels.length === 0 && existingLabelsById.has(profile.id)) {
+        row.labels = existingLabelsById.get(profile.id)!
+      }
+      return row
+    })
+
     const { error: upsertContactsError } = await adminClient
       .from('contacts')
-      .upsert(profiles.map(buildPersistedContactRow), { onConflict: 'id' })
+      .upsert(rows, { onConflict: 'id' })
 
     if (upsertContactsError) {
       if (isContactsPersistenceUnavailable(upsertContactsError)) return false
