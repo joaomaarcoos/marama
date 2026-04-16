@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 
-export default function RelatoriosError({
+export default function TutoresError({
   error,
   reset,
 }: {
@@ -11,7 +11,7 @@ export default function RelatoriosError({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('[/relatorios] erro:', error)
+    console.error('[/tutores] erro:', error)
   }, [error])
 
   return (
@@ -19,7 +19,7 @@ export default function RelatoriosError({
       <AlertCircle className="h-10 w-10" style={{ color: 'hsl(var(--destructive))' }} />
       <div className="text-center">
         <p className="font-semibold" style={{ color: 'hsl(var(--foreground))' }}>
-          Não foi possível carregar os relatórios
+          Não foi possível carregar os tutores
         </p>
         <p className="text-sm mt-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
           {error.message || 'Erro interno do servidor'}
