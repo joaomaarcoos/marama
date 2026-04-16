@@ -4,6 +4,8 @@ import { hasSupabasePublicEnv } from '@/lib/supabase/env'
 import { Sidebar } from '@/components/sidebar'
 import { extractRole } from '@/lib/roles'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardLayout({
   children,
 }: {
