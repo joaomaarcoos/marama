@@ -877,23 +877,31 @@ function ChatPanel({
 
   useEffect(() => { setLoading(true); setData(null); load() }, [load])
   useEffect(() => {
-    // Polling de fallback a cada 20s
     const pollId = setInterval(load, 20000)
+    let supabase: ReturnType<typeof createClient> | null = null
+    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null
 
-    // Realtime: recarrega o chat instantaneamente quando chega mensagem nova
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`chat-${phone}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'chatmemory', filter: `session_id=eq.${phone}` },
-        () => { void load() }
-      )
-      .subscribe()
+    try {
+      supabase = createClient()
+      channel = supabase
+        .channel(`chat-${phone}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'chatmemory', filter: `session_id=eq.${phone}` },
+          () => { void load() }
+        )
+        .subscribe((status, err) => {
+          if (err) console.warn('[Realtime chat] subscription error:', err)
+        })
+    } catch (err) {
+      console.warn('[Realtime chat] failed to subscribe, falling back to polling:', err)
+    }
 
     return () => {
       clearInterval(pollId)
-      void supabase.removeChannel(channel)
+      if (supabase && channel) {
+        supabase.removeChannel(channel).catch(() => {})
+      }
     }
   }, [load, phone])
   useEffect(() => {
@@ -1423,23 +1431,31 @@ export default function ChatInterface({
     loadConversations()
     loadLabels()
 
-    // Polling de fallback a cada 30s (o Realtime cobre os updates em tempo real)
     const pollId = setInterval(loadConversations, 30000)
+    let supabase: ReturnType<typeof createClient> | null = null
+    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null
 
-    // Realtime: atualiza a lista instantaneamente quando qualquer conversa muda
-    const supabase = createClient()
-    const channel = supabase
-      .channel('conversations-list')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'conversations' },
-        () => { void loadConversations() }
-      )
-      .subscribe()
+    try {
+      supabase = createClient()
+      channel = supabase
+        .channel('conversations-list')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'conversations' },
+          () => { void loadConversations() }
+        )
+        .subscribe((status, err) => {
+          if (err) console.warn('[Realtime lista] subscription error:', err)
+        })
+    } catch (err) {
+      console.warn('[Realtime lista] failed to subscribe, falling back to polling:', err)
+    }
 
     return () => {
       clearInterval(pollId)
-      void supabase.removeChannel(channel)
+      if (supabase && channel) {
+        supabase.removeChannel(channel).catch(() => {})
+      }
     }
   }, [loadConversations, loadLabels])
 
