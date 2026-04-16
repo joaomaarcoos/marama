@@ -12,7 +12,6 @@ import {
 } from 'lucide-react'
 import { formatPhone } from '@/lib/utils'
 import { EmojiPicker } from '@/components/emoji-picker'
-import { createClient } from '@/lib/supabase/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -878,30 +877,15 @@ function ChatPanel({
   useEffect(() => { setLoading(true); setData(null); load() }, [load])
   useEffect(() => {
     const pollId = setInterval(load, 20000)
-    let supabase: ReturnType<typeof createClient> | null = null
-    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null
 
-    try {
-      supabase = createClient()
-      channel = supabase
-        .channel(`chat-${phone}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'chatmemory', filter: `session_id=eq.${phone}` },
-          () => { void load() }
-        )
-        .subscribe((status, err) => {
-          if (err) console.warn('[Realtime chat] subscription error:', err)
-        })
-    } catch (err) {
-      console.warn('[Realtime chat] failed to subscribe, falling back to polling:', err)
-    }
+    // SSE: recebe eventos do servidor quando chega mensagem nova
+    const es = new EventSource(`/api/conversas/${encodeURIComponent(phone)}/stream`)
+    es.onmessage = () => { void load() }
+    es.onerror = () => { /* cai no polling silenciosamente */ }
 
     return () => {
       clearInterval(pollId)
-      if (supabase && channel) {
-        supabase.removeChannel(channel).catch(() => {})
-      }
+      es.close()
     }
   }, [load, phone])
   useEffect(() => {
@@ -1432,30 +1416,15 @@ export default function ChatInterface({
     loadLabels()
 
     const pollId = setInterval(loadConversations, 30000)
-    let supabase: ReturnType<typeof createClient> | null = null
-    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null
 
-    try {
-      supabase = createClient()
-      channel = supabase
-        .channel('conversations-list')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'conversations' },
-          () => { void loadConversations() }
-        )
-        .subscribe((status, err) => {
-          if (err) console.warn('[Realtime lista] subscription error:', err)
-        })
-    } catch (err) {
-      console.warn('[Realtime lista] failed to subscribe, falling back to polling:', err)
-    }
+    // SSE: recebe eventos do servidor quando qualquer conversa muda
+    const es = new EventSource('/api/conversas/stream')
+    es.onmessage = () => { void loadConversations() }
+    es.onerror = () => { /* cai no polling silenciosamente */ }
 
     return () => {
       clearInterval(pollId)
-      if (supabase && channel) {
-        supabase.removeChannel(channel).catch(() => {})
-      }
+      es.close()
     }
   }, [loadConversations, loadLabels])
 
