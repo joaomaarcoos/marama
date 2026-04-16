@@ -22,31 +22,36 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   BarChart2,
+  Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/theme-provider'
 import { MARAOrb } from '@/components/mara-orb'
 import { useState, useEffect } from 'react'
+import type { UserRole } from '@/lib/roles'
 
-const navItems = [
-  { href: '/dashboard',  label: 'Dashboard',          icon: LayoutDashboard },
-  { href: '/conversas',  label: 'Conversas',           icon: MessageSquare },
-  { href: '/contatos',   label: 'Contatos',            icon: User },
-  { href: '/prompt',     label: 'Prompt da MARA',      icon: FileText },
-  { href: '/documentos', label: 'Base de Conhecimento',icon: BookOpen },
-  { href: '/disparos',   label: 'Disparos',            icon: Send },
-  { href: '/alunos',     label: 'Alunos',               icon: GraduationCap },
-  { href: '/tutores',    label: 'Tutores / Professores',icon: GraduationCap },
-  { href: '/usuarios',   label: 'Usuários',            icon: ShieldCheck },
-  { href: '/conexao',    label: 'Conexão WhatsApp',    icon: Smartphone },
-  { href: '/logs',       label: 'Logs Evolution',      icon: ScrollText },
-  { href: '/relatorios', label: 'Relatórios',           icon: BarChart2 },
+const ALL_NAV_ITEMS = [
+  { href: '/dashboard',  label: 'Dashboard',           icon: LayoutDashboard, roles: ['admin','gerente','atendente'] as UserRole[] },
+  { href: '/conversas',  label: 'Conversas',            icon: MessageSquare,   roles: ['admin','gerente','atendente'] as UserRole[] },
+  { href: '/contatos',   label: 'Contatos',             icon: User,            roles: ['admin','gerente','atendente'] as UserRole[] },
+  { href: '/prompt',     label: 'Prompt da MARA',       icon: FileText,        roles: ['admin','gerente'] as UserRole[] },
+  { href: '/documentos', label: 'Base de Conhecimento', icon: BookOpen,        roles: ['admin','gerente'] as UserRole[] },
+  { href: '/disparos',   label: 'Disparos',             icon: Send,            roles: ['admin','gerente'] as UserRole[] },
+  { href: '/alunos',     label: 'Alunos',               icon: GraduationCap,   roles: ['admin','gerente','atendente'] as UserRole[] },
+  { href: '/tutores',    label: 'Tutores / Professores', icon: GraduationCap,  roles: ['admin','gerente','atendente'] as UserRole[] },
+  { href: '/usuarios',   label: 'Usuários',             icon: ShieldCheck,     roles: ['admin','gerente'] as UserRole[] },
+  { href: '/conexao',    label: 'Conexão WhatsApp',     icon: Smartphone,      roles: ['admin','gerente','atendente'] as UserRole[] },
+  { href: '/logs',       label: 'Logs Evolution',       icon: ScrollText,      roles: ['admin'] as UserRole[] },
+  { href: '/relatorios',    label: 'Relatórios',           icon: BarChart2,  roles: ['admin','gerente'] as UserRole[] },
+  { href: '/configuracoes', label: 'Configurações',        icon: Settings,   roles: ['admin','gerente','atendente'] as UserRole[] },
 ]
 
-export function Sidebar() {
+export function Sidebar({ role }: { role: UserRole }) {
   const pathname = usePathname()
   const { theme, toggle } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
+
+  const navItems = ALL_NAV_ITEMS.filter(item => item.roles.includes(role))
 
   // Persist collapse state
   useEffect(() => {

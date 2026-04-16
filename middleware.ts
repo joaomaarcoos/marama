@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { canAccess, extractRole } from '@/lib/roles'
 
 // Resolve URL e key com fallback para nomes sem prefixo NEXT_PUBLIC_.
 function readEnv(name: string) {
@@ -17,9 +18,9 @@ function getSupabaseAnonKey() {
 const publicApiPrefixes = ['/api/webhook', '/api/health']
 const publicPagePaths = ['/login']
 const protectedPaths = [
-  '/dashboard', '/prompt', '/disparos', '/moodle', '/conversas',
+  '/dashboard', '/prompt', '/disparos', '/conversas',
   '/documentos', '/usuarios', '/relatorios', '/contatos', '/logs',
-  '/conexao', '/tutores',
+  '/conexao', '/tutores', '/alunos', '/configuracoes',
 ]
 
 export async function middleware(request: NextRequest) {
@@ -32,7 +33,6 @@ export async function middleware(request: NextRequest) {
   const isProtectedPage = protectedPaths.some((path) => pathname.startsWith(path))
   const isProtectedApiRoute = pathname.startsWith('/api/') && !isPublicApi
 
-  // Rotas publicas nao devem depender do Supabase para responder.
   if (isPublicApi) {
     return supabaseResponse
   }
@@ -92,6 +92,14 @@ export async function middleware(request: NextRequest) {
 
     if (isProtectedPage && !user) {
       return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    // Role-based access control para páginas protegidas
+    if (isProtectedPage && user) {
+      const role = extractRole(user)
+      if (!canAccess(role, pathname)) {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
     }
 
     if (isPublicPage && user) {

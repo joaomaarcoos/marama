@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { hasSupabasePublicEnv } from '@/lib/supabase/env'
 import { Sidebar } from '@/components/sidebar'
+import { extractRole } from '@/lib/roles'
 
 export default async function DashboardLayout({
   children,
@@ -19,9 +20,11 @@ export default async function DashboardLayout({
 
   if (!user) redirect('/login')
 
+  const role = extractRole(user)
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
+      <Sidebar role={role} />
       <main className="flex-1 overflow-y-auto">
         <div className="p-8">{children}</div>
       </main>

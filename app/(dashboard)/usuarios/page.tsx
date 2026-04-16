@@ -3,12 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 import { ShieldCheck } from 'lucide-react'
 import UserTable from '@/components/user-table'
 import UserForm from '@/components/user-form'
+import { extractRole } from '@/lib/roles'
 
 export const revalidate = 0
 
 export default async function UsuariosPage() {
   const supabase = await createClient()
   const { data: { user: currentUser } } = await supabase.auth.getUser()
+
+  const currentRole = extractRole(currentUser)
+  const isAdmin = currentRole === 'admin'
 
   const { data } = await adminClient.auth.admin.listUsers()
   const users = data?.users ?? []
@@ -25,10 +29,14 @@ export default async function UsuariosPage() {
             Gerencie quem tem acesso ao painel do SISTEMAMARA.
           </p>
         </div>
-        <UserForm />
+        {isAdmin && <UserForm />}
       </div>
 
-      <UserTable users={users} currentUserId={currentUser?.id ?? ''} />
+      <UserTable
+        users={users}
+        currentUserId={currentUser?.id ?? ''}
+        isAdmin={isAdmin}
+      />
     </div>
   )
 }

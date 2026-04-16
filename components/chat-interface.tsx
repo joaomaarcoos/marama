@@ -449,7 +449,7 @@ const TAB_DEFS: { id: Tab; label: string }[] = [
   { id: 'todas',          label: 'Todas' },
   { id: 'ao_vivo',        label: 'Ao Vivo' },
   { id: 'minhas',         label: 'Minhas' },
-  { id: 'nao_atribuidas', label: 'Não Atrib.' },
+  { id: 'nao_atribuidas', label: 'Não Atribuídas' },
   { id: 'encerradas',     label: 'Encerradas' },
 ]
 
