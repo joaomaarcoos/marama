@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getAllTutors } from '@/lib/moodle'
 
-export const revalidate = 300 // 5 minutes cache
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const cookieStore = await cookies()
