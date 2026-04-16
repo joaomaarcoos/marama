@@ -103,6 +103,9 @@ export async function POST(
         mara_paused_until: pausedUntil,
         assigned_to: user.id,
         assigned_name: attendantName,
+        // Reabre a conversa caso esteja encerrada (atendente iniciando contato)
+        status: 'active',
+        followup_stage: null,
       })
       .in('phone', phoneCandidates)
 
@@ -114,7 +117,7 @@ export async function POST(
       const buffer = Buffer.from(await file.arrayBuffer())
       const base64 = buffer.toString('base64')
       const dataUrl = buildDataUrl(file, base64)
-      await sendMedia(phone, dataUrl, mediaKind, signedText || undefined)
+      await sendMedia(phone, dataUrl, mediaKind, signedText || undefined, file.name || undefined)
     } else {
       await sendText(phone, signedText)
     }

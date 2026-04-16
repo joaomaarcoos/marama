@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { formatPhone } from '@/lib/utils'
 import { EmojiPicker } from '@/components/emoji-picker'
-// Supabase browser client removido — currentUser vem do server component via prop
+import { createClient } from '@/lib/supabase/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -876,7 +876,26 @@ function ChatPanel({
   }, [phone])
 
   useEffect(() => { setLoading(true); setData(null); load() }, [load])
-  useEffect(() => { const id = setInterval(load, 8000); return () => clearInterval(id) }, [load])
+  useEffect(() => {
+    // Polling de fallback a cada 20s
+    const pollId = setInterval(load, 20000)
+
+    // Realtime: recarrega o chat instantaneamente quando chega mensagem nova
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`chat-${phone}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chatmemory', filter: `session_id=eq.${phone}` },
+        () => { void load() }
+      )
+      .subscribe()
+
+    return () => {
+      clearInterval(pollId)
+      void supabase.removeChannel(channel)
+    }
+  }, [load, phone])
   useEffect(() => {
     if (data?.messages?.length) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [data?.messages?.length])
@@ -1342,7 +1361,7 @@ function ChatPanel({
           ref={fileInputRef}
           type="file"
           className="hidden"
-          accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.rar"
+          accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.txt,.zip,.rar,.7z,.ppt,.pptx,.odt,.ods,.odp"
           onChange={handleFileChange}
         />
       </div>
@@ -1403,8 +1422,25 @@ export default function ChatInterface({
   useEffect(() => {
     loadConversations()
     loadLabels()
-    const id = setInterval(loadConversations, 15000)
-    return () => clearInterval(id)
+
+    // Polling de fallback a cada 30s (o Realtime cobre os updates em tempo real)
+    const pollId = setInterval(loadConversations, 30000)
+
+    // Realtime: atualiza a lista instantaneamente quando qualquer conversa muda
+    const supabase = createClient()
+    const channel = supabase
+      .channel('conversations-list')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations' },
+        () => { void loadConversations() }
+      )
+      .subscribe()
+
+    return () => {
+      clearInterval(pollId)
+      void supabase.removeChannel(channel)
+    }
   }, [loadConversations, loadLabels])
 
   const uid = currentUser?.id ?? null

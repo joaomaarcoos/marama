@@ -196,20 +196,24 @@ export async function sendMedia(
   phone: string,
   mediaUrl: string,
   mediatype: OutboundMediaType,
-  caption?: string
+  caption?: string,
+  fileName?: string
 ): Promise<void> {
   rememberRecentSystemOutbound(phone, createOutboundFingerprint({ mediaType: mediatype, caption }))
 
   const { baseUrl, instance } = getEvolutionConfig()
+  const body: Record<string, string> = {
+    number: phone,
+    mediatype,
+    media: mediaUrl,
+    caption: caption ?? '',
+  }
+  if (fileName) body.fileName = fileName
+
   const res = await fetch(`${baseUrl}/message/sendMedia/${instance}`, {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify({
-      number: phone,
-      mediatype,
-      media: mediaUrl,
-      caption: caption ?? '',
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!res.ok) {
