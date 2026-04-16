@@ -363,12 +363,16 @@ export async function processMessages(
     if (await abortIfPaused('antes de iniciar o processamento')) return
 
     // 1. Upsert conversation + fetch LGPD/followup state
+    // followup_stage and followup_sent_at are reset so a closed/followup conversation
+    // becomes fully active again when the user sends a new message
     await adminClient.from('conversations').upsert(
       {
         phone,
         last_message_at: new Date().toISOString(),
         last_message: messages.map(m => m.text ?? m.caption ?? `[${m.type}]`).join(' '),
         status: 'active',
+        followup_stage: null,
+        followup_sent_at: null,
       },
       { onConflict: 'phone' }
     )

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -33,10 +34,15 @@ function getPeriodRange(period: string): { from: string; to: string } {
 }
 
 export async function GET(request: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { searchParams } = new URL(request.url)
   const period = searchParams.get('period') ?? '30d'
   const { from, to } = getPeriodRange(period)
 
+  try {
   // Fetch all conversations in period plus labels in parallel
   const [convsResult, labelsResult] = await Promise.all([
     adminClient
@@ -127,4 +133,9 @@ export async function GET(request: NextRequest) {
     timeline,
     conversations: list,
   })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Erro ao gerar relatório'
+    console.error('[/api/relatorios]', err)
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 }

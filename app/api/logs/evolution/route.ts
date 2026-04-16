@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 function getRequiredEnv(name: string): string {
   const value = process.env[name]
   if (!value) {
