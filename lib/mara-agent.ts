@@ -20,10 +20,8 @@ import {
   formatDetailedGradeContext,
   MoodleCourse,
 } from './moodle'
-import { normalizeCpf } from './utils'
+import { extractCpf, normalizeCpf } from './utils'
 import { createTicket } from './ticket'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface WebhookMessage {
   type: 'text' | 'audio' | 'image' | 'document' | 'unknown'
@@ -45,12 +43,21 @@ interface StudentRow {
   moodle_id: ContactStudentRecord['moodle_id']
   full_name: ContactStudentRecord['full_name']
   email: ContactStudentRecord['email']
+  cpf: ContactStudentRecord['cpf']
   courses: MoodleCourse[]
   role: 'aluno' | 'gestor'
 }
 
 type MoodleIntent = 'notas' | 'notas-detalhadas' | 'certificado' | 'progresso' | 'matricula'
 type PasswordResetStep = 'ask_cpf' | 'confirm_name'
+type SupportTicketStep = 'ask_subject'
+type IdentityField = 'name' | 'cpf'
+type AssistantRoute = 'REPLY' | 'HUMAN' | 'OFFER_TICKET'
+type PayloadNameAssessment =
+  | { kind: 'confirmed'; name: string }
+  | { kind: 'candidate'; name: string }
+  | { kind: 'invalid' }
+  | { kind: 'missing' }
 
 interface PasswordResetAction {
   type: 'password_reset'
@@ -59,11 +66,27 @@ interface PasswordResetAction {
   full_name?: string
 }
 
-type SupportTicketStep = 'ask_subject'
 interface SupportTicketAction {
   type: 'support_ticket'
   step: SupportTicketStep
 }
+
+interface SupportTicketOfferAction {
+  type: 'support_ticket_offer'
+}
+
+interface IdentityCollectionAction {
+  type: 'collect_identity'
+  missing: IdentityField[]
+  provided_name?: string | null
+  candidate_name?: string | null
+}
+
+type PendingAction =
+  | PasswordResetAction
+  | SupportTicketAction
+  | SupportTicketOfferAction
+  | IdentityCollectionAction
 
 type Identity =
   | { type: 'aluno'; student: StudentRow; contact: ContactProfile | null }
@@ -71,45 +94,62 @@ type Identity =
   | { type: 'contato'; contact: ContactProfile }
   | { type: 'desconhecido' }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const FALLBACK_MESSAGE =
-  'Olá! Estou com dificuldades técnicas no momento. Por favor, tente novamente em instantes. 🙏'
+  'Ola! Estou com dificuldades tecnicas no momento. Por favor, tente novamente em instantes.'
 
 const LGPD_ACK =
-  `Olá! 👋 Bem-vindo ao atendimento virtual da *MARA*, assistente do *Maranhão Profissionalizado*. Ao continuar esta conversa, você concorda com o uso dos seus dados para fins de suporte educacional (LGPD — Lei nº 13.709/2018). 😊 Como posso te ajudar hoje?`
+  'Ola! Bem-vindo(a) ao atendimento virtual da *MARA*, assistente do *Maranhao Profissionalizado*. Ao continuar esta conversa, voce concorda com o uso dos seus dados para fins de suporte educacional (LGPD - Lei no 13.709/2018).'
 
 const FOLLOWUP_MESSAGE =
-  `Oi, ainda está por aí? 😊 Fico à disposição se precisar de mais alguma ajuda com seus estudos!`
+  'Oi, ainda esta por ai? Fico a disposicao se precisar de mais alguma ajuda com seus estudos.'
 
 const CLOSING_MESSAGE =
-  `Seu atendimento foi encerrado por inatividade. Fique à vontade para entrar em contato novamente sempre que precisar. Até logo! 👋`
+  'Seu atendimento foi encerrado por inatividade. Fique a vontade para entrar em contato novamente sempre que precisar. Ate logo!'
 
 const MOODLE_INTENT_KEYWORDS: Record<MoodleIntent, string[]> = {
   'notas-detalhadas': [
-    'quiz', 'tarefa', 'avaliação', 'avaliacao', 'item', 'detalhe', 'detalhes',
-    'nota da tarefa', 'nota do quiz', 'nota da avaliação', 'passei',
+    'quiz', 'tarefa', 'avaliacao', 'item', 'detalhe', 'detalhes',
+    'nota da tarefa', 'nota do quiz', 'passei',
   ],
-  notas: ['nota', 'notas', 'grade', 'média', 'media', 'desempenho', 'pontuação', 'pontuacao'],
+  notas: ['nota', 'notas', 'grade', 'media', 'desempenho', 'pontuacao'],
   certificado: [
-    'certificado', 'certificar', 'certificação', 'certificacao',
-    'diploma', 'concluí', 'concluir', 'conclui', 'conclusão', 'conclusao',
+    'certificado', 'certificar', 'certificacao',
+    'diploma', 'conclui', 'concluir', 'conclusao',
   ],
   progresso: [
     'progresso', 'andamento', 'quanto fiz', 'atividades', 'atividade',
     'completei', 'completar', 'quantas aulas', 'quanto completei',
   ],
   matricula: [
-    'matrícula', 'matricula', 'matriculado', 'inscrito', 'inscrição',
-    'inscricao', 'situação', 'situacao', 'status', 'ativo', 'suspens',
+    'matricula', 'matriculado', 'inscrito', 'inscricao',
+    'situacao', 'status', 'ativo', 'suspens',
   ],
 }
 
 const PASSWORD_RESET_KEYWORDS = [
   'trocar senha', 'mudar senha', 'esqueci senha', 'esqueci a senha',
-  'redefinir senha', 'nova senha', 'não consigo entrar', 'nao consigo entrar',
+  'redefinir senha', 'nova senha', 'nao consigo entrar',
   'acesso moodle', 'acesso ao moodle', 'minha senha', 'resetar senha',
   'reset senha', 'recuperar senha',
+]
+
+const EXPLICIT_TICKET_KEYWORDS = [
+  'abrir ticket', 'abrir um ticket', 'criar ticket', 'gerar ticket',
+  'abrir chamado', 'abrir um chamado', 'criar chamado', 'gerar protocolo',
+  'registrar chamado', 'registrar ticket', 'quero um protocolo',
+]
+
+const HUMAN_HANDOFF_KEYWORDS = [
+  'atendimento humano', 'atendente humano', 'falar com humano', 'falar com uma pessoa',
+  'falar com atendente', 'falar com suporte', 'quero um humano', 'quero falar com alguem',
+  'transferir para humano', 'transferir para atendente', 'me passa para um humano',
+]
+
+const NON_NAME_PATTERNS = [
+  /\b(deus|jesus|cristo|senhor|fiel|aben[cç]oado|gratid[aã]o|fe)\b/i,
+  /\b(flamengo|vasco|corinthians|palmeiras|santos|botafogo|gremio|bahia)\b/i,
+  /\b(soldado|guerreiro|oficial|patrao|patr[aã]o|princesa|rainha|rei)\b/i,
+  /\b(loja|store|empresa|ofc|oficial|delivery|mec[aâ]nica|barbearia)\b/i,
 ]
 
 function detectPasswordResetIntent(text: string): boolean {
@@ -117,19 +157,225 @@ function detectPasswordResetIntent(text: string): boolean {
   return PASSWORD_RESET_KEYWORDS.some((kw) => lower.includes(kw))
 }
 
-const SUPPORT_INTENT_KEYWORDS = [
-  'suporte', 'chamado', 'ticket', 'solicitação', 'solicitacao',
-  'reclamação', 'reclamacao', 'abrir chamado', 'preciso de suporte',
-  'ajuda técnica', 'ajuda tecnica', 'reportar problema',
-  'não consigo acessar', 'nao consigo acessar',
-]
-
-function detectSupportIntent(text: string): boolean {
+function detectExplicitTicketIntent(text: string): boolean {
   const lower = text.toLowerCase()
-  return SUPPORT_INTENT_KEYWORDS.some((kw) => lower.includes(kw))
+  return EXPLICIT_TICKET_KEYWORDS.some((kw) => lower.includes(kw))
 }
 
-// ─── Identity Resolution ──────────────────────────────────────────────────────
+function detectHumanHandoffIntent(text: string): boolean {
+  const lower = text.toLowerCase()
+  return HUMAN_HANDOFF_KEYWORDS.some((kw) => lower.includes(kw))
+}
+
+function isAffirmative(text: string): boolean {
+  return /^(sim|s|yes|quero|pode|pode sim|claro|ok|okay|isso|isso mesmo)\b/i.test(text.trim())
+}
+
+function isNegative(text: string): boolean {
+  return /^(nao|n|cancelar|cancela|deixa|deixa pra la)\b/i.test(text.trim())
+}
+
+function extractNameCandidate(text: string): string | null {
+  const withoutCpf = text
+    .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, ' ')
+    .replace(/\bcpf\b[:\s-]*/gi, ' ')
+    .replace(/^(meu nome(?: completo)? e|nome(?: completo)?[:\s-]*|sou o|sou a)\s+/i, '')
+    .replace(/[|;,]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!withoutCpf || withoutCpf.length < 3 || withoutCpf.length > 100) return null
+  if (!/[A-Za-z]/.test(withoutCpf)) return null
+  return withoutCpf
+}
+
+function normalizePayloadName(value: string | null | undefined): string | null {
+  if (!value) return null
+
+  const normalized = value
+    .replace(/[|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return normalized.length > 0 ? normalized : null
+}
+
+function looksLikePersonalName(value: string): boolean {
+  if (value.length < 3 || value.length > 60) return false
+  if (/\d/.test(value)) return false
+  if (/[#@/\\_*~"=+]/.test(value)) return false
+
+  for (const pattern of NON_NAME_PATTERNS) {
+    if (pattern.test(value)) return false
+  }
+
+  const tokens = value
+    .split(/\s+/)
+    .map((token) => token.replace(/[^A-Za-zÀ-ÿ'-]/g, ''))
+    .filter(Boolean)
+
+  if (tokens.length === 0 || tokens.length > 4) return false
+
+  const validTokens = tokens.every((token) => token.length >= 2 && /[aeiouáéíóúãõâêô]/i.test(token))
+  if (!validTokens) return false
+
+  return true
+}
+
+function assessPayloadName(
+  confirmedName: string | null,
+  whatsappName: string | null | undefined
+): PayloadNameAssessment {
+  if (confirmedName?.trim()) {
+    return { kind: 'confirmed', name: confirmedName.trim() }
+  }
+
+  const normalized = normalizePayloadName(whatsappName)
+  if (!normalized) return { kind: 'missing' }
+
+  if (looksLikePersonalName(normalized)) {
+    return { kind: 'candidate', name: normalized }
+  }
+
+  return { kind: 'invalid' }
+}
+
+function buildIdentityPrompt(
+  missing: IdentityField[],
+  options: { candidateName?: string | null } = {}
+): string {
+  const candidateName = options.candidateName?.trim() || null
+
+  if (missing.includes('name') && missing.includes('cpf')) {
+    if (candidateName) {
+      return `Antes de seguir, preciso identificar seu atendimento. Quero confirmar: seu nome e *${candidateName}*? Se nao for, me informe seu *nome completo*. Aproveite e envie tambem seu *CPF* (somente numeros ou no formato XXX.XXX.XXX-XX).`
+    }
+
+    return 'Antes de seguir, preciso identificar seu atendimento. Informe seu *nome completo* e seu *CPF* (somente numeros ou no formato XXX.XXX.XXX-XX). Se preferir, envie os dois na mesma mensagem.'
+  }
+
+  if (missing.includes('name')) {
+    if (candidateName) {
+      return `Quero confirmar seu nome: e *${candidateName}*? Se nao for, me informe seu *nome completo*.`
+    }
+
+    return 'Antes de seguir, preciso do seu *nome completo* para identificar este atendimento.'
+  }
+
+  return 'Antes de seguir, preciso do seu *CPF* (somente numeros ou no formato XXX.XXX.XXX-XX) para identificar este atendimento.'
+}
+
+function parseAssistantRoute(rawResponse: string): { route: AssistantRoute; content: string } {
+  const match = rawResponse.match(/^\s*\[\[ROUTE:(REPLY|HUMAN|OFFER_TICKET)\]\]\s*/i)
+  if (!match) {
+    return { route: 'REPLY', content: rawResponse.trim() }
+  }
+
+  return {
+    route: match[1].toUpperCase() as AssistantRoute,
+    content: rawResponse.replace(match[0], '').trim(),
+  }
+}
+
+function getKnownName(identity: Identity, confirmedConversationName?: string | null): string | null {
+  if (identity.type === 'aluno' || identity.type === 'gestor') {
+    return identity.student.full_name?.trim() || null
+  }
+
+  return confirmedConversationName?.trim() || null
+}
+
+function getKnownCpf(identity: Identity, conversationCpf?: string | null): string | null {
+  const normalizedConversationCpf = normalizeCpf(conversationCpf)
+  if (normalizedConversationCpf) return normalizedConversationCpf
+
+  if (identity.type === 'aluno' || identity.type === 'gestor') {
+    return normalizeCpf(identity.student.cpf)
+  }
+
+  if (identity.type === 'contato') {
+    return normalizeCpf(identity.contact.cpf)
+  }
+
+  return null
+}
+
+function getMissingIdentityFields(
+  identity: Identity,
+  confirmedConversationName?: string | null,
+  conversationCpf?: string | null
+): IdentityField[] {
+  const missing: IdentityField[] = []
+
+  if (!getKnownName(identity, confirmedConversationName)) missing.push('name')
+  if (!getKnownCpf(identity, conversationCpf)) missing.push('cpf')
+
+  return missing
+}
+
+async function storeUserMessage(phone: string, content: string) {
+  await adminClient.from('chatmemory').insert({ session_id: phone, role: 'user', content })
+}
+
+async function sendAssistantMessage(
+  phone: string,
+  replyTarget: string,
+  text: string,
+  conversationUpdates: Record<string, unknown> = {}
+) {
+  await sendText(replyTarget, text)
+  await adminClient.from('chatmemory').insert({ session_id: phone, role: 'assistant', content: text })
+  await adminClient
+    .from('conversations')
+    .update({
+      last_message: text.slice(0, 200),
+      last_message_at: new Date().toISOString(),
+      ...conversationUpdates,
+    })
+    .eq('phone', phone)
+}
+
+async function activateHumanHandoff(phone: string, replyTarget: string, text: string) {
+  const pausedUntil = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
+  await sendAssistantMessage(phone, replyTarget, text, {
+    pending_action: null,
+    assigned_to: null,
+    assigned_name: 'Aguardando atendimento humano',
+    mara_paused_until: pausedUntil,
+    status: 'active',
+  })
+}
+
+async function persistCollectedIdentity(
+  phone: string,
+  data: { name?: string | null; cpf?: string | null }
+) {
+  const updates: Record<string, unknown> = { pending_action: null }
+  const name = data.name?.trim() || null
+  const cpf = normalizeCpf(data.cpf)
+
+  if (name) {
+    updates.contact_name = name
+    updates.contact_name_confirmed = true
+  }
+  if (cpf) updates.cpf = cpf
+
+  if (cpf) {
+    const { data: student } = await adminClient
+      .from('students')
+      .select('id, full_name')
+      .eq('cpf', cpf)
+      .limit(1)
+      .maybeSingle()
+
+    if (student) {
+      updates.student_id = student.id
+      if (!name) updates.contact_name = student.full_name
+    }
+  }
+
+  await adminClient.from('conversations').update(updates).eq('phone', phone)
+}
 
 async function resolveIdentity(phone: string, messageText?: string): Promise<Identity> {
   const { profile, student } = await resolveKnownContact(phone, messageText)
@@ -140,6 +386,7 @@ async function resolveIdentity(phone: string, messageText?: string): Promise<Ide
       moodle_id: student.moodle_id,
       full_name: student.full_name,
       email: student.email,
+      cpf: student.cpf,
       courses: student.courses as MoodleCourse[],
       role: student.role === 'gestor' ? 'gestor' : 'aluno',
     }
@@ -158,12 +405,12 @@ async function resolveIdentity(phone: string, messageText?: string): Promise<Ide
   return { type: 'desconhecido' }
 }
 
-function buildIdentityContext(identity: Identity): string | null {
+function buildIdentityContext(identity: Identity, confirmedName?: string | null): string | null {
   if (identity.type === 'desconhecido') {
     return (
-      'Este usuário ainda não foi identificado no sistema. ' +
-      'Se ainda não perguntou o CPF nesta conversa, peça-o educadamente para personalizar o atendimento. ' +
-      'Formato esperado: XXX.XXX.XXX-XX. Não peça o CPF novamente se já perguntou antes nesta mesma conversa.'
+      'Este usuario ainda nao possui vinculo confirmado no sistema. ' +
+      'A coleta inicial de nome e CPF ja e feita pela orquestracao quando necessario. ' +
+      'Nao repita essa solicitacao por conta propria, exceto em fluxos especificos de confirmacao.'
     )
   }
 
@@ -172,13 +419,14 @@ function buildIdentityContext(identity: Identity): string | null {
       identity.contact.labels.length > 0
         ? identity.contact.labels.join(', ')
         : 'nenhuma etiqueta cadastrada'
+    const contactLabel = confirmedName?.trim() || 'Contato sem nome confirmado'
 
     return (
-      `Contato conhecido no atendimento: ${identity.contact.displayName}. ` +
+      `Contato conhecido no atendimento: ${contactLabel}. ` +
       `Telefone principal: ${identity.contact.canonicalPhone ?? 'nao identificado'}. ` +
       `Etiquetas internas: ${labels}. ` +
       'Nao existe vinculo confirmado com Moodle neste momento. ' +
-      'Atenda usando o contexto operacional ja conhecido e peca CPF apenas se for necessario vincular dados academicos.'
+      'Atenda usando o contexto operacional ja conhecido sem repetir a coleta inicial de identificacao.'
     )
   }
 
@@ -194,17 +442,15 @@ function buildIdentityContext(identity: Identity): string | null {
     : ''
 
   if (identity.type === 'gestor') {
-    return `Pessoa identificada: ${student.full_name} (GESTOR do programa). Email: ${student.email ?? 'não informado'}.${labelsPart}`
+    return `Pessoa identificada: ${student.full_name} (GESTOR do programa). Email: ${student.email ?? 'nao informado'}.${labelsPart}`
   }
 
   return (
     `Aluno identificado: ${student.full_name}. ` +
-    `Email: ${student.email ?? 'não informado'}. ` +
+    `Email: ${student.email ?? 'nao informado'}. ` +
     `Cursos matriculados: ${courseList}.${labelsPart}`
   )
 }
-
-// ─── Moodle Intent Detection ──────────────────────────────────────────────────
 
 function detectMoodleIntent(text: string): MoodleIntent | null {
   const lower = text.toLowerCase()
@@ -213,8 +459,6 @@ function detectMoodleIntent(text: string): MoodleIntent | null {
   }
   return null
 }
-
-// ─── On-demand Moodle Context Fetcher ────────────────────────────────────────
 
 async function fetchMoodleContext(student: StudentRow, intent: MoodleIntent): Promise<string | null> {
   if (!student.moodle_id) return null
@@ -242,10 +486,10 @@ async function fetchMoodleContext(student: StudentRow, intent: MoodleIntent): Pr
               return formatCompletionContext(comp, c.fullname || c.shortname)
             })
           )
-          return `### Status de Conclusão / Certificados\n${results.join('\n')}`
+          return `### Status de Conclusao / Certificados\n${results.join('\n')}`
         }
         const completion = await getCourseCompletion(student.moodle_id, firstCourse.id)
-        return `### Status de Conclusão / Certificado\n${formatCompletionContext(completion, firstCourse.fullname || firstCourse.shortname)}`
+        return `### Status de Conclusao / Certificado\n${formatCompletionContext(completion, firstCourse.fullname || firstCourse.shortname)}`
       }
       case 'progresso': {
         if (!firstCourse) return 'Nenhum curso encontrado para verificar progresso.'
@@ -254,7 +498,7 @@ async function fetchMoodleContext(student: StudentRow, intent: MoodleIntent): Pr
       }
       case 'matricula': {
         const enrollments = await getUserEnrollmentInfo(student.moodle_id)
-        return `### Situação de Matrícula\n${formatEnrollmentContext(enrollments)}`
+        return `### Situacao de Matricula\n${formatEnrollmentContext(enrollments)}`
       }
       default:
         return null
@@ -265,101 +509,78 @@ async function fetchMoodleContext(student: StudentRow, intent: MoodleIntent): Pr
   }
 }
 
-// ─── Password Reset Flow (stateful, multi-turn) ───────────────────────────────
-
 async function handlePasswordResetFlow(
   phone: string,
   replyTarget: string,
   userText: string,
   action: PasswordResetAction
 ): Promise<void> {
-  const reply = async (text: string) => {
-    await sendText(replyTarget, text)
-    await adminClient.from('chatmemory').insert({ session_id: phone, role: 'assistant', content: text })
-    await adminClient.from('conversations').update({ last_message: text.slice(0, 200), last_message_at: new Date().toISOString() }).eq('phone', phone)
-  }
+  await storeUserMessage(phone, userText)
 
-  // Salvar mensagem do usuário no histórico
-  await adminClient.from('chatmemory').insert({ session_id: phone, role: 'user', content: userText })
-
-  // ─── Etapa 1: aguardando CPF ──────────────────────────────────────────────
   if (action.step === 'ask_cpf') {
-    const cpf = normalizeCpf(userText)
+    const cpf = normalizeCpf(extractCpf(userText) ?? userText)
 
     if (!cpf) {
-      await reply('Não reconheci um CPF válido. Por favor, informe no formato XXX.XXX.XXX-XX ou somente os 11 dígitos.')
+      await sendAssistantMessage(phone, replyTarget, 'Nao reconheci um CPF valido. Por favor, informe no formato XXX.XXX.XXX-XX ou somente os 11 digitos.')
       return
     }
 
-    // Buscar pelo CPF na tabela contacts (fonte unificada) ou diretamente em students
-    const { data: studentFromContacts } = await adminClient
+    const { data: student } = await adminClient
       .from('students')
       .select('id, moodle_id, full_name')
       .eq('cpf', cpf)
       .not('moodle_id', 'is', null)
       .maybeSingle()
 
-    const student = studentFromContacts
-
     if (!student) {
-      await reply('Não encontrei nenhum cadastro com esse CPF. Verifique e tente novamente, ou entre em contato com o suporte.')
+      await sendAssistantMessage(phone, replyTarget, 'Nao encontrei nenhum cadastro com esse CPF. Verifique e tente novamente, ou entre em contato com o suporte.')
       return
     }
 
-    // Avança para confirmação de nome
     await adminClient
       .from('conversations')
       .update({ pending_action: { type: 'password_reset', step: 'confirm_name', moodle_id: student.moodle_id, full_name: student.full_name } })
       .eq('phone', phone)
 
-    await reply(`Encontrei o cadastro de *${student.full_name}*. Confirma que é você? Responda *SIM* para prosseguir ou *NÃO* para cancelar.`)
+    await sendAssistantMessage(
+      phone,
+      replyTarget,
+      `Encontrei o cadastro de *${student.full_name}*. Confirma que e voce? Responda *SIM* para prosseguir ou *NAO* para cancelar.`
+    )
     return
   }
 
-  // ─── Etapa 2: aguardando confirmação do nome ──────────────────────────────
-  if (action.step === 'confirm_name') {
-    const lower = userText.toLowerCase().trim()
-    const isYes = /^(sim|s|yes|confirmo|confirma|ok|isso|é isso|isso mesmo)/.test(lower)
-    const isNo  = /^(n[ãa]o|no|cancelar|cancela|errado|nao)/.test(lower)
-
-    if (!isYes && !isNo) {
-      await reply('Por favor, responda *SIM* para confirmar e redefinir sua senha, ou *NÃO* para cancelar.')
-      return
-    }
-
-    // Limpar estado em qualquer desfecho
-    await adminClient.from('conversations').update({ pending_action: null }).eq('phone', phone)
-
-    if (isNo) {
-      await reply('Operação cancelada. Se precisar de ajuda, é só chamar! 😊')
-      return
-    }
-
-    // Gerar senha temporária e aplicar
-    if (!action.moodle_id) {
-      await reply('Ocorreu um erro interno. Por favor, tente novamente mais tarde.')
-      return
-    }
-
-    try {
-      const tempPassword = generateTempPassword()
-      await setUserPassword(action.moodle_id, tempPassword)
-      const moodleUrl = process.env.MOODLE_URL ?? 'o portal do Moodle'
-      await reply(
-        `✅ Pronto! Sua senha temporária do Moodle é:\n\n*${tempPassword}*\n\n` +
-        `Acesse ${moodleUrl} e faça login com essa senha. ` +
-        `Após entrar, vá em *Perfil → Mudar Senha* e defina uma senha pessoal. ` +
-        `Recomendamos trocar a senha no primeiro acesso. 🔐`
-      )
-    } catch (err) {
-      console.error('[MARA] Erro ao trocar senha Moodle:', err)
-      await reply('Não foi possível redefinir a senha no momento. Por favor, tente mais tarde ou procure o suporte.')
-    }
+  if (!isAffirmative(userText) && !isNegative(userText)) {
+    await sendAssistantMessage(phone, replyTarget, 'Por favor, responda *SIM* para confirmar e redefinir sua senha, ou *NAO* para cancelar.')
     return
+  }
+
+  await adminClient.from('conversations').update({ pending_action: null }).eq('phone', phone)
+
+  if (isNegative(userText)) {
+    await sendAssistantMessage(phone, replyTarget, 'Operacao cancelada. Se precisar de ajuda, e so chamar.')
+    return
+  }
+
+  if (!action.moodle_id) {
+    await sendAssistantMessage(phone, replyTarget, 'Ocorreu um erro interno. Por favor, tente novamente mais tarde.')
+    return
+  }
+
+  try {
+    const tempPassword = generateTempPassword()
+    await setUserPassword(action.moodle_id, tempPassword)
+    const moodleUrl = process.env.MOODLE_URL ?? 'o portal do Moodle'
+    await sendAssistantMessage(
+      phone,
+      replyTarget,
+      `Pronto! Sua senha temporaria do Moodle e:\n\n*${tempPassword}*\n\nAcesse ${moodleUrl} e faca login com essa senha. Apos entrar, va em *Perfil -> Mudar Senha* e defina uma senha pessoal. Recomendamos trocar a senha no primeiro acesso.`
+    )
+  } catch (err) {
+    console.error('[MARA] Erro ao trocar senha Moodle:', err)
+    await sendAssistantMessage(phone, replyTarget, 'Nao foi possivel redefinir a senha no momento. Por favor, tente mais tarde ou procure o suporte.')
   }
 }
-
-// ─── Support Ticket Flow (stateful, multi-turn) ───────────────────────────────
 
 async function handleSupportTicketFlow(
   phone: string,
@@ -368,43 +589,149 @@ async function handleSupportTicketFlow(
   _action: SupportTicketAction,
   studentId?: string | null
 ): Promise<void> {
-  const reply = async (text: string) => {
-    await sendText(replyTarget, text)
-    await adminClient.from('chatmemory').insert({ session_id: phone, role: 'assistant', content: text })
-    await adminClient.from('conversations').update({ last_message: text.slice(0, 200), last_message_at: new Date().toISOString() }).eq('phone', phone)
-  }
+  await storeUserMessage(phone, userText)
 
-  await adminClient.from('chatmemory').insert({ session_id: phone, role: 'user', content: userText })
-
-  const subject = userText.trim()
-  if (!subject || subject.length < 3) {
-    await reply('Por favor, descreva brevemente o assunto do seu problema para que possamos abrir o chamado. 🎫')
+  if (detectHumanHandoffIntent(userText)) {
+    await adminClient.from('conversations').update({ pending_action: null }).eq('phone', phone)
+    await activateHumanHandoff(phone, replyTarget, 'Entendi. Vou transferir voce para um atendimento humano agora. Em alguns minutos nossa equipe continua por aqui.')
     return
   }
 
-  // Limpar pending_action antes de criar o ticket
+  const subject = userText.trim()
+  if (!subject || subject.length < 3) {
+    await sendAssistantMessage(phone, replyTarget, 'Por favor, descreva brevemente o assunto do seu problema para que eu possa abrir o ticket.')
+    return
+  }
+
   await adminClient.from('conversations').update({ pending_action: null }).eq('phone', phone)
 
   try {
     const ticket = await createTicket({ phone, student_id: studentId ?? null, subject })
-    const msg =
-      `✅ *Chamado aberto com sucesso!*\n\n` +
-      `🎫 *Protocolo:* ${ticket.protocol}\n` +
-      `📝 *Assunto:* ${ticket.subject}\n\n` +
-      `Nossa equipe analisará sua solicitação e entrará em contato em breve. Guarde o número do protocolo para acompanhar o atendimento.`
-    await reply(msg)
+    await sendAssistantMessage(
+      phone,
+      replyTarget,
+      `Chamado aberto com sucesso.\n\n*Protocolo:* ${ticket.protocol}\n*Assunto:* ${ticket.subject}\n\nNossa equipe analisara sua solicitacao e entrara em contato em breve. Guarde o numero do protocolo para acompanhar o atendimento.`
+    )
   } catch (err) {
     console.error('[MARA] Erro ao criar ticket de suporte:', err)
-    // Restaurar pending_action para tentar novamente
     await adminClient
       .from('conversations')
       .update({ pending_action: { type: 'support_ticket', step: 'ask_subject' } })
       .eq('phone', phone)
-    await reply('Não foi possível abrir o chamado no momento. Por favor, tente novamente em instantes. 🙏')
+    await sendAssistantMessage(phone, replyTarget, 'Nao foi possivel abrir o chamado no momento. Por favor, tente novamente em instantes.')
   }
 }
 
-// ─── Main Orchestrator ────────────────────────────────────────────────────────
+async function handleSupportTicketOfferFlow(
+  phone: string,
+  replyTarget: string,
+  userText: string
+): Promise<void> {
+  await storeUserMessage(phone, userText)
+
+  if (detectHumanHandoffIntent(userText)) {
+    await adminClient.from('conversations').update({ pending_action: null }).eq('phone', phone)
+    await activateHumanHandoff(phone, replyTarget, 'Entendi. Vou transferir voce para um atendimento humano agora. Em alguns minutos nossa equipe continua por aqui.')
+    return
+  }
+
+  if (isAffirmative(userText)) {
+    await sendAssistantMessage(
+      phone,
+      replyTarget,
+      'Perfeito. Descreva brevemente o assunto do problema para eu abrir o ticket com protocolo.',
+      { pending_action: { type: 'support_ticket', step: 'ask_subject' } }
+    )
+    return
+  }
+
+  if (isNegative(userText)) {
+    await sendAssistantMessage(
+      phone,
+      replyTarget,
+      'Tudo bem. Se mudar de ideia, posso abrir um ticket com protocolo ou transferir voce para um atendente humano.',
+      { pending_action: null }
+    )
+    return
+  }
+
+  await sendAssistantMessage(
+    phone,
+    replyTarget,
+    'Se quiser, responda *SIM* para eu abrir um ticket com protocolo ou *NAO* para seguir sem isso.',
+    { pending_action: { type: 'support_ticket_offer' } }
+  )
+}
+
+async function handleIdentityCollectionFlow(
+  phone: string,
+  replyTarget: string,
+  userText: string,
+  action: IdentityCollectionAction
+): Promise<void> {
+  await storeUserMessage(phone, userText)
+
+  if (detectHumanHandoffIntent(userText)) {
+    await adminClient.from('conversations').update({ pending_action: null }).eq('phone', phone)
+    await activateHumanHandoff(phone, replyTarget, 'Entendi. Vou transferir voce para um atendimento humano agora. Em alguns minutos nossa equipe continua por aqui.')
+    return
+  }
+
+  let providedName = action.provided_name?.trim() || null
+  let providedCpf: string | null = null
+  let candidateName = action.candidate_name?.trim() || null
+
+  if (action.missing.includes('name')) {
+    const explicitName = extractNameCandidate(userText)
+    if (explicitName) {
+      providedName = explicitName
+    } else if (candidateName && isAffirmative(userText)) {
+      providedName = candidateName
+    } else if (candidateName && isNegative(userText)) {
+      candidateName = null
+    }
+  }
+
+  if (action.missing.includes('cpf')) {
+    providedCpf = normalizeCpf(extractCpf(userText) ?? userText)
+  }
+
+  const remainingMissing = action.missing.filter((field) => {
+    if (field === 'name') return !providedName
+    return !providedCpf
+  })
+
+  if (remainingMissing.length > 0) {
+    const prompt = (() => {
+      if (remainingMissing.length === 1 && remainingMissing[0] === 'name' && providedCpf) {
+        return candidateName
+          ? `Recebi seu CPF. Agora quero confirmar: seu nome e *${candidateName}*? Se nao for, me informe seu *nome completo*.`
+          : 'Recebi seu CPF. Agora informe seu *nome completo*.'
+      }
+
+      if (remainingMissing.length === 1 && remainingMissing[0] === 'cpf' && providedName) {
+        return 'Recebi seu nome. Agora informe seu *CPF* (somente numeros ou no formato XXX.XXX.XXX-XX).'
+      }
+
+      return buildIdentityPrompt(remainingMissing, { candidateName })
+    })()
+
+    await sendAssistantMessage(phone, replyTarget, prompt, {
+      pending_action: {
+        type: 'collect_identity',
+        missing: remainingMissing,
+        provided_name: providedName,
+        candidate_name: candidateName,
+      },
+    })
+    return
+  }
+
+  await persistCollectedIdentity(phone, { name: providedName, cpf: providedCpf })
+  await sendAssistantMessage(phone, replyTarget, `Obrigado, ${providedName ?? 'seu atendimento'}! Ja identifiquei seus dados e vou seguir com seu atendimento. Como posso ajudar?`, {
+    contact_name_confirmed: true,
+  })
+}
 
 export async function processMessages(
   phone: string,
@@ -413,6 +740,7 @@ export async function processMessages(
 ): Promise<void> {
   try {
     const replyTarget = routing.replyTarget ?? phone
+
     const abortIfPaused = async (stage: string) => {
       const pauseState = await getMaraPauseState(phone)
       if (!pauseState.pausedUntil && !pauseState.humanHandoffActive && !pauseState.manualPaused) return false
@@ -423,17 +751,13 @@ export async function processMessages(
       return true
     }
 
-    // 0. Pausa por atendimento humano — verificar ANTES de qualquer escrita no banco
     if (await abortIfPaused('antes de iniciar o processamento')) return
 
-    // 1. Upsert conversation + fetch LGPD/followup state
-    // followup_stage and followup_sent_at are reset so a closed/followup conversation
-    // becomes fully active again when the user sends a new message
     await adminClient.from('conversations').upsert(
       {
         phone,
         last_message_at: new Date().toISOString(),
-        last_message: messages.map(m => m.text ?? m.caption ?? `[${m.type}]`).join(' '),
+        last_message: messages.map((m) => m.text ?? m.caption ?? `[${m.type}]`).join(' '),
         status: 'active',
         followup_stage: null,
         followup_sent_at: null,
@@ -441,41 +765,52 @@ export async function processMessages(
       { onConflict: 'phone' }
     )
 
-    // Capture pushName as contact_name only when the field is still null
     if (routing.pushName) {
       await adminClient
         .from('conversations')
-        .update({ contact_name: routing.pushName })
+        .update({ whatsapp_name: routing.pushName })
         .eq('phone', phone)
-        .is('contact_name', null)
     }
 
     const { data: conv } = await adminClient
       .from('conversations')
-      .select('lgpd_accepted_at, followup_stage, pending_action')
+      .select('lgpd_accepted_at, followup_stage, pending_action, contact_name, contact_name_confirmed, cpf, whatsapp_name')
       .eq('phone', phone)
       .single()
 
     const combinedRawText = messages
-      .map(m => m.text ?? m.caption ?? '')
+      .map((m) => m.text ?? m.caption ?? '')
       .join(' ')
       .trim()
 
-    // 2. LGPD gate — qualquer mensagem enviada equivale a consentimento implícito
+    const initialIdentity = await resolveIdentity(phone, combinedRawText)
+    const confirmedConversationName = conv?.contact_name_confirmed ? conv.contact_name : null
+    const payloadNameAssessment = assessPayloadName(confirmedConversationName, conv?.whatsapp_name ?? routing.pushName)
+    const candidateName = payloadNameAssessment.kind === 'candidate' ? payloadNameAssessment.name : null
+    const missingIdentityFields = getMissingIdentityFields(initialIdentity, confirmedConversationName, conv?.cpf)
+    const knownNameForGreeting = getKnownName(initialIdentity, confirmedConversationName)
+
+    if (initialIdentity.type === 'aluno' || initialIdentity.type === 'gestor') {
+      await adminClient.from('conversations').update({ student_id: initialIdentity.student.id }).eq('phone', phone)
+    }
+
     if (!conv?.lgpd_accepted_at) {
-      await adminClient
-        .from('conversations')
-        .update({ lgpd_accepted_at: new Date().toISOString() })
-        .eq('phone', phone)
+      const welcomeText = missingIdentityFields.length > 0
+        ? `${LGPD_ACK}\n\n${buildIdentityPrompt(missingIdentityFields, { candidateName })}`
+        : `${LGPD_ACK}\n\n${knownNameForGreeting ? `Como posso te ajudar hoje, ${knownNameForGreeting}?` : 'Como posso te ajudar hoje?'}`
 
       if (await abortIfPaused('antes do envio do aceite LGPD')) return
 
-      await sendText(replyTarget, LGPD_ACK)
+      await sendAssistantMessage(phone, replyTarget, welcomeText, {
+        lgpd_accepted_at: new Date().toISOString(),
+        pending_action: missingIdentityFields.length > 0
+          ? { type: 'collect_identity', missing: missingIdentityFields, candidate_name: candidateName }
+          : null,
+      })
       await syncContactsSnapshot()
       return
     }
 
-    // 3. Inactivity reset — if user was in follow-up, receiving any message resets it
     if (conv?.followup_stage === 'followup_1') {
       await adminClient
         .from('conversations')
@@ -483,34 +818,52 @@ export async function processMessages(
         .eq('phone', phone)
     }
 
-    // 3b. Password reset flow — fluxo multi-turno stateful, desvia do pipeline normal
-    const pendingAction = conv?.pending_action as PasswordResetAction | SupportTicketAction | null | undefined
+    const pendingAction = conv?.pending_action as PendingAction | null | undefined
+
     if (pendingAction?.type === 'password_reset') {
-      await handlePasswordResetFlow(phone, replyTarget, combinedRawText, pendingAction as PasswordResetAction)
+      await handlePasswordResetFlow(phone, replyTarget, combinedRawText, pendingAction)
       await syncContactsSnapshot()
       return
     }
 
-    // 3c. Support ticket flow — fluxo multi-turno para abertura de chamado
+    if (pendingAction?.type === 'support_ticket_offer') {
+      await handleSupportTicketOfferFlow(phone, replyTarget, combinedRawText)
+      await syncContactsSnapshot()
+      return
+    }
+
     if (pendingAction?.type === 'support_ticket') {
-      const { data: convData } = await adminClient
-        .from('conversations')
-        .select('student_id')
-        .eq('phone', phone)
-        .single()
-      await handleSupportTicketFlow(phone, replyTarget, combinedRawText, pendingAction as SupportTicketAction, convData?.student_id)
+      const studentId = initialIdentity.type === 'aluno' || initialIdentity.type === 'gestor'
+        ? initialIdentity.student.id
+        : null
+      await handleSupportTicketFlow(phone, replyTarget, combinedRawText, pendingAction, studentId)
       await syncContactsSnapshot()
       return
     }
 
-    // Atualiza last_student_message_at em tickets abertos/em_andamento para este telefone
+    if (pendingAction?.type === 'collect_identity') {
+      await handleIdentityCollectionFlow(phone, replyTarget, combinedRawText, pendingAction)
+      await syncContactsSnapshot()
+      return
+    }
+
+    if (missingIdentityFields.length > 0) {
+      if (await abortIfPaused('antes da coleta inicial de identificacao')) return
+
+      await storeUserMessage(phone, combinedRawText || '[Mensagem sem conteudo]')
+      await sendAssistantMessage(phone, replyTarget, buildIdentityPrompt(missingIdentityFields, { candidateName }), {
+        pending_action: { type: 'collect_identity', missing: missingIdentityFields, candidate_name: candidateName },
+      })
+      await syncContactsSnapshot()
+      return
+    }
+
     void getAdminClient()
       .from('support_tickets')
       .update({ last_student_message_at: new Date().toISOString() })
       .eq('phone', phone)
       .in('status', ['aberto', 'em_andamento'])
 
-    // 5. Build combined user content from all messages in the batch
     let combinedText = ''
     let imageContent: { base64: string; mimetype: string; caption?: string } | null = null
 
@@ -523,9 +876,9 @@ export async function processMessages(
           const { base64, mimetype } = await downloadMedia(msg.mediaId)
           const transcribed = await transcribeAudio(Buffer.from(base64, 'base64'), mimetype)
           if (combinedText) combinedText += '\n'
-          combinedText += `[Áudio transcrito]: ${transcribed}`
+          combinedText += `[Audio transcrito]: ${transcribed}`
         } catch {
-          combinedText += '\n[Áudio recebido, mas não foi possível transcrever]'
+          combinedText += '\n[Audio recebido, mas nao foi possivel transcrever]'
         }
       } else if (msg.type === 'image' && msg.mediaId) {
         try {
@@ -546,22 +899,59 @@ export async function processMessages(
       const fullCaption = [imageContent.caption, combinedText].filter(Boolean).join('\n') || undefined
       userContent = await buildImageMessage(imageContent.base64, imageContent.mimetype, fullCaption)
     } else {
-      userContent = combinedText || '[Mensagem sem conteúdo]'
+      userContent = combinedText || '[Mensagem sem conteudo]'
     }
 
-    // 5. Resolve identity
     const messageText = typeof userContent === 'string' ? userContent : combinedRawText
+    const userContentText = typeof userContent === 'string' ? userContent : JSON.stringify(userContent)
+    const queryText = userContentText
+
     const identity = await resolveIdentity(phone, messageText)
-    const identityContext = buildIdentityContext(identity)
+    const resolvedConfirmedName = getKnownName(identity, confirmedConversationName)
+    const identityContext = buildIdentityContext(identity, resolvedConfirmedName)
 
     if (identity.type === 'aluno' || identity.type === 'gestor') {
-      await adminClient
-        .from('conversations')
-        .update({ student_id: identity.student.id })
-        .eq('phone', phone)
+      await adminClient.from('conversations').update({ student_id: identity.student.id }).eq('phone', phone)
     }
 
-    // 6. Fetch chat history
+    if (detectPasswordResetIntent(queryText)) {
+      const hasMoodle = (identity.type === 'aluno' || identity.type === 'gestor') && identity.student.moodle_id
+      if (hasMoodle) {
+        const moodleUrl = process.env.MOODLE_URL ?? 'o portal do Moodle'
+        await storeUserMessage(phone, userContentText)
+        if (await abortIfPaused('antes do fluxo de troca de senha')) return
+        await sendAssistantMessage(
+          phone,
+          replyTarget,
+          `Para redefinir sua senha de acesso ao Moodle (${moodleUrl}), preciso confirmar sua identidade.\n\nPor favor, me informe seu *CPF* (somente numeros ou com pontuacao).`,
+          { pending_action: { type: 'password_reset', step: 'ask_cpf' } }
+        )
+        await syncContactsSnapshot()
+        return
+      }
+    }
+
+    if (detectHumanHandoffIntent(queryText)) {
+      await storeUserMessage(phone, userContentText)
+      if (await abortIfPaused('antes do aviso de transferencia humana')) return
+      await activateHumanHandoff(phone, replyTarget, 'Entendi. Vou transferir voce para um atendimento humano agora. Em alguns minutos nossa equipe continua por aqui.')
+      await syncContactsSnapshot()
+      return
+    }
+
+    if (detectExplicitTicketIntent(queryText)) {
+      await storeUserMessage(phone, userContentText)
+      if (await abortIfPaused('antes do fluxo guiado de ticket')) return
+      await sendAssistantMessage(
+        phone,
+        replyTarget,
+        'Perfeito. Descreva brevemente o assunto do problema para eu abrir o ticket com protocolo.',
+        { pending_action: { type: 'support_ticket', step: 'ask_subject' } }
+      )
+      await syncContactsSnapshot()
+      return
+    }
+
     const { data: history } = await adminClient
       .from('chatmemory')
       .select('role, content')
@@ -569,106 +959,76 @@ export async function processMessages(
       .order('created_at', { ascending: true })
       .limit(20)
 
-    // 7. RAG search
-    const queryText = typeof userContent === 'string' ? userContent : JSON.stringify(userContent)
     const ragChunks = await searchRelevantChunks(queryText)
     const ragContext = buildRagContext(ragChunks)
 
-    // 7b. Detectar intent de troca de senha — inicia fluxo multi-turno
-    if (detectPasswordResetIntent(queryText)) {
-      const moodleUrl = process.env.MOODLE_URL ?? 'o portal do Moodle'
-      // Verificar se o aluno tem moodle_id (só alunos com vínculo Moodle)
-      const hasMoodle = (identity.type === 'aluno' || identity.type === 'gestor') && identity.student.moodle_id
-      if (!hasMoodle) {
-        // Sem vínculo Moodle — GPT responde normalmente com contexto padrão
-      } else {
-        // Iniciar fluxo de verificação de CPF
-        await adminClient
-          .from('conversations')
-          .update({ pending_action: { type: 'password_reset', step: 'ask_cpf' } })
-          .eq('phone', phone)
-
-        const startMsg = `Para redefinir sua senha de acesso ao Moodle (${moodleUrl}), preciso confirmar sua identidade. 🔐\n\nPor favor, me informe seu *CPF* (somente números ou com pontuação).`
-        await sendText(replyTarget, startMsg)
-        await adminClient.from('chatmemory').insert([
-          { session_id: phone, role: 'user', content: combinedRawText },
-          { session_id: phone, role: 'assistant', content: startMsg },
-        ])
-        await adminClient.from('conversations').update({ last_message: startMsg.slice(0, 200), last_message_at: new Date().toISOString() }).eq('phone', phone)
-        await syncContactsSnapshot()
-        return
-      }
-    }
-
-    // 7c. Detectar intent de abertura de chamado de suporte
-    if (detectSupportIntent(queryText)) {
-      await adminClient
-        .from('conversations')
-        .update({ pending_action: { type: 'support_ticket', step: 'ask_subject' } })
-        .eq('phone', phone)
-      const supportMsg = `Entendi! Vou abrir um chamado de suporte para você. 🎫\n\nDescreva brevemente o *assunto* do seu problema:`
-      await sendText(replyTarget, supportMsg)
-      await adminClient.from('chatmemory').insert([
-        { session_id: phone, role: 'user', content: combinedRawText },
-        { session_id: phone, role: 'assistant', content: supportMsg },
-      ])
-      await adminClient.from('conversations').update({ last_message: supportMsg.slice(0, 200), last_message_at: new Date().toISOString() }).eq('phone', phone)
-      await syncContactsSnapshot()
-      return
-    }
-
-    // 8. Moodle on-demand
     let moodleContext: string | null = null
     if (identity.type === 'aluno' && identity.student.moodle_id) {
       const intent = detectMoodleIntent(queryText)
       if (intent) moodleContext = await fetchMoodleContext(identity.student, intent)
     }
 
-    // 9. Build system prompt + call GPT-4o
-    const systemPrompt = await buildSystemPrompt(identityContext, ragContext, moodleContext)
+    const basePrompt = await buildSystemPrompt(identityContext, ragContext, moodleContext)
+    const systemPrompt = `${basePrompt}
+
+## Roteamento Operacional
+Voce DEVE iniciar toda resposta com exatamente um destes marcadores:
+- [[ROUTE:REPLY]]
+- [[ROUTE:HUMAN]]
+- [[ROUTE:OFFER_TICKET]]
+
+Use [[ROUTE:REPLY]] quando conseguir resolver ou orientar diretamente.
+Use [[ROUTE:HUMAN]] quando o usuario pedir atendimento humano ou quando voce nao conseguir resolver com seguranca e o melhor caminho for transferir para a equipe.
+Use [[ROUTE:OFFER_TICKET]] quando o melhor proximo passo for oferecer a abertura de um ticket com protocolo.
+Depois do marcador, escreva normalmente em pt-BR e nao explique o roteamento interno.`
 
     const chatMessages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
-      ...(history ?? []).map(h => ({
+      ...(history ?? []).map((h) => ({
         role: h.role as 'user' | 'assistant',
         content: h.content as string,
       })),
       { role: 'user', content: userContent },
     ]
 
-    const userContentText = typeof userContent === 'string' ? userContent : JSON.stringify(userContent)
+    await storeUserMessage(phone, userContentText)
 
-    await adminClient.from('chatmemory').insert({
-      session_id: phone,
-      role: 'user',
-      content: userContentText,
-    })
+    const rawResponse = await chatCompletion(chatMessages)
+    const parsedResponse = parseAssistantRoute(rawResponse)
 
-    const response = await chatCompletion(chatMessages)
+    if (parsedResponse.route === 'HUMAN') {
+      if (await abortIfPaused('antes da resposta de transferencia humana')) return
+      await activateHumanHandoff(
+        phone,
+        replyTarget,
+        parsedResponse.content || 'Vou transferir voce para um atendimento humano agora. Em alguns minutos nossa equipe continua por aqui.'
+      )
+      await syncContactsSnapshot()
+      return
+    }
+
+    if (parsedResponse.route === 'OFFER_TICKET') {
+      if (await abortIfPaused('antes da oferta de ticket')) return
+      await sendAssistantMessage(
+        phone,
+        replyTarget,
+        parsedResponse.content || 'Se quiser, posso abrir um ticket de suporte com protocolo para acompanhar esse caso. Deseja que eu faca isso?',
+        { pending_action: { type: 'support_ticket_offer' } }
+      )
+      await syncContactsSnapshot()
+      return
+    }
 
     if (await abortIfPaused('imediatamente antes do envio da resposta')) return
 
-    // 10. Save to chatmemory
-    await sendText(replyTarget, response)
-    await adminClient.from('chatmemory').insert({
-      session_id: phone,
-      role: 'assistant',
-      content: response,
-    })
-
-    // 11. Update conversation + reply
-    await adminClient
-      .from('conversations')
-      .update({ last_message: response.slice(0, 200), last_message_at: new Date().toISOString() })
-      .eq('phone', phone)
-
+    await sendAssistantMessage(phone, replyTarget, parsedResponse.content || rawResponse)
     await syncContactsSnapshot()
   } catch (error) {
     console.error('[MARA Agent] Erro ao processar mensagem:', error)
     try {
       const pauseState = await getMaraPauseState(phone)
       if (pauseState.pausedUntil || pauseState.humanHandoffActive || pauseState.manualPaused) {
-        console.log(`[MARA] Fallback suprimido para ${phone} — bloqueio ativo para atendimento humano`)
+        console.log(`[MARA] Fallback suprimido para ${phone} - bloqueio ativo para atendimento humano`)
         return
       }
       await sendText(routing.replyTarget ?? phone, FALLBACK_MESSAGE)
@@ -678,17 +1038,14 @@ export async function processMessages(
   }
 }
 
-// ─── Inactivity checker (chamado pelo cron) ───────────────────────────────────
-
 export async function checkInactivity(): Promise<{ followups: number; closings: number }> {
   const now = Date.now()
   const ninetyMinutesAgo = new Date(now - 90 * 60 * 1000).toISOString()
-  const sixtyMinutesAgo  = new Date(now - 60 * 60 * 1000).toISOString()
+  const sixtyMinutesAgo = new Date(now - 60 * 60 * 1000).toISOString()
 
   let followups = 0
   let closings = 0
 
-  // Conversas ativas há mais de 90 minutos sem follow-up enviado
   const { data: idleConvs } = await adminClient
     .from('conversations')
     .select('phone, mara_paused_until, mara_manual_paused, assigned_to, assigned_name')
@@ -713,7 +1070,6 @@ export async function checkInactivity(): Promise<{ followups: number; closings: 
     }
   }
 
-  // Conversas em follow-up há mais de 1 hora sem resposta
   const { data: staleConvs } = await adminClient
     .from('conversations')
     .select('phone, mara_paused_until, mara_manual_paused, assigned_to, assigned_name')
@@ -747,8 +1103,6 @@ export async function checkInactivity(): Promise<{ followups: number; closings: 
   return { followups, closings }
 }
 
-// ─── Ticket inactivity checker ────────────────────────────────────────────────
-
 export async function checkTicketInactivity(): Promise<{ closed: number }> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const now = new Date().toISOString()
@@ -762,28 +1116,28 @@ export async function checkTicketInactivity(): Promise<{ closed: number }> {
 
   if (!candidates?.length) return { closed: 0 }
 
-  // Filtra tickets onde aluno não respondeu após última ação do atendente
-  const toClose = candidates.filter(t =>
+  const toClose = candidates.filter((t) =>
     !t.last_student_message_at ||
     t.last_student_message_at < t.last_attendant_reply_at!
   )
 
   if (!toClose.length) return { closed: 0 }
 
-  const ids = toClose.map(t => t.id)
+  const ids = toClose.map((t) => t.id)
   await getAdminClient()
     .from('support_tickets')
     .update({ status: 'fechado_inatividade', closed_at: now })
     .in('id', ids)
 
-  // Notificar alunos via WhatsApp
   for (const t of toClose) {
     try {
       await sendText(
         t.phone,
-        `🎫 Seu chamado de suporte foi *encerrado por inatividade* (sem resposta por 7 dias após nosso último contato).\n\nCaso ainda precise de ajuda, é só entrar em contato novamente. 👋`
+        'Seu chamado de suporte foi encerrado por inatividade (sem resposta por 7 dias apos nosso ultimo contato). Caso ainda precise de ajuda, e so entrar em contato novamente.'
       )
-    } catch { /* silently ignore */ }
+    } catch {
+      // ignore notification errors
+    }
   }
 
   return { closed: toClose.length }

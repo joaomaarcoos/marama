@@ -25,6 +25,7 @@ export interface ContactStudentRecord {
 interface ConversationRecord {
   phone: string
   contact_name: string | null
+  cpf: string | null
   student_id: string | null
   status: string | null
   followup_stage: string | null
@@ -314,6 +315,10 @@ function applyConversation(profile: MutableContactProfile, conversation: Convers
     profile.internalName = conversation.contact_name.trim()
   }
 
+  if (conversation.cpf) {
+    profile.cpf = normalizeCpf(conversation.cpf) ?? conversation.cpf
+  }
+
   for (const alias of phoneAliasesFromValue(conversation.phone)) {
     profile.phoneAliases.add(alias)
   }
@@ -405,7 +410,7 @@ async function loadContactSources(): Promise<ContactSourceBundle> {
       .order('full_name', { ascending: true }),
     adminClient
       .from('conversations')
-      .select('phone, contact_name, student_id, status, followup_stage, last_message_at, last_message, message_count, labels, lgpd_accepted_at, assigned_name, students(id, moodle_id, full_name, email, phone, phone2, username, cpf, role, courses)')
+      .select('phone, contact_name, cpf, student_id, status, followup_stage, last_message_at, last_message, message_count, labels, lgpd_accepted_at, assigned_name, students(id, moodle_id, full_name, email, phone, phone2, username, cpf, role, courses)')
       .order('last_message_at', { ascending: false }),
   ])
 
@@ -422,6 +427,7 @@ async function loadContactSources(): Promise<ContactSourceBundle> {
     return {
       phone: String(candidate.phone ?? ''),
       contact_name: typeof candidate.contact_name === 'string' ? candidate.contact_name : null,
+      cpf: typeof candidate.cpf === 'string' ? candidate.cpf : null,
       student_id: typeof candidate.student_id === 'string' ? candidate.student_id : null,
       status: typeof candidate.status === 'string' ? candidate.status : null,
       followup_stage: typeof candidate.followup_stage === 'string' ? candidate.followup_stage : null,
@@ -702,7 +708,7 @@ function buildPersistedAliases(profile: ContactProfile) {
       alias_value: profile.cpf,
       normalized_value: normalizeCpf(profile.cpf) ?? profile.cpf,
       is_primary: true,
-      source: 'student',
+      source: profile.studentId ? 'student' : 'conversation',
     })
   }
 
@@ -946,7 +952,7 @@ async function findConversationByPhoneCandidates(phoneCandidates: string[]): Pro
 
   const { data, error } = await adminClient
     .from('conversations')
-    .select('phone, contact_name, student_id, status, followup_stage, last_message_at, last_message, message_count, labels, lgpd_accepted_at, assigned_name, students(id, moodle_id, full_name, email, phone, phone2, username, cpf, role, courses)')
+    .select('phone, contact_name, cpf, student_id, status, followup_stage, last_message_at, last_message, message_count, labels, lgpd_accepted_at, assigned_name, students(id, moodle_id, full_name, email, phone, phone2, username, cpf, role, courses)')
     .in('phone', phoneCandidates)
     .order('last_message_at', { ascending: false })
     .limit(1)
@@ -961,6 +967,7 @@ async function findConversationByPhoneCandidates(phoneCandidates: string[]): Pro
   return {
     phone: String(candidate.phone ?? ''),
     contact_name: typeof candidate.contact_name === 'string' ? candidate.contact_name : null,
+    cpf: typeof candidate.cpf === 'string' ? candidate.cpf : null,
     student_id: typeof candidate.student_id === 'string' ? candidate.student_id : null,
     status: typeof candidate.status === 'string' ? candidate.status : null,
     followup_stage: typeof candidate.followup_stage === 'string' ? candidate.followup_stage : null,
@@ -1000,6 +1007,9 @@ export async function resolveKnownContact(
 
   if (student) {
     matchedBy = 'conversation-student'
+  } else if (conversation?.cpf) {
+    student = await findStudentByCpf(normalizeCpf(conversation.cpf))
+    if (student) matchedBy = 'cpf'
   } else if (normalizedDigits) {
     student = await findStudentByPhone(normalizedDigits)
     if (student) matchedBy = 'student-phone'

@@ -108,6 +108,9 @@ async function rekeyConversation(fromId: string, toId: string) {
     .from('conversations')
     .update({
       contact_name: toConversation.contact_name ?? fromConversation.contact_name,
+      contact_name_confirmed: Boolean(toConversation.contact_name_confirmed || fromConversation.contact_name_confirmed),
+      whatsapp_name: toConversation.whatsapp_name ?? fromConversation.whatsapp_name,
+      cpf: toConversation.cpf ?? fromConversation.cpf,
       student_id: toConversation.student_id ?? fromConversation.student_id,
       status: toConversation.status === 'active' ? toConversation.status : fromConversation.status,
       last_message: toTime >= fromTime ? toConversation.last_message : fromConversation.last_message,

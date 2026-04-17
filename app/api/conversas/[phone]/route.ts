@@ -57,9 +57,17 @@ export async function PATCH(
     labels?: string[]
     followup_stage?: string | null
     contact_name?: string | null
+    contact_name_confirmed?: boolean
     mara_manual_paused?: boolean
   }
   const updatePayload: Record<string, unknown> = { ...body }
+
+  if ('contact_name' in body) {
+    updatePayload.contact_name_confirmed =
+      typeof body.contact_name === 'string' && body.contact_name.trim().length > 0
+        ? true
+        : false
+  }
 
   if ('assigned_to' in body || 'assigned_name' in body) {
     const hasHumanOwner =

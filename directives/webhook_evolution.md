@@ -31,6 +31,7 @@ Esta diretiva descreve a primeira versao da camada 1 para um fluxo que hoje aind
 ## Saidas Esperadas
 - webhook configurado na Evolution apontando para `/api/webhook/evolution`
 - status atual da instancia
+- conversa enriquecida com identificacao minima (`contact_name` e `cpf`) quando ainda nao houver vinculo academico
 - JSON normalizado com:
   - `event`
   - `phone`
@@ -55,6 +56,11 @@ Esta diretiva descreve a primeira versao da camada 1 para um fluxo que hoje aind
    `py execution/evolution_webhook.py --payload .tmp/algum_evento.json`
 5. Se precisar persistir a versao normalizada:
    `py execution/evolution_webhook.py --payload .tmp/algum_evento.json --write-normalized .tmp/algum_evento.normalized.json`
+6. No fluxo online do app:
+   - na primeira mensagem da conversa, registrar LGPD
+   - se faltar nome ou CPF no contato/conversa, pedir esses dados antes de seguir
+   - se o usuario pedir humano, ou se a MARA nao conseguir resolver com seguranca, transferir para atendimento humano e pausar a MARA
+   - se ticket for o melhor caminho, oferecer a abertura do ticket; so abrir de fato apos confirmacao do usuario e coleta do assunto
 
 ## Edge Cases
 - Eventos diferentes de `messages.upsert` e `MESSAGES_UPSERT` devem ser ignorados.
@@ -77,6 +83,18 @@ Esta diretiva descreve a primeira versao da camada 1 para um fluxo que hoje aind
 - Eventos `fromMe=true` nao podem ser ignorados cegamente:
   - primeiro diferencie saidas automaticas do backend por fingerprint recente (telefone + conteudo)
   - se o `fromMe` nao bater com uma saida automatica recente, trate como takeover humano e grave `mara_paused_until`
+- Contatos sem vinculo em `students` ainda precisam preservar o CPF informado manualmente na `conversations`, para evitar nova coleta nas proximas conversas.
+- O `pushName` do WhatsApp nao deve ser tratado automaticamente como nome real:
+  - guardar o nome bruto em campo separado (`whatsapp_name`)
+  - usar `contact_name` apenas para nome confirmado
+  - marcar confirmacao explicita (`contact_name_confirmed`)
+- A coleta inicial de identificacao deve pedir apenas os campos faltantes:
+  - se faltar nome e CPF, pedir ambos
+  - se faltar apenas um deles, pedir somente o campo ausente
+- Quando existir `whatsapp_name` com cara de nome pessoal, a MARA deve confirmar esse nome no mesmo pedido de identificacao.
+- Quando o `whatsapp_name` parecer frase, apelido tematico, slogan, time, religiao, empresa ou outro texto nao nominal, a MARA deve ignorar esse valor como nome e pedir o nome da pessoa diretamente.
+- A MARA nao deve abrir ticket automaticamente so por detectar palavra como `suporte` ou `ticket`; precisa haver pedido explicito do usuario ou confirmacao apos oferta.
+- Quando houver transferencia humana iniciada pela MARA, gravar estado que bloqueie novas respostas automaticas ate a equipe assumir ou limpar a pausa.
 
 ## Limites da V1
 - A resposta com IA continua no app (`lib/mara-agent.ts`).
