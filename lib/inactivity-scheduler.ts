@@ -1,4 +1,4 @@
-import { checkInactivity } from './mara-agent'
+import { checkInactivity, checkTicketInactivity } from './mara-agent'
 
 // Singleton — garante que apenas um interval roda mesmo com hot-reload do Next.js
 declare global {
@@ -20,6 +20,14 @@ export function startInactivityScheduler() {
       }
     } catch (err) {
       console.error('[Inatividade] Erro ao verificar inatividade:', err)
+    }
+    try {
+      const { closed } = await checkTicketInactivity()
+      if (closed > 0) {
+        console.log(`[Tickets] ${closed} ticket(s) fechado(s) por inatividade`)
+      }
+    } catch (err) {
+      console.error('[Tickets] Erro ao verificar inatividade de tickets:', err)
     }
   }, INTERVAL_MS)
 

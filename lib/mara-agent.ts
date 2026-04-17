@@ -1,4 +1,4 @@
-import { adminClient } from './supabase/admin'
+import { adminClient, getAdminClient } from './supabase/admin'
 import { getMaraPauseState } from './mara-pause'
 import { buildSystemPrompt } from './prompt-builder'
 import { sendText, downloadMedia } from './evolution'
@@ -21,6 +21,7 @@ import {
   MoodleCourse,
 } from './moodle'
 import { normalizeCpf } from './utils'
+import { createTicket } from './ticket'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,12 @@ interface PasswordResetAction {
   step: PasswordResetStep
   moodle_id?: number
   full_name?: string
+}
+
+type SupportTicketStep = 'ask_subject'
+interface SupportTicketAction {
+  type: 'support_ticket'
+  step: SupportTicketStep
 }
 
 type Identity =
@@ -108,6 +115,18 @@ const PASSWORD_RESET_KEYWORDS = [
 function detectPasswordResetIntent(text: string): boolean {
   const lower = text.toLowerCase()
   return PASSWORD_RESET_KEYWORDS.some((kw) => lower.includes(kw))
+}
+
+const SUPPORT_INTENT_KEYWORDS = [
+  'suporte', 'chamado', 'ticket', 'solicitação', 'solicitacao',
+  'reclamação', 'reclamacao', 'abrir chamado', 'preciso de suporte',
+  'ajuda técnica', 'ajuda tecnica', 'reportar problema',
+  'não consigo acessar', 'nao consigo acessar',
+]
+
+function detectSupportIntent(text: string): boolean {
+  const lower = text.toLowerCase()
+  return SUPPORT_INTENT_KEYWORDS.some((kw) => lower.includes(kw))
 }
 
 // ─── Identity Resolution ──────────────────────────────────────────────────────
@@ -340,6 +359,51 @@ async function handlePasswordResetFlow(
   }
 }
 
+// ─── Support Ticket Flow (stateful, multi-turn) ───────────────────────────────
+
+async function handleSupportTicketFlow(
+  phone: string,
+  replyTarget: string,
+  userText: string,
+  _action: SupportTicketAction,
+  studentId?: string | null
+): Promise<void> {
+  const reply = async (text: string) => {
+    await sendText(replyTarget, text)
+    await adminClient.from('chatmemory').insert({ session_id: phone, role: 'assistant', content: text })
+    await adminClient.from('conversations').update({ last_message: text.slice(0, 200), last_message_at: new Date().toISOString() }).eq('phone', phone)
+  }
+
+  await adminClient.from('chatmemory').insert({ session_id: phone, role: 'user', content: userText })
+
+  const subject = userText.trim()
+  if (!subject || subject.length < 3) {
+    await reply('Por favor, descreva brevemente o assunto do seu problema para que possamos abrir o chamado. 🎫')
+    return
+  }
+
+  // Limpar pending_action antes de criar o ticket
+  await adminClient.from('conversations').update({ pending_action: null }).eq('phone', phone)
+
+  try {
+    const ticket = await createTicket({ phone, student_id: studentId ?? null, subject })
+    const msg =
+      `✅ *Chamado aberto com sucesso!*\n\n` +
+      `🎫 *Protocolo:* ${ticket.protocol}\n` +
+      `📝 *Assunto:* ${ticket.subject}\n\n` +
+      `Nossa equipe analisará sua solicitação e entrará em contato em breve. Guarde o número do protocolo para acompanhar o atendimento.`
+    await reply(msg)
+  } catch (err) {
+    console.error('[MARA] Erro ao criar ticket de suporte:', err)
+    // Restaurar pending_action para tentar novamente
+    await adminClient
+      .from('conversations')
+      .update({ pending_action: { type: 'support_ticket', step: 'ask_subject' } })
+      .eq('phone', phone)
+    await reply('Não foi possível abrir o chamado no momento. Por favor, tente novamente em instantes. 🙏')
+  }
+}
+
 // ─── Main Orchestrator ────────────────────────────────────────────────────────
 
 export async function processMessages(
@@ -420,12 +484,31 @@ export async function processMessages(
     }
 
     // 3b. Password reset flow — fluxo multi-turno stateful, desvia do pipeline normal
-    const pendingAction = conv?.pending_action as PasswordResetAction | null | undefined
+    const pendingAction = conv?.pending_action as PasswordResetAction | SupportTicketAction | null | undefined
     if (pendingAction?.type === 'password_reset') {
-      await handlePasswordResetFlow(phone, replyTarget, combinedRawText, pendingAction)
+      await handlePasswordResetFlow(phone, replyTarget, combinedRawText, pendingAction as PasswordResetAction)
       await syncContactsSnapshot()
       return
     }
+
+    // 3c. Support ticket flow — fluxo multi-turno para abertura de chamado
+    if (pendingAction?.type === 'support_ticket') {
+      const { data: convData } = await adminClient
+        .from('conversations')
+        .select('student_id')
+        .eq('phone', phone)
+        .single()
+      await handleSupportTicketFlow(phone, replyTarget, combinedRawText, pendingAction as SupportTicketAction, convData?.student_id)
+      await syncContactsSnapshot()
+      return
+    }
+
+    // Atualiza last_student_message_at em tickets abertos/em_andamento para este telefone
+    void getAdminClient()
+      .from('support_tickets')
+      .update({ last_student_message_at: new Date().toISOString() })
+      .eq('phone', phone)
+      .in('status', ['aberto', 'em_andamento'])
 
     // 5. Build combined user content from all messages in the batch
     let combinedText = ''
@@ -515,6 +598,23 @@ export async function processMessages(
         await syncContactsSnapshot()
         return
       }
+    }
+
+    // 7c. Detectar intent de abertura de chamado de suporte
+    if (detectSupportIntent(queryText)) {
+      await adminClient
+        .from('conversations')
+        .update({ pending_action: { type: 'support_ticket', step: 'ask_subject' } })
+        .eq('phone', phone)
+      const supportMsg = `Entendi! Vou abrir um chamado de suporte para você. 🎫\n\nDescreva brevemente o *assunto* do seu problema:`
+      await sendText(replyTarget, supportMsg)
+      await adminClient.from('chatmemory').insert([
+        { session_id: phone, role: 'user', content: combinedRawText },
+        { session_id: phone, role: 'assistant', content: supportMsg },
+      ])
+      await adminClient.from('conversations').update({ last_message: supportMsg.slice(0, 200), last_message_at: new Date().toISOString() }).eq('phone', phone)
+      await syncContactsSnapshot()
+      return
     }
 
     // 8. Moodle on-demand
@@ -645,4 +745,46 @@ export async function checkInactivity(): Promise<{ followups: number; closings: 
   }
 
   return { followups, closings }
+}
+
+// ─── Ticket inactivity checker ────────────────────────────────────────────────
+
+export async function checkTicketInactivity(): Promise<{ closed: number }> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const now = new Date().toISOString()
+
+  const { data: candidates } = await getAdminClient()
+    .from('support_tickets')
+    .select('id, phone, last_attendant_reply_at, last_student_message_at')
+    .eq('status', 'em_andamento')
+    .not('last_attendant_reply_at', 'is', null)
+    .lt('last_attendant_reply_at', sevenDaysAgo)
+
+  if (!candidates?.length) return { closed: 0 }
+
+  // Filtra tickets onde aluno não respondeu após última ação do atendente
+  const toClose = candidates.filter(t =>
+    !t.last_student_message_at ||
+    t.last_student_message_at < t.last_attendant_reply_at!
+  )
+
+  if (!toClose.length) return { closed: 0 }
+
+  const ids = toClose.map(t => t.id)
+  await getAdminClient()
+    .from('support_tickets')
+    .update({ status: 'fechado_inatividade', closed_at: now })
+    .in('id', ids)
+
+  // Notificar alunos via WhatsApp
+  for (const t of toClose) {
+    try {
+      await sendText(
+        t.phone,
+        `🎫 Seu chamado de suporte foi *encerrado por inatividade* (sem resposta por 7 dias após nosso último contato).\n\nCaso ainda precise de ajuda, é só entrar em contato novamente. 👋`
+      )
+    } catch { /* silently ignore */ }
+  }
+
+  return { closed: toClose.length }
 }

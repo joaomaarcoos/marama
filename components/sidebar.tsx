@@ -24,6 +24,7 @@ import {
   PanelLeftOpen,
   BarChart2,
   Settings,
+  TicketCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/theme-provider'
@@ -45,6 +46,7 @@ const ALL_NAV_ITEMS = [
   { href: '/conexao',    label: 'Conexão WhatsApp',     icon: Smartphone,      roles: ['admin','gerente','atendente'] as UserRole[] },
   { href: '/logs',       label: 'Logs Evolution',       icon: ScrollText,      roles: ['admin'] as UserRole[] },
   { href: '/relatorios',    label: 'Relatórios',           icon: BarChart2,  roles: ['admin','gerente'] as UserRole[] },
+  { href: '/suporte',       label: 'Suporte',              icon: TicketCheck, roles: ['admin','gerente','atendente'] as UserRole[] },
   { href: '/configuracoes', label: 'Configurações',        icon: Settings,   roles: ['admin','gerente','atendente'] as UserRole[] },
 ]
 

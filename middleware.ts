@@ -21,6 +21,7 @@ const protectedPaths = [
   '/dashboard', '/prompt', '/disparos', '/conversas',
   '/documentos', '/usuarios', '/relatorios', '/contatos', '/logs',
   '/conexao', '/tutores', '/alunos', '/configuracoes',
+  '/suporte',
 ]
 
 export async function middleware(request: NextRequest) {
