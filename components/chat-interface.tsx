@@ -8,12 +8,19 @@ import {
   RotateCcw, LogOut, Plus, Trash2, Info, GraduationCap, Mail,
   Phone, Calendar, ChevronRight, ChevronLeft, Smile, Paperclip,
   SendHorizontal, Mic, Square, Image as ImageIcon, FileText, AudioLines,
-  PauseCircle, Play,
+  PauseCircle, Play, NotebookPen, Lock,
 } from 'lucide-react'
 import { formatPhone } from '@/lib/utils'
 import { EmojiPicker } from '@/components/emoji-picker'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface SystemUser {
+  id: string
+  email: string
+  name: string
+  role: string
+}
 
 interface Label {
   id: string
@@ -45,6 +52,20 @@ interface Message {
   content: string
   created_at: string
 }
+
+interface Note {
+  id: string
+  phone: string
+  user_id: string
+  user_email: string
+  user_name: string | null
+  content: string
+  created_at: string
+}
+
+type TimelineEntry =
+  | { kind: 'message'; data: Message }
+  | { kind: 'note'; data: Note }
 
 interface PendingAttachment {
   file: File
@@ -376,6 +397,90 @@ function LabelPicker({
           Nova etiqueta
         </button>
       )}
+    </div>
+  )
+}
+
+// ─── Assign Picker ────────────────────────────────────────────────────────────
+
+function AssignPicker({
+  currentAssignedTo,
+  currentAssignedName,
+  allUsers,
+  currentUser,
+  onAssign,
+  onUnassign,
+  onClose,
+  disabled,
+}: {
+  currentAssignedTo: string | null
+  currentAssignedName: string | null
+  allUsers: SystemUser[]
+  currentUser: { id: string; email: string } | null
+  onAssign: (userId: string, userName: string) => void
+  onUnassign: () => void
+  onClose: () => void
+  disabled: boolean
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose])
+
+  const displayName = (user: SystemUser) =>
+    user.name !== user.email ? user.name : user.email.split('@')[0]
+
+  return (
+    <div
+      ref={ref}
+      className="chat-label-picker"
+      style={{ minWidth: 200 }}
+    >
+      <p className="chat-label-picker-title">Atribuir conversa</p>
+
+      {currentAssignedTo && (
+        <button
+          disabled={disabled}
+          onClick={() => { onUnassign(); onClose() }}
+          className="chat-label-picker-item"
+          style={{ color: 'hsl(0 84% 55%)', opacity: disabled ? 0.5 : 1 }}
+        >
+          <X size={12} style={{ flexShrink: 0 }} />
+          <span>Desatribuir</span>
+        </button>
+      )}
+
+      <div className="chat-label-picker-list">
+        {allUsers.map(u => {
+          const isAssigned = u.id === currentAssignedTo
+          const isMe = u.id === currentUser?.id
+          return (
+            <button
+              key={u.id}
+              disabled={disabled || isAssigned}
+              onClick={() => { onAssign(u.id, u.email); onClose() }}
+              className="chat-label-picker-item"
+              style={{ opacity: disabled || isAssigned ? 0.6 : 1 }}
+            >
+              <div
+                className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
+                style={{ background: 'hsl(var(--primary) / 0.15)', color: 'hsl(var(--primary))', fontSize: '0.55rem' }}
+              >
+                {displayName(u).slice(0, 2).toUpperCase()}
+              </div>
+              <span className="flex-1 text-left truncate">
+                {displayName(u)}{isMe ? ' (eu)' : ''}
+              </span>
+              {isAssigned && <CheckCircle2 size={12} style={{ color: 'hsl(var(--primary))', flexShrink: 0 }} />}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -835,21 +940,26 @@ function ContactAvatar({
 function ChatPanel({
   phone,
   allLabels,
+  allUsers,
   currentUser,
   onRefresh,
   onLabelsChange,
 }: {
   phone: string
   allLabels: Label[]
+  allUsers: SystemUser[]
   currentUser: { id: string; email: string } | null
   onRefresh: () => void
   onLabelsChange: (labels: Label[]) => void
 }) {
   const [data, setData] = useState<ConversationDetail | null>(null)
+  const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
   const [labelOpen, setLabelOpen] = useState(false)
+  const [assignOpen, setAssignOpen] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
   const [acting, setActing] = useState(false)
+  const [noteMode, setNoteMode] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
@@ -865,14 +975,22 @@ function ChatPanel({
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
 
+  const loadNotes = useCallback(async () => {
+    const res = await fetch(`/api/conversas/${encodeURIComponent(phone)}/notes`)
+    if (res.ok) setNotes(await res.json())
+  }, [phone])
+
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/conversas/${encodeURIComponent(phone)}`)
-      if (res.ok) setData(await res.json())
+      const [convRes] = await Promise.all([
+        fetch(`/api/conversas/${encodeURIComponent(phone)}`),
+        loadNotes(),
+      ])
+      if (convRes.ok) setData(await convRes.json())
     } finally {
       setLoading(false)
     }
-  }, [phone])
+  }, [phone, loadNotes])
 
   useEffect(() => { setLoading(true); setData(null); load() }, [load])
   useEffect(() => {
@@ -1056,6 +1174,33 @@ function ChatPanel({
     }
   }
 
+  const sendNote = async () => {
+    const trimmed = draft.trim()
+    if (!trimmed) return
+
+    setSending(true)
+    setComposerError(null)
+
+    try {
+      const res = await fetch(`/api/conversas/${encodeURIComponent(phone)}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: trimmed }),
+      })
+      const payload = await res.json() as { note?: Note; error?: string }
+      if (!res.ok) throw new Error(payload.error ?? 'Falha ao salvar nota')
+
+      if (payload.note) setNotes(prev => [...prev, payload.note!])
+
+      setDraft('')
+      if (textareaRef.current) textareaRef.current.style.height = '38px'
+    } catch (error) {
+      setComposerError(error instanceof Error ? error.message : 'Nao foi possivel salvar a nota.')
+    } finally {
+      setSending(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -1078,12 +1223,18 @@ function ChatPanel({
   const isAssignedToOther = !!conversation.assigned_to && !isAssignedToMe
   const assignedDisplayName = getAssignedDisplayName(conversation.assigned_name)
 
-  const groups: { date: string; msgs: Message[] }[] = []
-  for (const msg of messages) {
-    const d = fullDate(msg.created_at)
+  // Mescla mensagens e notas em uma timeline ordenada por data
+  const timeline: TimelineEntry[] = [
+    ...messages.map(m => ({ kind: 'message' as const, data: m })),
+    ...notes.map(n => ({ kind: 'note' as const, data: n })),
+  ].sort((a, b) => new Date(a.data.created_at).getTime() - new Date(b.data.created_at).getTime())
+
+  const groups: { date: string; items: TimelineEntry[] }[] = []
+  for (const entry of timeline) {
+    const d = fullDate(entry.data.created_at)
     const last = groups[groups.length - 1]
-    if (last && last.date === d) last.msgs.push(msg)
-    else groups.push({ date: d, msgs: [msg] })
+    if (last && last.date === d) last.items.push(entry)
+    else groups.push({ date: d, items: [entry] })
   }
 
   return (
@@ -1138,13 +1289,37 @@ function ChatPanel({
             )}
           </div>
 
-          {/* Assign */}
-          {!isAssignedToMe && !isAssignedToOther && !closed && (
-            <button onClick={() => act(() => patchConversation(phone, { assigned_to: currentUser?.id, assigned_name: currentUser?.email }))} disabled={acting || !currentUser} className="chat-action-btn chat-action-btn--primary">
-              <UserPlus size={14} />
-              <span className="hidden sm:inline">Atribuir</span>
-            </button>
+          {/* Assign picker */}
+          {!closed && (
+            <div className="relative">
+              <button
+                onClick={() => setAssignOpen(v => !v)}
+                disabled={acting}
+                className={`chat-action-btn ${conversation.assigned_to ? 'chat-action-btn--assigned' : 'chat-action-btn--primary'}`}
+                title={conversation.assigned_to ? `Atribuída a ${assignedDisplayName ?? conversation.assigned_name}` : 'Atribuir conversa'}
+              >
+                {conversation.assigned_to ? <UserCheck size={14} /> : <UserPlus size={14} />}
+                <span className="hidden sm:inline truncate max-w-[80px]">
+                  {conversation.assigned_to ? (assignedDisplayName ?? 'Atribuída') : 'Atribuir'}
+                </span>
+                <ChevronDown size={10} />
+              </button>
+              {assignOpen && (
+                <AssignPicker
+                  currentAssignedTo={conversation.assigned_to ?? null}
+                  currentAssignedName={conversation.assigned_name ?? null}
+                  allUsers={allUsers}
+                  currentUser={currentUser}
+                  onAssign={(userId, userName) => act(() => patchConversation(phone, { assigned_to: userId, assigned_name: userName }))}
+                  onUnassign={() => act(() => patchConversation(phone, { assigned_to: null, assigned_name: null }))}
+                  onClose={() => setAssignOpen(false)}
+                  disabled={acting}
+                />
+              )}
+            </div>
           )}
+
+          {/* MARA pause */}
           {!closed && (
             <button
               onClick={() => act(() => patchConversation(phone, { mara_manual_paused: !conversation.mara_manual_paused }))}
@@ -1155,18 +1330,6 @@ function ChatPanel({
               {conversation.mara_manual_paused ? <Play size={14} /> : <PauseCircle size={14} />}
               <span className="hidden sm:inline">{conversation.mara_manual_paused ? 'Reativar MARA' : 'Pausar MARA'}</span>
             </button>
-          )}
-          {isAssignedToMe && (
-            <button onClick={() => act(() => patchConversation(phone, { assigned_to: null, assigned_name: null }))} disabled={acting} className="chat-action-btn chat-action-btn--assigned">
-              <UserCheck size={14} />
-              <span className="hidden sm:inline">Atribuída</span>
-            </button>
-          )}
-          {isAssignedToOther && (
-            <span className="chat-assigned-other" title={`Atribuída a ${conversation.assigned_name}`}>
-              <UserCheck size={12} />
-              <span className="truncate max-w-[80px]">{assignedDisplayName}</span>
-            </span>
           )}
 
           {/* Close / Reopen */}
@@ -1219,9 +1382,9 @@ function ChatPanel({
         </div>
       )}
 
-      {/* Messages */}
+      {/* Messages + Notes timeline */}
       <div className="flex-1 overflow-y-auto chat-messages-area" data-closed={closed}>
-        {messages.length === 0 ? (
+        {timeline.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <p className="chat-muted text-sm">Nenhuma mensagem ainda.</p>
           </div>
@@ -1238,11 +1401,33 @@ function ChatPanel({
             {groups.map((group, gi) => (
               <div key={gi}>
                 <div className="chat-date-sep"><span>{group.date}</span></div>
-                {group.msgs.map((msg, i) => {
+                {group.items.map((entry, i) => {
+                  if (entry.kind === 'note') {
+                    const note = entry.data
+                    const authorLabel = note.user_name?.trim() || note.user_email.split('@')[0]
+                    return (
+                      <div key={`note-${note.id}`} className="chat-note-row">
+                        <div className="chat-note-bubble">
+                          <div className="chat-note-header">
+                            <Lock size={10} />
+                            Nota privada
+                          </div>
+                          <p className="chat-note-text">{note.content}</p>
+                          <div className="chat-note-footer">
+                            <span>{authorLabel}</span>
+                            <span>·</span>
+                            <span>{fullTime(note.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  const msg = entry.data as Message
                   const isOutbound = msg.role === 'assistant'
-                  const isLast = gi === groups.length - 1 && i === group.msgs.length - 1
+                  const isLast = gi === groups.length - 1 && i === group.items.length - 1
                   return (
-                    <div key={i} className={`chat-bubble-row ${isOutbound ? 'chat-bubble-row--outgoing' : 'chat-bubble-row--incoming'}`}>
+                    <div key={`msg-${i}`} className={`chat-bubble-row ${isOutbound ? 'chat-bubble-row--outgoing' : 'chat-bubble-row--incoming'}`}>
                       {!isOutbound && (
                         <div className="chat-bubble-avatar">
                           <ContactAvatar
@@ -1267,7 +1452,28 @@ function ChatPanel({
       </div>
 
       <div className="chat-composer-shell" data-disabled={closed || sending}>
-        {pendingAttachment && (
+        {/* Faixa indicadora do modo nota */}
+        {noteMode && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px',
+            background: 'color-mix(in srgb, hsl(45 96% 58%) 12%, transparent)',
+            borderBottom: '1px dashed color-mix(in srgb, hsl(45 96% 48%) 35%, transparent)',
+            fontSize: '0.72rem', fontFamily: 'Manrope, sans-serif', fontWeight: 600,
+            color: 'hsl(38 90% 42%)',
+          }}>
+            <Lock size={11} />
+            Modo nota — visível somente para a equipe
+            <button
+              onClick={() => setNoteMode(false)}
+              style={{ marginLeft: 'auto', opacity: 0.7, cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+              title="Sair do modo nota"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
+        {pendingAttachment && !noteMode && (
           <div className="chat-composer-attachments">
             <ComposerAttachmentChip
               attachment={pendingAttachment}
@@ -1298,30 +1504,52 @@ function ChatPanel({
             )}
           </div>
 
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="chat-composer-tool"
-            title="Enviar arquivo"
-            disabled={closed || sending}
-          >
-            <Paperclip size={16} />
-          </button>
+          {!noteMode && (
+            <>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="chat-composer-tool"
+                title="Enviar arquivo"
+                disabled={closed || sending}
+              >
+                <Paperclip size={16} />
+              </button>
 
+              <button
+                onClick={toggleRecording}
+                className="chat-composer-tool"
+                title={recording ? 'Parar gravacao' : 'Gravar audio'}
+                disabled={closed || sending}
+                data-recording={recording}
+              >
+                {recording ? <Square size={15} /> : <Mic size={16} />}
+              </button>
+            </>
+          )}
+
+          {/* Toggle modo nota */}
           <button
-            onClick={toggleRecording}
+            onClick={() => { setNoteMode(v => !v); setPendingAttachment(null) }}
             className="chat-composer-tool"
-            title={recording ? 'Parar gravacao' : 'Gravar audio'}
-            disabled={closed || sending}
-            data-recording={recording}
+            title={noteMode ? 'Sair do modo nota' : 'Adicionar nota privada'}
+            data-note-active={noteMode}
+            disabled={sending}
           >
-            {recording ? <Square size={15} /> : <Mic size={16} />}
+            <NotebookPen size={15} />
           </button>
 
           <div className="chat-composer-input-wrap">
             <textarea
               ref={textareaRef}
               className="chat-composer-input"
-              placeholder={closed ? 'Reabra a conversa para responder.' : 'Digite uma mensagem'}
+              data-note-mode={noteMode}
+              placeholder={
+                closed && !noteMode
+                  ? 'Reabra a conversa para responder.'
+                  : noteMode
+                    ? 'Escreva uma nota privada (apenas para a equipe)…'
+                    : 'Digite uma mensagem'
+              }
               value={draft}
               onChange={(event) => {
                 setDraft(event.target.value)
@@ -1331,21 +1559,27 @@ function ChatPanel({
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !event.shiftKey) {
                   event.preventDefault()
-                  void sendMessage()
+                  if (noteMode) void sendNote()
+                  else void sendMessage()
                 }
               }}
               rows={1}
-              disabled={closed || sending}
+              disabled={(closed && !noteMode) || sending}
             />
           </div>
 
           <button
-            onClick={() => void sendMessage()}
+            onClick={() => noteMode ? void sendNote() : void sendMessage()}
             className="chat-composer-send"
-            disabled={closed || sending || (!draft.trim() && !pendingAttachment)}
-            title="Enviar mensagem"
+            data-note-mode={noteMode}
+            disabled={(closed && !noteMode) || sending || (!draft.trim() && !pendingAttachment)}
+            title={noteMode ? 'Salvar nota' : 'Enviar mensagem'}
           >
-            {sending ? <RefreshCw size={16} className="animate-spin" /> : <SendHorizontal size={16} />}
+            {sending
+              ? <RefreshCw size={16} className="animate-spin" />
+              : noteMode
+                ? <NotebookPen size={15} />
+                : <SendHorizontal size={16} />}
           </button>
         </div>
 
@@ -1395,6 +1629,7 @@ export default function ChatInterface({
   const router = useRouter()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [allLabels, setAllLabels] = useState<Label[]>([])
+  const [allUsers, setAllUsers] = useState<SystemUser[]>([])
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<Tab>('todas')
   const [loadingList, setLoadingList] = useState(true)
@@ -1411,9 +1646,15 @@ export default function ChatInterface({
     if (res.ok) setAllLabels(await res.json())
   }, [])
 
+  const loadUsers = useCallback(async () => {
+    const res = await fetch('/api/usuarios')
+    if (res.ok) setAllUsers(await res.json())
+  }, [])
+
   useEffect(() => {
     loadConversations()
     loadLabels()
+    loadUsers()
 
     const pollId = setInterval(loadConversations, 30000)
 
@@ -1501,6 +1742,7 @@ export default function ChatInterface({
             key={selectedPhone}
             phone={selectedPhone}
             allLabels={allLabels}
+            allUsers={allUsers}
             currentUser={currentUser}
             onRefresh={loadConversations}
             onLabelsChange={setAllLabels}

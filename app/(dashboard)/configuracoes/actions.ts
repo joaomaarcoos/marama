@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { adminClient } from '@/lib/supabase/admin'
+import { getAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
@@ -42,10 +42,12 @@ export async function updateEmail(
 
   if (email === user.email) return { error: 'O novo e-mail é igual ao atual.' }
 
-  const { error } = await supabase.auth.updateUser({ email })
+  // Usa admin API para aplicar imediatamente, sem exigir confirmação por e-mail
+  const { error } = await getAdminClient().auth.admin.updateUserById(user.id, { email })
   if (error) return { error: error.message }
 
-  return { success: 'Verifique sua caixa de entrada para confirmar o novo e-mail.' }
+  revalidatePath('/configuracoes')
+  return { success: 'E-mail atualizado com sucesso. Use o novo e-mail no próximo login.' }
 }
 
 // ── Trocar senha ─────────────────────────────────────────────────────────────
@@ -63,7 +65,8 @@ export async function updatePassword(
   if (password.length < 8) return { error: 'A senha deve ter pelo menos 8 caracteres.' }
   if (password !== confirm) return { error: 'As senhas não coincidem.' }
 
-  const { error } = await supabase.auth.updateUser({ password })
+  // Usa admin API para persistir imediatamente, sem depender de sessão SSR
+  const { error } = await getAdminClient().auth.admin.updateUserById(user.id, { password })
   if (error) return { error: error.message }
 
   return { success: 'Senha alterada com sucesso.' }

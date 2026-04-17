@@ -7,6 +7,7 @@ import {
   Bot,
   LayoutDashboard,
   MessageSquare,
+  MessagesSquare,
   Send,
   User,
   Users,
@@ -31,8 +32,9 @@ import { useState, useEffect } from 'react'
 import type { UserRole } from '@/lib/roles'
 
 const ALL_NAV_ITEMS = [
-  { href: '/dashboard',  label: 'Dashboard',           icon: LayoutDashboard, roles: ['admin','gerente','atendente'] as UserRole[] },
-  { href: '/conversas',  label: 'Conversas',            icon: MessageSquare,   roles: ['admin','gerente','atendente'] as UserRole[] },
+  { href: '/dashboard',            label: 'Dashboard',           icon: LayoutDashboard, roles: ['admin','gerente','atendente'] as UserRole[] },
+  { href: '/conversas',            label: 'Conversas',            icon: MessageSquare,   roles: ['admin','gerente','atendente'] as UserRole[] },
+  { href: '/conversacoordenacao',  label: 'Coord. WhatsApp',      icon: MessagesSquare,  roles: ['admin','gerente','atendente'] as UserRole[] },
   { href: '/contatos',   label: 'Contatos',             icon: User,            roles: ['admin','gerente','atendente'] as UserRole[] },
   { href: '/prompt',     label: 'Prompt da MARA',       icon: FileText,        roles: ['admin','gerente'] as UserRole[] },
   { href: '/documentos', label: 'Base de Conhecimento', icon: BookOpen,        roles: ['admin','gerente'] as UserRole[] },
