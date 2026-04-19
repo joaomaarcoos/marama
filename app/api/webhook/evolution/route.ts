@@ -5,6 +5,7 @@ import { startInactivityScheduler } from '@/lib/inactivity-scheduler'
 import { getConversationPhoneCandidates, getMaraPauseState } from '@/lib/mara-pause'
 import { adminClient } from '@/lib/supabase/admin'
 import { normalizeConversationId, toWhatsAppJid } from '@/lib/utils'
+import { logWebhookEvent } from '@/lib/webhook-logger'
 
 // Inicia o scheduler de inatividade junto com o servidor (sem cron externo)
 startInactivityScheduler()
@@ -166,16 +167,65 @@ function enqueue(sessionId: string, replyTarget: string, message: PendingMessage
     const messages = [...entry.messages]
     const resolvedPushName = entry.pushName
     pending.delete(sessionId)
+
+    const msgType = messages[0]?.type ?? 'unknown'
+    const msgPreview = messages.map((m) => m.text ?? m.caption ?? `[${m.type}]`).join(' ')
+    const startTime = Date.now()
+
     try {
       const pauseState = await getMaraPauseState(sessionId)
       if (pauseState.pausedUntil || pauseState.humanHandoffActive || pauseState.manualPaused) {
         console.log(`[Webhook] Conversa bloqueada para MARA (candidatos: ${pauseState.candidates.join(',')}) — descartando lote`)
+        void logWebhookEvent({ phone: sessionId, message_type: msgType, message_preview: msgPreview, status: 'blocked' })
         return
       }
 
       await processMessages(sessionId, messages, { replyTarget: entry.replyTarget, pushName: resolvedPushName })
+      const duration = Date.now() - startTime
+
+      const { data: lastMsg } = await adminClient
+        .from('chatmemory')
+        .select('content')
+        .eq('session_id', sessionId)
+        .eq('role', 'assistant')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      void logWebhookEvent({
+        phone: sessionId,
+        message_type: msgType,
+        message_preview: msgPreview,
+        status: 'success',
+        duration_ms: duration,
+        response_preview: lastMsg?.content ?? null,
+      })
     } catch (err) {
+      const duration = Date.now() - startTime
+      const errMsg = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err)
       console.error('[Webhook] Erro ao processar mensagens:', err)
+
+      void logWebhookEvent({
+        phone: sessionId,
+        message_type: msgType,
+        message_preview: msgPreview,
+        status: 'error',
+        duration_ms: duration,
+        error_message: errMsg,
+      })
+
+      // Notifica administrador sobre falha no processamento
+      try {
+        const { sendText } = await import('@/lib/evolution')
+        const preview = msgPreview.slice(0, 100)
+        const errSummary = (err instanceof Error ? err.message : String(err)).slice(0, 200)
+        await sendText(
+          '559881522794',
+          `⚠️ *Erro MARA*\n\nTelefone: ${sessionId}\nMensagem: ${preview}\n\nErro: ${errSummary}`,
+        )
+      } catch {
+        // Ignora falha ao notificar para não criar loop
+      }
     }
   }, DEBOUNCE_MS)
 }
