@@ -563,12 +563,15 @@ function filterByTab(convs: Conversation[], tab: Tab, userId: string | null): Co
     switch (tab) {
       case 'todas':          return !closed
       case 'ao_vivo':        return c.status === 'active' && !c.followup_stage && !closed
-      case 'minhas':         return c.assigned_to === userId
+      case 'minhas':         return userId != null && c.assigned_to === userId
       case 'nao_atribuidas': return !c.assigned_to && !closed
       case 'encerradas':     return closed
     }
   })
 }
+
+// Persiste a aba ativa entre navegações dentro da mesma sessão
+let _persistedTab: Tab = 'todas'
 
 // ─── Contact Info Panel ───────────────────────────────────────────────────────
 
@@ -1631,7 +1634,9 @@ export default function ChatInterface({
   const [allLabels, setAllLabels] = useState<Label[]>([])
   const [allUsers, setAllUsers] = useState<SystemUser[]>([])
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<Tab>('todas')
+  const [tab, setTab] = useState<Tab>(_persistedTab)
+
+  const changeTab = (t: Tab) => { setTab(t); _persistedTab = t }
   const [loadingList, setLoadingList] = useState(true)
   const [currentUser] = useState<{ id: string; email: string } | null>(initialCurrentUser ?? null)
 
@@ -1703,7 +1708,7 @@ export default function ChatInterface({
           </div>
           <div className="chat-tabs">
             {TAB_DEFS.map(t => (
-              <button key={t.id} className="chat-tab" data-active={tab === t.id} onClick={() => setTab(t.id)}>
+              <button key={t.id} className="chat-tab" data-active={tab === t.id} onClick={() => changeTab(t.id)}>
                 {t.label}
                 {tabCounts[t.id] > 0 && <span className="chat-tab-count">{tabCounts[t.id]}</span>}
               </button>
