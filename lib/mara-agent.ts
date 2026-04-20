@@ -150,6 +150,13 @@ const NON_NAME_PATTERNS = [
   /\b(flamengo|vasco|corinthians|palmeiras|santos|botafogo|gremio|bahia)\b/i,
   /\b(soldado|guerreiro|oficial|patrao|patr[aã]o|princesa|rainha|rei)\b/i,
   /\b(loja|store|empresa|ofc|oficial|delivery|mec[aâ]nica|barbearia)\b/i,
+  // Palavras que indicam que é uma frase, não um nome
+  /\b(n[aã]o|nunca|jamais|consegui|conseguimos|consegue|enviar|enviou|enviando)\b/i,
+  /\b(quero|queria|gostaria|preciso|precisa|precisamos|temos|tenho|tem|tinha)\b/i,
+  /\b(estou|est[aá]|est[aã]o|estava|estamos|ficou|fiquei|fico)\b/i,
+  /\b(porque|quando|onde|como|nosso|nossa|nossos|nossas|isso|este|esse|essa)\b/i,
+  /\b(sistema|projeto|problema|d[uú]vida|ajuda|curso|nota|senha|login|acesso|certificado|aula|sigec|moodle)\b/i,
+  /\b(inst[aá]vel|instabilidade|erro|falha|funcionar|funcionando|carregando)\b/i,
 ]
 
 function detectPasswordResetIntent(text: string): boolean {
@@ -214,7 +221,7 @@ function looksLikePersonalName(value: string): boolean {
     .map((token) => token.replace(/[^A-Za-zÀ-ÿ'-]/g, ''))
     .filter(Boolean)
 
-  if (tokens.length === 0 || tokens.length > 4) return false
+  if (tokens.length === 0 || tokens.length > 5) return false
 
   const validTokens = tokens.every((token) => token.length >= 2 && /[aeiouáéíóúãõâêô]/i.test(token))
   if (!validTokens) return false
@@ -683,7 +690,7 @@ async function handleIdentityCollectionFlow(
 
   if (action.missing.includes('name')) {
     const explicitName = extractNameCandidate(userText)
-    if (explicitName) {
+    if (explicitName && looksLikePersonalName(explicitName)) {
       providedName = explicitName
     } else if (candidateName && isAffirmative(userText)) {
       providedName = candidateName
