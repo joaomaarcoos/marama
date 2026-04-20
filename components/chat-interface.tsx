@@ -1297,10 +1297,10 @@ function ChatPanel({
       </div>
     )
   }
-  if (!data) return null
+  if (!data?.conversation) return null
 
   const { conversation, messages } = data
-  const student = conversation?.students
+  const student = conversation.students
   const name = getConversationDisplayName(conversation)
   const sm = statusMeta(conversation)
   const StatusIcon = sm.icon

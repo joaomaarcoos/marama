@@ -60,6 +60,8 @@ export function toWhatsAppJid(value: string | null | undefined): string | null {
 }
 
 export function formatPhone(phone: string): string {
+  // JIDs com @lid são IDs internos do Meta, não números de celular
+  if (phone.includes('@lid')) return 'Número não identificado'
   const digits = phone.replace(/\D/g, '')
   if (digits.length === 13) {
     // 55 + DDD (2) + 9 dígitos
