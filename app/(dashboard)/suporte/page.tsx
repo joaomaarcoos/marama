@@ -300,15 +300,15 @@ export default function SuportePage() {
       const ticketList: Ticket[] = json.tickets ?? []
       setTickets(ticketList)
       setTotal(json.total ?? 0)
-      // Keep selectedTicket in sync with latest data
-      if (selectedTicket) {
-        const updated = ticketList.find(t => t.id === selectedTicket.id)
-        if (updated) setSelectedTicket(updated)
-      }
+      // Sync selected ticket using functional update — avoids adding selectedTicket to deps
+      setSelectedTicket(prev => {
+        if (!prev) return null
+        return ticketList.find(t => t.id === prev.id) ?? prev
+      })
     } finally {
       setLoading(false)
     }
-  }, [page, activeTab, search, selectedTicket])
+  }, [page, activeTab, search])
 
   useEffect(() => { loadTickets() }, [loadTickets])
 
