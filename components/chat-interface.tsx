@@ -562,9 +562,9 @@ function filterByTab(convs: Conversation[], tab: Tab, userId: string | null): Co
     const closed = isClosed(c)
     switch (tab) {
       case 'todas':          return !closed
-      case 'ao_vivo':        return c.status === 'active' && !c.followup_stage && !closed
-      case 'minhas':         return userId != null && c.assigned_to === userId
-      case 'nao_atribuidas': return !c.assigned_to && !closed
+      case 'ao_vivo':        return !closed && c.status === 'active' && !c.followup_stage
+      case 'minhas':         return !closed && userId != null && c.assigned_to === userId
+      case 'nao_atribuidas': return !closed && !c.assigned_to
       case 'encerradas':     return closed
     }
   })
@@ -1038,7 +1038,7 @@ function ChatPanel({
   allLabels: Label[]
   allUsers: SystemUser[]
   currentUser: { id: string; email: string } | null
-  onRefresh: () => void
+  onRefresh: () => void | Promise<void>
   onLabelsChange: (labels: Label[]) => void
 }) {
   const [data, setData] = useState<ConversationDetail | null>(null)
@@ -1119,7 +1119,7 @@ function ChatPanel({
 
   const act = async (fn: () => Promise<void>) => {
     setActing(true)
-    try { await fn() } finally { setActing(false); await load(); onRefresh() }
+    try { await fn() } finally { setActing(false); await Promise.all([load(), onRefresh()]) }
   }
 
   const handleToggleLabel = async (labelId: string) => {
@@ -1727,7 +1727,7 @@ export default function ChatInterface({
   const [currentUser] = useState<{ id: string; email: string } | null>(initialCurrentUser ?? null)
 
   const loadConversations = useCallback(async () => {
-    const res = await fetch('/api/conversas')
+    const res = await fetch('/api/conversas', { cache: 'no-store' })
     if (res.ok) setConversations(await res.json())
     setLoadingList(false)
   }, [])
