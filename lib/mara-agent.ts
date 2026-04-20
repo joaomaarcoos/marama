@@ -873,6 +873,7 @@ export async function processMessages(
 
     let combinedText = ''
     let imageContent: { base64: string; mimetype: string; caption?: string } | null = null
+    let audioMedia: { url: string; transcript: string } | null = null
 
     for (const msg of messages) {
       if (msg.type === 'text' || msg.type === 'document') {
@@ -882,8 +883,9 @@ export async function processMessages(
         try {
           const { base64, mimetype } = await downloadMedia(msg.mediaId)
           const transcribed = await transcribeAudio(Buffer.from(base64, 'base64'), mimetype)
+          audioMedia = { url: `data:${mimetype};base64,${base64}`, transcript: transcribed }
           if (combinedText) combinedText += '\n'
-          combinedText += `[Audio transcrito]: ${transcribed}`
+          combinedText += transcribed
         } catch {
           combinedText += '\n[Audio recebido, mas nao foi possivel transcrever]'
         }
@@ -910,8 +912,24 @@ export async function processMessages(
     }
 
     const messageText = typeof userContent === 'string' ? userContent : combinedRawText
-    const userContentText = typeof userContent === 'string' ? userContent : JSON.stringify(userContent)
-    const queryText = userContentText
+
+    // Formato de storage estruturado para UI renderizar mídia corretamente
+    const userContentText: string = (() => {
+      if (audioMedia && !imageContent) {
+        return JSON.stringify({ _media: 'audio', url: audioMedia.url, transcript: audioMedia.transcript })
+      }
+      if (imageContent && typeof userContent !== 'string') {
+        const caption = [imageContent.caption, combinedText].filter(Boolean).join('\n') || undefined
+        return JSON.stringify({
+          _media: 'image',
+          url: `data:${imageContent.mimetype};base64,${imageContent.base64}`,
+          caption,
+        })
+      }
+      return typeof userContent === 'string' ? userContent : JSON.stringify(userContent)
+    })()
+    // queryText usa o texto puro para RAG/detecção de intenção, nunca o JSON de mídia
+    const queryText = messageText || combinedText
 
     const identity = await resolveIdentity(phone, messageText)
     const resolvedConfirmedName = getKnownName(identity, confirmedConversationName)

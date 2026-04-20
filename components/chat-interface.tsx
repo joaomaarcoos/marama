@@ -938,6 +938,92 @@ function ContactAvatar({
   )
 }
 
+// ─── Message content parser ───────────────────────────────────────────────────
+
+type ParsedContent =
+  | { kind: 'text'; text: string }
+  | { kind: 'image'; url: string; caption?: string }
+  | { kind: 'audio'; url: string; transcript: string }
+  | { kind: 'audio_text'; transcript: string }
+
+function parseChatContent(content: string): ParsedContent {
+  // New structured format: {"_media":"image"|"audio",...}
+  if (content.startsWith('{"_media":')) {
+    try {
+      const p = JSON.parse(content) as { _media: string; url?: string; transcript?: string; caption?: string }
+      if (p._media === 'image' && p.url) return { kind: 'image', url: p.url, caption: p.caption }
+      if (p._media === 'audio' && p.url) return { kind: 'audio', url: p.url, transcript: p.transcript ?? '' }
+      if (p._media === 'audio') return { kind: 'audio_text', transcript: p.transcript ?? '' }
+    } catch { /* fall through */ }
+  }
+
+  // Legacy OpenAI vision format: [{"type":"image_url","image_url":{"url":"..."}}]
+  if (content.startsWith('[{')) {
+    try {
+      const parts = JSON.parse(content) as Array<{ type: string; image_url?: { url: string }; text?: string }>
+      const imgPart = parts.find(p => p.type === 'image_url')
+      if (imgPart?.image_url?.url) {
+        const caption = parts.find(p => p.type === 'text')?.text
+        return { kind: 'image', url: imgPart.image_url.url, caption }
+      }
+    } catch { /* fall through */ }
+  }
+
+  // Legacy audio transcription text
+  if (content.startsWith('[Audio transcrito]:')) {
+    return { kind: 'audio_text', transcript: content.slice('[Audio transcrito]:'.length).trim() }
+  }
+
+  return { kind: 'text', text: content }
+}
+
+function MessageContent({ content }: { content: string }) {
+  const parsed = parseChatContent(content)
+
+  if (parsed.kind === 'image') {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <img
+          src={parsed.url}
+          alt={parsed.caption || 'Imagem'}
+          className="max-w-[260px] rounded-xl object-cover"
+          style={{ maxHeight: 320 }}
+        />
+        {parsed.caption && <p className="chat-bubble-text">{parsed.caption}</p>}
+      </div>
+    )
+  }
+
+  if (parsed.kind === 'audio') {
+    return (
+      <div className="flex flex-col gap-1.5" style={{ minWidth: 220 }}>
+        <audio
+          controls
+          src={parsed.url}
+          className="w-full"
+          style={{ height: 36, borderRadius: 8, accentColor: 'var(--chat-status-active)' }}
+        />
+        {parsed.transcript && (
+          <p className="chat-bubble-text" style={{ fontSize: '0.75rem', opacity: 0.75, fontStyle: 'italic' }}>
+            "{parsed.transcript}"
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (parsed.kind === 'audio_text') {
+    return (
+      <div className="flex items-start gap-2">
+        <Mic size={13} style={{ marginTop: 2, flexShrink: 0, opacity: 0.7 }} />
+        <p className="chat-bubble-text" style={{ fontStyle: 'italic' }}>"{parsed.transcript}"</p>
+      </div>
+    )
+  }
+
+  return <p className="chat-bubble-text">{parsed.text}</p>
+}
+
 // ─── Chat Panel ───────────────────────────────────────────────────────────────
 
 function ChatPanel({
@@ -1441,7 +1527,7 @@ function ChatPanel({
                         </div>
                       )}
                       <div className={`chat-bubble ${isOutbound ? 'chat-bubble--outgoing' : 'chat-bubble--incoming'} ${isLast && isOutbound && !closed ? 'chat-bubble--latest' : ''}`}>
-                        <p className="chat-bubble-text">{msg.content}</p>
+                        <MessageContent content={msg.content} />
                         <span className="chat-bubble-time">{fullTime(msg.created_at)}</span>
                       </div>
                     </div>
