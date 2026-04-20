@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { processMessages } from '@/lib/mara-agent'
-import { consumeRecentSystemOutbound, createOutboundFingerprint } from '@/lib/evolution'
+import { consumeRecentSystemOutbound, createOutboundFingerprint, resolveJidByLid } from '@/lib/evolution'
 import { startInactivityScheduler } from '@/lib/inactivity-scheduler'
 import { getConversationPhoneCandidates, getMaraPauseState } from '@/lib/mara-pause'
 import { adminClient } from '@/lib/supabase/admin'
 import { normalizeConversationId, toWhatsAppJid } from '@/lib/utils'
 import { logWebhookEvent } from '@/lib/webhook-logger'
+
+// Cache @lid JID → real phone (e.g. "242777958944931@lid" → "5598987654321")
+// Populated whenever a payload contains both the @lid and the real JID.
+const lidResolutionCache = new Map<string, string>()
 
 // Inicia o scheduler de inatividade junto com o servidor (sem cron externo)
 startInactivityScheduler()
@@ -275,8 +279,29 @@ async function handleWebhookEvent(body: Record<string, unknown>) {
   const pushName = typeof data.pushName === 'string' ? data.pushName.trim() || null : null
   const outboundSource = typeof data.source === 'string' ? data.source.trim().toLowerCase() : null
 
-  if (routing.originalId.endsWith('@lid') && routing.originalId !== routing.sessionId) {
+  // When payload contains both @lid and real JID, cache the mapping for future lookups
+  if (routing.originalId.endsWith('@lid') && routing.sessionId !== routing.originalId) {
+    lidResolutionCache.set(routing.originalId, routing.sessionId)
     await rekeyConversation(routing.originalId, routing.sessionId)
+  }
+
+  // When payload only has @lid and no real JID, try to resolve via cache or Evolution API
+  if (routing.sessionId.endsWith('@lid')) {
+    const cached = lidResolutionCache.get(routing.sessionId)
+    if (cached) {
+      routing.sessionId = cached
+      routing.replyTarget = cached
+      await rekeyConversation(routing.originalId, cached)
+    } else {
+      const resolved = await resolveJidByLid(routing.originalId)
+      if (resolved) {
+        lidResolutionCache.set(routing.originalId, resolved)
+        routing.sessionId = resolved
+        routing.replyTarget = resolved
+        await rekeyConversation(routing.originalId, resolved)
+      }
+      // If still @lid: continue normally — MARA can still reply using the @lid JID
+    }
   }
 
   const messageData = data.message as Record<string, unknown> | undefined

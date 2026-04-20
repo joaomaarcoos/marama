@@ -317,6 +317,35 @@ export interface EvolutionChatContact {
   updatedAt: string | null
 }
 
+/**
+ * Given an @lid JID, tries to resolve it to a real @s.whatsapp.net JID.
+ * Evolution API may expose the real JID via contact info endpoints.
+ * Returns the normalized phone string (e.g. "5598987654321") or null if not found.
+ */
+export async function resolveJidByLid(lidJid: string): Promise<string | null> {
+  const { baseUrl, instance } = getEvolutionConfig()
+  try {
+    // Try the contact info endpoint which may return the real JID
+    const res = await fetch(`${baseUrl}/chat/findContacts/${instance}`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ remoteJid: lidJid }),
+    })
+    if (!res.ok) return null
+    const data = await res.json() as unknown
+    const contacts = Array.isArray(data) ? data : (data ? [data] : [])
+    for (const contact of contacts as Array<{ remoteJid?: string; jid?: string }>) {
+      const jid = contact.remoteJid ?? contact.jid ?? ''
+      if (jid && !jid.endsWith('@lid') && (jid.endsWith('@s.whatsapp.net') || jid.endsWith('@c.us'))) {
+        return normalizePhoneFromJid(jid)
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 export async function findChats(): Promise<EvolutionChatContact[]> {
   const { baseUrl, instance } = getEvolutionConfig()
   const res = await fetch(`${baseUrl}/chat/findChats/${instance}`, {
