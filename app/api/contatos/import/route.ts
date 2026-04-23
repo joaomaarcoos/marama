@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { normalizePhone, normalizeCpf } from '@/lib/utils'
+import { syncContactsSnapshot } from '@/lib/contacts'
 
 // Paleta de cores para etiquetas criadas automaticamente
 const LABEL_COLORS = [
@@ -193,6 +194,13 @@ export async function POST(request: Request) {
           { onConflict: 'phone', ignoreDuplicates: false }
         )
     }
+  }
+
+  // Rebuild contacts cache so new imports appear immediately in the UI
+  try {
+    await syncContactsSnapshot()
+  } catch {
+    // non-fatal — page will fall back to derived profiles on next load
   }
 
   return NextResponse.json({
