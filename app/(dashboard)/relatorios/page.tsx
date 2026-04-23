@@ -620,7 +620,7 @@ export default function RelatoriosPage() {
               Assuntos mais tratados
             </h3>
             <span className="ml-auto text-xs" style={{ color: 'hsl(215 18% 42%)' }}>
-              Baseado nas etiquetas das conversas
+              Palavras mais frequentes nas mensagens do período
             </span>
           </div>
 
@@ -630,7 +630,7 @@ export default function RelatoriosPage() {
             </div>
           ) : !data?.topics.length ? (
             <div className="py-12 text-center text-sm" style={{ color: 'hsl(215 18% 42%)' }}>
-              Nenhuma etiqueta encontrada no período. Adicione etiquetas nas conversas para visualizar os tópicos.
+              Nenhuma mensagem encontrada no período para análise de tópicos.
             </div>
           ) : (
             <div>
