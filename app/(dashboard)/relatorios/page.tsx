@@ -216,6 +216,10 @@ function TimelineChart({ data }: { data: TimelinePoint[] }) {
   if (!data.length) return null
 
   const maxVal = Math.max(...data.map((d) => d.mara + d.human), 1)
+  const n = data.length
+  const labelStep = n <= 7 ? 1 : n <= 14 ? 2 : n <= 31 ? 5 : n <= 62 ? 7 : 10
+
+  const yTicks = [maxVal, Math.round(maxVal * 0.75), Math.round(maxVal * 0.5), Math.round(maxVal * 0.25), 0]
 
   return (
     <div
@@ -241,48 +245,96 @@ function TimelineChart({ data }: { data: TimelinePoint[] }) {
           </span>
         </div>
       </div>
-      <div className="flex items-end gap-1 h-28 overflow-x-auto pb-1">
-        {data.map((d) => {
-          const total = d.mara + d.human
-          const maraH = maxVal ? Math.round((d.mara / maxVal) * 100) : 0
-          const humanH = maxVal ? Math.round((d.human / maxVal) * 100) : 0
-          const dayLabel = new Date(d.date + 'T12:00:00').toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-          })
-          return (
-            <div key={d.date} className="flex flex-col items-center gap-1 flex-1 min-w-[28px] group" title={`${dayLabel}: ${total} atendimento(s)`}>
-              <div className="flex items-end gap-px w-full justify-center" style={{ height: '88px' }}>
-                <div
-                  className="rounded-t-sm transition-all duration-300"
-                  style={{
-                    width: '8px',
-                    height: `${maraH}%`,
-                    minHeight: d.mara > 0 ? '3px' : '0',
-                    background: 'hsl(217 91% 60%)',
-                    opacity: 0.85,
-                  }}
-                />
-                <div
-                  className="rounded-t-sm transition-all duration-300"
-                  style={{
-                    width: '8px',
-                    height: `${humanH}%`,
-                    minHeight: d.human > 0 ? '3px' : '0',
-                    background: 'hsl(38 92% 50%)',
-                    opacity: 0.85,
-                  }}
-                />
-              </div>
-              <span
-                className="text-[9px] rotate-45 origin-left ml-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
-                style={{ color: 'hsl(215 18% 42%)' }}
-              >
-                {dayLabel}
-              </span>
+
+      <div className="flex gap-2">
+        {/* Y-axis */}
+        <div
+          className="flex flex-col justify-between shrink-0 text-right pr-1"
+          style={{ width: '28px', paddingBottom: '22px' }}
+        >
+          {yTicks.map((v, i) => (
+            <span key={i} className="text-[10px] leading-none tabular-nums" style={{ color: 'hsl(215 18% 38%)' }}>
+              {v}
+            </span>
+          ))}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {/* Bars + grid */}
+          <div className="relative" style={{ height: '108px' }}>
+            {/* Grid lines */}
+            {[0, 25, 50, 75, 100].map((pct) => (
+              <div
+                key={pct}
+                className="absolute w-full border-t"
+                style={{ top: `${pct}%`, borderColor: 'hsl(216 32% 12%)' }}
+              />
+            ))}
+
+            {/* Bar groups */}
+            <div className="absolute inset-0 flex items-end gap-0.5 px-px">
+              {data.map((d) => {
+                const total = d.mara + d.human
+                const maraH = maxVal ? (d.mara / maxVal) * 100 : 0
+                const humanH = maxVal ? (d.human / maxVal) * 100 : 0
+                const dayLabel = new Date(d.date + 'T12:00:00').toLocaleDateString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                })
+                return (
+                  <div
+                    key={d.date}
+                    className="flex-1 min-w-0 flex items-end gap-px"
+                    style={{ height: '100%' }}
+                    title={`${dayLabel}: ${total} atendimento(s)`}
+                  >
+                    <div
+                      className="flex-1 rounded-t-sm transition-all duration-300"
+                      style={{
+                        height: `${maraH}%`,
+                        minHeight: d.mara > 0 ? '2px' : '0',
+                        background: 'hsl(217 91% 60%)',
+                        opacity: 0.85,
+                      }}
+                    />
+                    <div
+                      className="flex-1 rounded-t-sm transition-all duration-300"
+                      style={{
+                        height: `${humanH}%`,
+                        minHeight: d.human > 0 ? '2px' : '0',
+                        background: 'hsl(38 92% 50%)',
+                        opacity: 0.85,
+                      }}
+                    />
+                  </div>
+                )
+              })}
             </div>
-          )
-        })}
+          </div>
+
+          {/* X-axis date labels */}
+          <div className="flex gap-0.5 px-px mt-1">
+            {data.map((d, i) => {
+              const show = i % labelStep === 0 || i === data.length - 1
+              const dayLabel = new Date(d.date + 'T12:00:00').toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+              })
+              return (
+                <div key={d.date} className="flex-1 min-w-0 overflow-hidden text-center">
+                  {show && (
+                    <span
+                      className="text-[9px] whitespace-nowrap"
+                      style={{ color: 'hsl(215 18% 38%)' }}
+                    >
+                      {dayLabel}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </div>
   )
