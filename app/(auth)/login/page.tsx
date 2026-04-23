@@ -604,6 +604,7 @@ export default function LoginPage() {
                 alt="Maranhão Profissionalizado"
                 width={560}
                 height={220}
+                unoptimized
                 priority
               />
 
@@ -615,6 +616,7 @@ export default function LoginPage() {
                   alt="Mascote MARA"
                   width={1024}
                   height={1536}
+                  unoptimized
                   priority
                 />
               </div>
@@ -629,6 +631,7 @@ export default function LoginPage() {
                       alt="Bandeira do Maranhão"
                       width={42}
                       height={28}
+                      unoptimized
                       priority
                     />
                   </div>
