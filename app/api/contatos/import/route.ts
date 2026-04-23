@@ -198,7 +198,7 @@ export async function POST(request: Request) {
 
   // Rebuild contacts cache so new imports appear immediately in the UI
   try {
-    await syncContactsSnapshot()
+    await syncContactsSnapshot(true)
   } catch {
     // non-fatal — page will fall back to derived profiles on next load
   }

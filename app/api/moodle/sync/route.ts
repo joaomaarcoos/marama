@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── Sincronizar snapshot de contatos ──────────────────────────────────────
-    await syncContactsSnapshot()
+    await syncContactsSnapshot(true)
 
     return NextResponse.json({
       synced: coreRows.length,

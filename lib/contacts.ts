@@ -871,7 +871,19 @@ async function persistDerivedProfiles(profiles: ContactProfile[]): Promise<boole
   return true
 }
 
-export async function syncContactsSnapshot(): Promise<ContactProfile[]> {
+// Cooldown prevents rebuilding the full contacts snapshot more than once per minute.
+// processMessage() calls syncContactsSnapshot() at every early-return point (~12x per message).
+// On a VPS (persistent Node process) this in-memory guard eliminates the redundant rebuilds.
+let _lastSyncMs = 0
+const SYNC_COOLDOWN_MS = 60_000
+
+export async function syncContactsSnapshot(force = false): Promise<ContactProfile[]> {
+  const now = Date.now()
+  if (!force && now - _lastSyncMs < SYNC_COOLDOWN_MS) {
+    return []
+  }
+  _lastSyncMs = now
+
   const derivedProfiles = buildProfilesFromSources(await loadContactSources())
   try {
     await persistDerivedProfiles(derivedProfiles)
@@ -900,12 +912,21 @@ async function loadProfilesForRead(filters: { source?: 'moodle' | 'atendimento';
 }
 
 export async function listContactProfiles(options: { search?: string; source?: 'moodle' | 'atendimento'; labelId?: string } = {}): Promise<ContactProfile[]> {
-  const profiles = await loadProfilesForRead({ source: options.source, labelId: options.labelId })
+  // Always build from live sources so the contacts page reflects students + conversations
+  // in real time, regardless of whether the contacts cache has been rebuilt.
+  const sources = await loadContactSources()
+  let profiles = buildProfilesFromSources(sources)
+
+  if (options.source === 'moodle') profiles = profiles.filter((p) => p.hasMoodleData)
+  else if (options.source === 'atendimento') profiles = profiles.filter((p) => !p.hasMoodleData)
+  if (options.labelId) profiles = profiles.filter((p) => p.labels.includes(options.labelId!))
+
   return filterProfiles(profiles, options.search)
 }
 
 export async function getContactProfileById(contactId: string): Promise<ContactProfile | null> {
-  const profiles = await loadProfilesForRead()
+  const sources = await loadContactSources()
+  const profiles = buildProfilesFromSources(sources)
   return profiles.find((profile) => profile.id === contactId) ?? null
 }
 

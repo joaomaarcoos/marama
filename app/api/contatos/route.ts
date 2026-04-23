@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await syncContactsSnapshot()
+    await syncContactsSnapshot(true)
   } catch {
     // non-fatal
   }
