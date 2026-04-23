@@ -23,8 +23,9 @@ export async function POST(
   const supabase = getAdminClient()
 
   // Envia pelo Evolution API
+  let evolutionMessageId: string | null = null
   try {
-    await coordSendText(phone, text)
+    evolutionMessageId = await coordSendText(phone, text)
   } catch (err) {
     console.error('[coord/send]', err)
     return NextResponse.json(
@@ -45,10 +46,10 @@ export async function POST(
     { onConflict: 'phone' }
   )
 
-  // Salva mensagem
+  // Salva mensagem com message_id para evitar duplicação via webhook
   const { data: message, error } = await supabase
     .from('coord_messages')
-    .insert({ phone, direction: 'outbound', content: text })
+    .insert({ phone, direction: 'outbound', content: text, message_id: evolutionMessageId })
     .select('id, phone, direction, content, created_at')
     .single()
 

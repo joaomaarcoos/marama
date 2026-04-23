@@ -29,25 +29,77 @@ import {
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/theme-provider'
 import { MARAOrb } from '@/components/mara-orb'
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import type { UserRole } from '@/lib/roles'
 
-const ALL_NAV_ITEMS = [
-  { href: '/dashboard',            label: 'Dashboard',           icon: LayoutDashboard, roles: ['admin','gerente','atendente'] as UserRole[] },
-  { href: '/conversas',            label: 'Conversas',            icon: MessageSquare,   roles: ['admin','gerente','atendente'] as UserRole[] },
-  { href: '/conversacoordenacao',  label: 'Coord. WhatsApp',      icon: MessagesSquare,  roles: ['admin','gerente','atendente'] as UserRole[] },
-  { href: '/contatos',   label: 'Contatos',             icon: User,            roles: ['admin','gerente','atendente'] as UserRole[] },
-  { href: '/prompt',     label: 'Prompt da MARA',       icon: FileText,        roles: ['admin','gerente'] as UserRole[] },
-  { href: '/documentos', label: 'Base de Conhecimento', icon: BookOpen,        roles: ['admin','gerente'] as UserRole[] },
-  { href: '/disparos',   label: 'Disparos',             icon: Send,            roles: ['admin','gerente'] as UserRole[] },
-  { href: '/alunos',     label: 'Alunos',               icon: GraduationCap,   roles: ['admin','gerente','atendente'] as UserRole[] },
-  { href: '/tutores',    label: 'Tutores / Professores', icon: GraduationCap,  roles: ['admin','gerente','atendente'] as UserRole[] },
-  { href: '/usuarios',   label: 'Usuários',             icon: ShieldCheck,     roles: ['admin','gerente'] as UserRole[] },
-  { href: '/conexao',    label: 'Conexão WhatsApp',     icon: Smartphone,      roles: ['admin','gerente','atendente'] as UserRole[] },
-  { href: '/logs',       label: 'Logs Evolution',       icon: ScrollText,      roles: ['admin'] as UserRole[] },
-  { href: '/relatorios',    label: 'Relatórios',           icon: BarChart2,  roles: ['admin','gerente'] as UserRole[] },
-  { href: '/suporte',       label: 'Suporte',              icon: TicketCheck, roles: ['admin','gerente','atendente'] as UserRole[] },
-  { href: '/configuracoes', label: 'Configurações',        icon: Settings,   roles: ['admin','gerente','atendente'] as UserRole[] },
+interface NavItem {
+  href: string
+  label: string
+  sublabel?: string
+  icon: React.ElementType
+  roles: UserRole[]
+  accent?: string
+}
+
+interface NavSection {
+  title: string
+  items: NavItem[]
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    title: 'Visão Geral',
+    items: [
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin','gerente','atendente'] },
+    ],
+  },
+  {
+    title: 'Atendimento',
+    items: [
+      {
+        href: '/conversas',
+        label: 'Conversas MARA',
+        sublabel: 'chatbot automático',
+        icon: MessageSquare,
+        roles: ['admin','gerente','atendente'],
+      },
+      {
+        href: '/conversacoordenacao',
+        label: 'Coord. WhatsApp',
+        sublabel: 'respostas manuais',
+        icon: MessagesSquare,
+        roles: ['admin','gerente','atendente'],
+        accent: 'hsl(var(--primary) / 0.7)',
+      },
+    ],
+  },
+  {
+    title: 'Conteúdo',
+    items: [
+      { href: '/prompt',     label: 'Prompt da MARA',       icon: FileText,   roles: ['admin','gerente'] },
+      { href: '/documentos', label: 'Base de Conhecimento', icon: BookOpen,   roles: ['admin','gerente'] },
+      { href: '/disparos',   label: 'Disparos',             icon: Send,       roles: ['admin','gerente'] },
+    ],
+  },
+  {
+    title: 'Equipe & Alunos',
+    items: [
+      { href: '/contatos', label: 'Contatos',              icon: User,          roles: ['admin','gerente','atendente'] },
+      { href: '/alunos',   label: 'Alunos',                icon: GraduationCap, roles: ['admin','gerente','atendente'] },
+      { href: '/tutores',  label: 'Tutores / Professores', icon: GraduationCap, roles: ['admin','gerente','atendente'] },
+      { href: '/usuarios', label: 'Usuários',              icon: ShieldCheck,   roles: ['admin','gerente'] },
+    ],
+  },
+  {
+    title: 'Sistema',
+    items: [
+      { href: '/relatorios',    label: 'Relatórios',       icon: BarChart2,  roles: ['admin','gerente'] },
+      { href: '/suporte',       label: 'Suporte',          icon: TicketCheck, roles: ['admin','gerente','atendente'] },
+      { href: '/logs',          label: 'Logs Evolution',   icon: ScrollText,  roles: ['admin'] },
+      { href: '/conexao',       label: 'Conexão WhatsApp', icon: Smartphone,  roles: ['admin','gerente','atendente'] },
+      { href: '/configuracoes', label: 'Configurações',    icon: Settings,    roles: ['admin','gerente','atendente'] },
+    ],
+  },
 ]
 
 export function Sidebar({ role }: { role: UserRole }) {
@@ -55,7 +107,10 @@ export function Sidebar({ role }: { role: UserRole }) {
   const { theme, toggle } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
 
-  const navItems = ALL_NAV_ITEMS.filter(item => item.roles.includes(role))
+  const navSections = NAV_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.filter(item => item.roles.includes(role)),
+  })).filter(section => section.items.length > 0)
 
   // Persist collapse state
   useEffect(() => {
@@ -131,52 +186,72 @@ export function Sidebar({ role }: { role: UserRole }) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-1.5 py-4">
-        {!collapsed && (
-          <p
-            className="px-2 pb-3 text-xs font-medium uppercase"
-            style={{ color: 'hsl(var(--sidebar-text-dim))', letterSpacing: '0.1em', fontSize: '0.6rem' }}
-          >
-            Navegação
-          </p>
-        )}
-
-        <div className="space-y-px">
-          {navItems.map(item => {
-            const Icon = item.icon
-            const isActive =
-              pathname === item.href ||
-              (item.href !== '/dashboard' && pathname.startsWith(item.href))
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  'relative flex items-center gap-2.5 py-2 rounded-md text-xs font-medium transition-all duration-150',
-                  collapsed ? 'justify-center px-0' : 'px-2.5'
-                )}
-                style={
-                  isActive
-                    ? { color: 'hsl(var(--sidebar-active-color))', background: 'hsl(var(--sidebar-active-bg))' }
-                    : { color: 'hsl(var(--sidebar-text))' }
-                }
-                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'hsl(var(--sidebar-hover))' }}
-                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = '' }}
+      <nav className="flex-1 px-1.5 py-3 space-y-3 overflow-y-auto">
+        {navSections.map((section, si) => (
+          <div key={si}>
+            {/* Section label */}
+            {!collapsed && (
+              <p
+                className="px-2 pb-1 text-xs font-semibold uppercase tracking-widest"
+                style={{ color: 'hsl(var(--sidebar-text-dim))', fontSize: '0.58rem' }}
               >
-                {isActive && (
-                  <span
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full"
-                    style={{ background: 'hsl(var(--primary))', boxShadow: '0 0 8px hsl(var(--primary) / 0.6)' }}
-                  />
-                )}
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                {!collapsed && <span className="truncate">{item.label}</span>}
-              </Link>
-            )
-          })}
-        </div>
+                {section.title}
+              </p>
+            )}
+            {collapsed && si > 0 && (
+              <div className="mx-2 my-1 border-t" style={{ borderColor: 'hsl(var(--sidebar-border-subtle))' }} />
+            )}
+
+            <div className="space-y-px">
+              {section.items.map(item => {
+                const Icon = item.icon
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== '/dashboard' && pathname.startsWith(item.href))
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    title={collapsed ? item.label : undefined}
+                    className={cn(
+                      'relative flex items-center gap-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
+                      collapsed ? 'justify-center px-0' : 'px-2.5'
+                    )}
+                    style={
+                      isActive
+                        ? { color: 'hsl(var(--sidebar-active-color))', background: 'hsl(var(--sidebar-active-bg))' }
+                        : { color: item.accent ?? 'hsl(var(--sidebar-text))' }
+                    }
+                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'hsl(var(--sidebar-hover))' }}
+                    onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = '' }}
+                  >
+                    {isActive && (
+                      <span
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full"
+                        style={{ background: 'hsl(var(--primary))', boxShadow: '0 0 8px hsl(var(--primary) / 0.6)' }}
+                      />
+                    )}
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    {!collapsed && (
+                      <div className="min-w-0 flex-1">
+                        <span className="truncate block leading-tight">{item.label}</span>
+                        {item.sublabel && (
+                          <span
+                            className="truncate block leading-tight"
+                            style={{ fontSize: '0.58rem', color: isActive ? 'hsl(var(--sidebar-active-color) / 0.7)' : 'hsl(var(--sidebar-text-dim))' }}
+                          >
+                            {item.sublabel}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}

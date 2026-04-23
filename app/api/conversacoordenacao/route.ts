@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('coord_conversations')
-    .select('phone, name, profile_pic_url, last_message, last_message_at, created_at')
+    .select('phone, name, profile_pic_url, last_message, last_message_at, created_at, assigned_to, assigned_name')
     .order('last_message_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

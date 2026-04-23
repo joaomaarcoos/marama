@@ -23,7 +23,7 @@ function getHeaders() {
   }
 }
 
-export async function coordSendText(phone: string, text: string): Promise<void> {
+export async function coordSendText(phone: string, text: string): Promise<string | null> {
   const { baseUrl, instance } = getCoordConfig()
   const res = await fetch(`${baseUrl}/message/sendText/${instance}`, {
     method: 'POST',
@@ -34,6 +34,13 @@ export async function coordSendText(phone: string, text: string): Promise<void> 
   if (!res.ok) {
     const body = await res.text()
     throw new Error(`Evolution coordSendText error: ${res.status} ${body}`)
+  }
+
+  try {
+    const data = await res.json() as { key?: { id?: string } }
+    return data.key?.id ?? null
+  } catch {
+    return null
   }
 }
 

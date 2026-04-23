@@ -531,7 +531,7 @@ function ConvItem({
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="chat-conv-preview truncate">{conv.last_message ?? '—'}</span>
           <div className="flex items-center gap-1.5 shrink-0">
-            {pauseBadge.blocked && (
+            {!closed && pauseBadge.blocked && (
               <span title={pauseBadge.title ?? undefined}>
                 <PauseCircle size={11} style={{ color: 'var(--chat-status-waiting)' }} />
               </span>
@@ -1033,6 +1033,7 @@ function ChatPanel({
   currentUser,
   onRefresh,
   onLabelsChange,
+  onConversationUpdate,
 }: {
   phone: string
   allLabels: Label[]
@@ -1040,6 +1041,7 @@ function ChatPanel({
   currentUser: { id: string; email: string } | null
   onRefresh: () => void | Promise<void>
   onLabelsChange: (labels: Label[]) => void
+  onConversationUpdate: (phone: string, updates: Partial<Conversation>) => void
 }) {
   const [data, setData] = useState<ConversationDetail | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
@@ -1117,7 +1119,8 @@ function ChatPanel({
     mediaStreamRef.current?.getTracks().forEach(track => track.stop())
   }, [])
 
-  const act = async (fn: () => Promise<void>) => {
+  const act = async (fn: () => Promise<void>, optimistic?: () => void) => {
+    optimistic?.()
     setActing(true)
     try { await fn() } finally { setActing(false); await Promise.all([load(), onRefresh()]) }
   }
@@ -1348,8 +1351,8 @@ function ChatPanel({
             {sm.label}
           </span>
 
-          {/* Badge pausa MARA */}
-          {pauseBadge.blocked && pauseBadge.label && (
+          {/* Badge pausa MARA — oculto em conversas encerradas */}
+          {!closed && pauseBadge.blocked && pauseBadge.label && (
             <span
               className="chat-status-badge"
               title={pauseBadge.title ?? undefined}
@@ -1399,8 +1402,14 @@ function ChatPanel({
                   currentAssignedName={conversation.assigned_name ?? null}
                   allUsers={allUsers}
                   currentUser={currentUser}
-                  onAssign={(userId, userName) => act(() => patchConversation(phone, { assigned_to: userId, assigned_name: userName }))}
-                  onUnassign={() => act(() => patchConversation(phone, { assigned_to: null, assigned_name: null }))}
+                  onAssign={(userId, userName) => act(
+                    () => patchConversation(phone, { assigned_to: userId, assigned_name: userName }),
+                    () => onConversationUpdate(phone, { assigned_to: userId, assigned_name: userName })
+                  )}
+                  onUnassign={() => act(
+                    () => patchConversation(phone, { assigned_to: null, assigned_name: null }),
+                    () => onConversationUpdate(phone, { assigned_to: null, assigned_name: null })
+                  )}
                   onClose={() => setAssignOpen(false)}
                   disabled={acting}
                 />
@@ -1423,12 +1432,18 @@ function ChatPanel({
 
           {/* Close / Reopen */}
           {!closed ? (
-            <button onClick={() => act(() => patchConversation(phone, { status: 'closed', followup_stage: null }))} disabled={acting} className="chat-action-btn chat-action-btn--danger">
+            <button onClick={() => act(
+              () => patchConversation(phone, { status: 'closed', followup_stage: null }),
+              () => onConversationUpdate(phone, { status: 'closed', followup_stage: null, assigned_to: null, assigned_name: null })
+            )} disabled={acting} className="chat-action-btn chat-action-btn--danger">
               <LogOut size={14} />
               <span className="hidden sm:inline">Encerrar</span>
             </button>
           ) : (
-            <button onClick={() => act(() => patchConversation(phone, { status: 'active', followup_stage: null }))} disabled={acting} className="chat-action-btn chat-action-btn--primary">
+            <button onClick={() => act(
+              () => patchConversation(phone, { status: 'active', followup_stage: null }),
+              () => onConversationUpdate(phone, { status: 'active', followup_stage: null })
+            )} disabled={acting} className="chat-action-btn chat-action-btn--primary">
               <RotateCcw size={14} />
               <span className="hidden sm:inline">Reabrir</span>
             </button>
@@ -1732,6 +1747,10 @@ export default function ChatInterface({
     setLoadingList(false)
   }, [])
 
+  const updateConversationLocally = useCallback((phone: string, updates: Partial<Conversation>) => {
+    setConversations(prev => prev.map(c => c.phone === phone ? { ...c, ...updates } : c))
+  }, [])
+
   const loadLabels = useCallback(async () => {
     const res = await fetch('/api/labels')
     if (res.ok) setAllLabels(await res.json())
@@ -1837,6 +1856,7 @@ export default function ChatInterface({
             currentUser={currentUser}
             onRefresh={loadConversations}
             onLabelsChange={setAllLabels}
+            onConversationUpdate={updateConversationLocally}
           />
         ) : (
           <EmptyPane />

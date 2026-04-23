@@ -4,11 +4,18 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   MessageSquare, Search, RefreshCw, SendHorizontal,
-  Smile, ChevronRight, ChevronLeft,
+  Smile, ChevronRight, ChevronLeft, UserPlus, UserCheck,
+  X, CheckCircle2,
 } from 'lucide-react'
 import { EmojiPicker } from '@/components/emoji-picker'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface SystemUser {
+  id: string
+  email: string
+  name: string
+}
 
 interface CoordConversation {
   phone: string
@@ -16,6 +23,8 @@ interface CoordConversation {
   profile_pic_url: string | null
   last_message: string | null
   last_message_at: string | null
+  assigned_to: string | null
+  assigned_name: string | null
 }
 
 interface CoordMessage {
@@ -71,12 +80,96 @@ function initials(name: string): string {
   return name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
 }
 
+function userDisplayName(u: SystemUser): string {
+  return u.name !== u.email ? u.name : u.email.split('@')[0]
+}
+
+function assignedDisplayName(name: string | null | undefined): string | null {
+  if (!name?.trim()) return null
+  return name.split('@')[0]?.trim() || name.trim()
+}
+
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
 function Avatar({ name, photoUrl, size = 'default' }: { name: string; photoUrl?: string | null; size?: 'default' | 'large' | 'hero' }) {
   const sizeClass = size === 'hero' ? 'chat-avatar chat-avatar-hero' : size === 'large' ? 'chat-avatar chat-avatar-lg' : 'chat-avatar'
   if (photoUrl) return <img src={photoUrl} alt={name} className={`${sizeClass} chat-avatar-photo`} />
   return <div className={sizeClass} data-identified>{initials(name)}</div>
+}
+
+// ─── Assign Picker ────────────────────────────────────────────────────────────
+
+function AssignPicker({
+  currentAssignedTo,
+  allUsers,
+  currentUser,
+  onAssign,
+  onUnassign,
+  onClose,
+  saving,
+}: {
+  currentAssignedTo: string | null
+  allUsers: SystemUser[]
+  currentUser: { id: string; email: string } | null
+  onAssign: (userId: string, userName: string) => void
+  onUnassign: () => void
+  onClose: () => void
+  saving: boolean
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose])
+
+  return (
+    <div ref={ref} className="chat-label-picker" style={{ minWidth: 210 }}>
+      <p className="chat-label-picker-title">Atribuir conversa</p>
+
+      {currentAssignedTo && (
+        <button
+          disabled={saving}
+          onClick={() => { onUnassign(); onClose() }}
+          className="chat-label-picker-item"
+          style={{ color: 'hsl(0 84% 55%)', opacity: saving ? 0.5 : 1 }}
+        >
+          <X size={12} style={{ flexShrink: 0 }} />
+          <span>Desatribuir</span>
+        </button>
+      )}
+
+      <div className="chat-label-picker-list">
+        {allUsers.map(u => {
+          const isAssigned = u.id === currentAssignedTo
+          const isMe = u.id === currentUser?.id
+          return (
+            <button
+              key={u.id}
+              disabled={saving || isAssigned}
+              onClick={() => { onAssign(u.id, u.email); onClose() }}
+              className="chat-label-picker-item"
+              style={{ opacity: saving || isAssigned ? 0.6 : 1 }}
+            >
+              <div
+                className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
+                style={{ background: 'hsl(var(--primary) / 0.15)', color: 'hsl(var(--primary))', fontSize: '0.55rem' }}
+              >
+                {userDisplayName(u).slice(0, 2).toUpperCase()}
+              </div>
+              <span className="flex-1 text-left truncate">
+                {userDisplayName(u)}{isMe ? ' (eu)' : ''}
+              </span>
+              {isAssigned && <CheckCircle2 size={12} style={{ color: 'hsl(var(--primary))', flexShrink: 0 }} />}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 // ─── Empty pane ───────────────────────────────────────────────────────────────
@@ -97,9 +190,13 @@ function EmptyPane() {
 
 function CoordChatPanel({
   phone,
+  allUsers,
+  currentUser,
   onRefresh,
 }: {
   phone: string
+  allUsers: SystemUser[]
+  currentUser: { id: string; email: string } | null
   onRefresh: () => void
 }) {
   const [messages, setMessages] = useState<CoordMessage[]>([])
@@ -110,6 +207,8 @@ function CoordChatPanel({
   const [sendError, setSendError] = useState<string | null>(null)
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
+  const [assignOpen, setAssignOpen] = useState(false)
+  const [assigning, setAssigning] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const emojiRef = useRef<HTMLDivElement>(null)
@@ -176,6 +275,21 @@ function CoordChatPanel({
     }
   }
 
+  const patchAssign = async (assignedTo: string | null, assignedName: string | null) => {
+    setAssigning(true)
+    try {
+      await fetch(`/api/conversacoordenacao/${encodeURIComponent(phone)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigned_to: assignedTo, assigned_name: assignedName }),
+      })
+      setConversation(prev => prev ? { ...prev, assigned_to: assignedTo, assigned_name: assignedName } : prev)
+      onRefresh()
+    } finally {
+      setAssigning(false)
+    }
+  }
+
   // Agrupar por data
   const groups: { date: string; msgs: CoordMessage[] }[] = []
   for (const msg of messages) {
@@ -186,6 +300,8 @@ function CoordChatPanel({
   }
 
   const name = conversation ? getDisplayName(conversation) : formatPhone(phone)
+  const assignedName = assignedDisplayName(conversation?.assigned_name)
+  const isAssignedToMe = conversation?.assigned_to === currentUser?.id
 
   if (loading) {
     return (
@@ -205,7 +321,33 @@ function CoordChatPanel({
             <p className="chat-panel-name truncate">{name}</p>
             <p className="chat-panel-phone">{formatPhone(phone)}</p>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {/* Assign button */}
+            <div className="relative">
+              <button
+                onClick={() => setAssignOpen(v => !v)}
+                disabled={assigning}
+                className={`chat-action-btn ${conversation?.assigned_to ? 'chat-action-btn--assigned' : 'chat-action-btn--primary'}`}
+                title={conversation?.assigned_to ? `Atribuída a ${assignedName ?? conversation.assigned_name}` : 'Atribuir conversa'}
+              >
+                {conversation?.assigned_to ? <UserCheck size={14} /> : <UserPlus size={14} />}
+                <span className="hidden sm:inline truncate max-w-[80px]">
+                  {conversation?.assigned_to ? (assignedName ?? 'Atribuída') : 'Atribuir'}
+                </span>
+              </button>
+              {assignOpen && (
+                <AssignPicker
+                  currentAssignedTo={conversation?.assigned_to ?? null}
+                  allUsers={allUsers}
+                  currentUser={currentUser}
+                  onAssign={(userId, userName) => patchAssign(userId, userName)}
+                  onUnassign={() => patchAssign(null, null)}
+                  onClose={() => setAssignOpen(false)}
+                  saving={assigning}
+                />
+              )}
+            </div>
+
             <button
               onClick={() => setInfoOpen(v => !v)}
               className="chat-icon-btn"
@@ -220,6 +362,14 @@ function CoordChatPanel({
             </button>
           </div>
         </div>
+
+        {/* Assigned strip */}
+        {assignedName && (
+          <div className="chat-student-strip">
+            <UserCheck size={11} />
+            <span>Atribuída a {assignedName}{isAssignedToMe ? ' (você)' : ''}</span>
+          </div>
+        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto chat-messages-area">
@@ -339,6 +489,14 @@ function CoordChatPanel({
                     </div>
                   </div>
                 )}
+                {assignedName && (
+                  <div className="contact-panel-row">
+                    <div className="min-w-0">
+                      <p className="contact-panel-label">Atribuída a</p>
+                      <p className="contact-panel-value">{assignedName}</p>
+                    </div>
+                  </div>
+                )}
                 {conversation.last_message_at && (
                   <div className="contact-panel-row">
                     <div className="min-w-0">
@@ -358,11 +516,19 @@ function CoordChatPanel({
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function CoordChatInterface({ selectedPhone }: { selectedPhone?: string }) {
+export default function CoordChatInterface({
+  selectedPhone,
+  initialCurrentUser,
+}: {
+  selectedPhone?: string
+  initialCurrentUser?: { id: string; email: string } | null
+}) {
   const router = useRouter()
   const [conversations, setConversations] = useState<CoordConversation[]>([])
+  const [allUsers, setAllUsers] = useState<SystemUser[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [currentUser] = useState(initialCurrentUser ?? null)
 
   const loadConversations = useCallback(async () => {
     const res = await fetch('/api/conversacoordenacao')
@@ -370,13 +536,22 @@ export default function CoordChatInterface({ selectedPhone }: { selectedPhone?: 
     setLoading(false)
   }, [])
 
+  const loadUsers = useCallback(async () => {
+    const res = await fetch('/api/usuarios')
+    if (res.ok) {
+      const data = await res.json() as SystemUser[]
+      setAllUsers(data)
+    }
+  }, [])
+
   useEffect(() => {
     loadConversations()
+    loadUsers()
     const pollId = setInterval(loadConversations, 30000)
     const es = new EventSource('/api/conversacoordenacao/stream')
     es.onmessage = () => { void loadConversations() }
     return () => { clearInterval(pollId); es.close() }
-  }, [loadConversations])
+  }, [loadConversations, loadUsers])
 
   const filtered = conversations.filter(c => {
     const q = search.toLowerCase()
@@ -417,6 +592,8 @@ export default function CoordChatInterface({ selectedPhone }: { selectedPhone?: 
             filtered.map(conv => {
               const name = getDisplayName(conv)
               const selected = conv.phone === selectedPhone
+              const isAssignedToMe = conv.assigned_to === currentUser?.id
+              const aName = assignedDisplayName(conv.assigned_name)
               return (
                 <button
                   key={conv.phone}
@@ -428,9 +605,19 @@ export default function CoordChatInterface({ selectedPhone }: { selectedPhone?: 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-0.5">
                       <span className="chat-conv-name truncate">{name}</span>
-                      <span className="chat-conv-time">{relativeTime(conv.last_message_at)}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isAssignedToMe && <UserCheck size={11} style={{ color: 'var(--chat-status-active)' }} />}
+                        <span className="chat-conv-time">{relativeTime(conv.last_message_at)}</span>
+                      </div>
                     </div>
-                    <span className="chat-conv-preview truncate block">{conv.last_message ?? '—'}</span>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="chat-conv-preview truncate">{conv.last_message ?? '—'}</span>
+                      {aName && !isAssignedToMe && (
+                        <span style={{ fontSize: '0.65rem', color: 'var(--chat-text-dim)', flexShrink: 0 }}>
+                          {aName.split(' ')[0]}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
               )
@@ -445,6 +632,8 @@ export default function CoordChatInterface({ selectedPhone }: { selectedPhone?: 
           <CoordChatPanel
             key={selectedPhone}
             phone={selectedPhone}
+            allUsers={allUsers}
+            currentUser={currentUser}
             onRefresh={loadConversations}
           />
         ) : (

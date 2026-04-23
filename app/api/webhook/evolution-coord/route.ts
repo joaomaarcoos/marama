@@ -21,7 +21,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!data) return NextResponse.json({ ok: true })
 
     const key = data.key as Record<string, unknown> | undefined
-    if (key?.fromMe) return NextResponse.json({ ok: true })
+    const fromMe = !!(key?.fromMe)
+    const messageId = (key?.id as string | undefined) ?? null
 
     const messageContent = data.message as Record<string, unknown> | undefined
     if (!messageContent) return NextResponse.json({ ok: true })
@@ -44,10 +45,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const supabase = getAdminClient()
 
+    // Para mensagens enviadas por nós (fromMe), evitar duplicação com o que já foi salvo via /send
+    if (fromMe && messageId) {
+      const { data: existing } = await supabase
+        .from('coord_messages')
+        .select('id')
+        .eq('message_id', messageId)
+        .limit(1)
+        .maybeSingle()
+      if (existing) return NextResponse.json({ ok: true })
+    }
+
+    const direction = fromMe ? 'outbound' : 'inbound'
+
     await supabase.from('coord_conversations').upsert(
       {
         phone,
-        name: pushName,
+        ...(pushName ? { name: pushName } : {}),
         last_message: text,
         last_message_at: new Date().toISOString(),
       },
@@ -56,9 +70,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     await supabase.from('coord_messages').insert({
       phone,
-      direction: 'inbound',
+      direction,
       content: text,
-      message_id: (key?.id as string | undefined) ?? null,
+      message_id: messageId,
     })
 
     notifyCoordSseClients()

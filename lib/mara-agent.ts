@@ -157,6 +157,8 @@ const NON_NAME_PATTERNS = [
   /\b(porque|quando|onde|como|nosso|nossa|nossos|nossas|isso|este|esse|essa)\b/i,
   /\b(sistema|projeto|problema|d[uú]vida|ajuda|curso|nota|senha|login|acesso|certificado|aula|sigec|moodle)\b/i,
   /\b(inst[aá]vel|instabilidade|erro|falha|funcionar|funcionando|carregando)\b/i,
+  // Respostas afirmativas/negativas que não são nomes
+  /^(sim|n[aã]o|ok|claro|certo|exato|isso|oi|ol[aá]|sou|eu|bom|boa|pois|tudo|nada|bem|mal)$/i,
 ]
 
 function detectPasswordResetIntent(text: string): boolean {
@@ -183,17 +185,22 @@ function isNegative(text: string): boolean {
 }
 
 function extractNameCandidate(text: string): string | null {
-  const withoutCpf = text
+  let cleaned = text
     .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, ' ')
     .replace(/\bcpf\b[:\s-]*/gi, ' ')
-    .replace(/^(meu nome(?: completo)? e|nome(?: completo)?[:\s-]*|sou o|sou a)\s+/i, '')
     .replace(/[|;,]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 
-  if (!withoutCpf || withoutCpf.length < 3 || withoutCpf.length > 100) return null
-  if (!/[A-Za-z]/.test(withoutCpf)) return null
-  return withoutCpf
+  // Strip leading affirmative/filler + introductory phrases.
+  // Handles: "Sim sou X", "Não, me chamo X", "Eu sou a X", "Meu nome é X", etc.
+  cleaned = cleaned
+    .replace(/^(?:(?:sim|n[aã]o|ok|claro|certo|exato|[eé]|isso)[,.]?\s+)?(?:eu\s+)?(?:me\s+chamo|meu\s+nome(?:\s+completo)?(?:\s+[eéê]|\s+eh)?|nome(?:\s+completo)?[:\s-]*|sou\s+(?:o\s+|a\s+)?)\s*/i, '')
+    .trim()
+
+  if (!cleaned || cleaned.length < 3 || cleaned.length > 100) return null
+  if (!/[A-Za-z]/.test(cleaned)) return null
+  return cleaned
 }
 
 function normalizePayloadName(value: string | null | undefined): string | null {
@@ -343,8 +350,9 @@ async function sendAssistantMessage(
 }
 
 async function activateHumanHandoff(phone: string, replyTarget: string, text: string) {
+  const congestionNotice = '\n\n_Estamos com alto volume de mensagens e o atendimento pode estar congestionado. A resposta pode demorar alguns minutos — agradecemos a paciencia!_'
   const pausedUntil = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
-  await sendAssistantMessage(phone, replyTarget, text, {
+  await sendAssistantMessage(phone, replyTarget, text + congestionNotice, {
     pending_action: null,
     assigned_to: null,
     assigned_name: 'Aguardando atendimento humano',
@@ -617,7 +625,7 @@ async function handleSupportTicketFlow(
     await sendAssistantMessage(
       phone,
       replyTarget,
-      `Chamado aberto com sucesso.\n\n*Protocolo:* ${ticket.protocol}\n*Assunto:* ${ticket.subject}\n\nNossa equipe analisara sua solicitacao e entrara em contato em breve. Guarde o numero do protocolo para acompanhar o atendimento.`
+      `Chamado aberto com sucesso.\n\n*Protocolo:* ${ticket.protocol}\n*Assunto:* ${ticket.subject}\n\nNossa equipe analisara sua solicitacao e entrara em contato em breve. Guarde o numero do protocolo para acompanhar o atendimento.\n\n_Estamos com alto volume de mensagens e o atendimento pode estar congestionado. A resposta pode demorar alguns minutos — agradecemos a paciencia!_`
     )
   } catch (err) {
     console.error('[MARA] Erro ao criar ticket de suporte:', err)
