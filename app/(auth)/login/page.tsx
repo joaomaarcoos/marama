@@ -600,7 +600,7 @@ export default function LoginPage() {
             <section className="mp-login-left" aria-label="Apresentação da plataforma">
               <Image
                 className="mp-login-logo"
-                src="/logo-maranhao-profissionalizado.png"
+                src="https://hvvgyiafelqylbzkzjbi.supabase.co/storage/v1/object/sign/logos-mara/logo-maranhao-profissionalizado.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNGJiODA1My1lZjk2LTRiOTMtYjg2OC0xOTNmMGYxMmI4YTQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJsb2dvcy1tYXJhL2xvZ28tbWFyYW5oYW8tcHJvZmlzc2lvbmFsaXphZG8ucG5nIiwiaWF0IjoxNzc3MjMwMjk2LCJleHAiOjQ5MzA4MzAyOTZ9.zL51vPBOS8PNgDn-0KmQx_9o7Y1YOLtSOVlGGxOVCJI"
                 alt="Maranhão Profissionalizado"
                 width={560}
                 height={220}
@@ -612,7 +612,7 @@ export default function LoginPage() {
                 <MaranhaoMap />
                 <Image
                   className="mp-login-mascot"
-                  src="/mascote-mara.png"
+                  src="https://hvvgyiafelqylbzkzjbi.supabase.co/storage/v1/object/sign/logos-mara/mascote-mara.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNGJiODA1My1lZjk2LTRiOTMtYjg2OC0xOTNmMGYxMmI4YTQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJsb2dvcy1tYXJhL21hc2NvdGUtbWFyYS5wbmciLCJpYXQiOjE3NzcyMzAzMTUsImV4cCI6NDkzMDgzMDMxNX0.m7QpnJvkaOb8IU3dNYko8yzwCEB857NsTHqMgQ8BOvU"
                   alt="Mascote MARA"
                   width={1024}
                   height={1536}
