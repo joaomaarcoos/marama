@@ -140,7 +140,7 @@ export default function NovaDisparoPage() {
   }
 
   return (
-    <div>
+    <div className="app-content">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Nova Campanha</h1>
         <p className="text-gray-500 mt-1">Configure e inicie um disparo em massa</p>

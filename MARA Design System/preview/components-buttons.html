@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root, html.dark {
+  --background: 220 40% 5%;
+  --card: 220 35% 9%;
+  --popover: 220 35% 11%;
+  --muted: 220 30% 13%;
+  --secondary: 220 30% 14%;
+  --border: 220 28% 18%;
+  --input: 220 30% 14%;
+  --primary: 162 72% 45%;
+  --primary-foreground: 220 40% 5%;
+  --ring: 162 72% 45%;
+  --fg1: 213 31% 92%;
+  --fg2: 215 18% 75%;
+  --fg3: 215 14% 55%;
+  --sidebar-bg: 220 40% 4%;
+  --sidebar-border: 220 28% 16%;
+  --sidebar-border-subtle: 220 26% 12%;
+  --sidebar-text: 215 18% 70%;
+  --sidebar-text-dim: 215 14% 50%;
+  --sidebar-active-color: 162 72% 65%;
+  --sidebar-active-bg: 162 72% 45% / 0.14;
+  --sidebar-hover: 220 30% 14% / 1;
+  --sidebar-brand-color: 162 72% 65%;
+  --sidebar-brand-dim: 215 14% 60%;
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --weight-body: 500;
+  --weight-body-strong: 600;
+  --type-display-1: 40px;
+  --type-display-2: 28px;
+  --type-h1: 22px;
+  --type-h2: 18px;
+  --type-h3: 15px;
+  --type-body: 14px;
+  --type-small: 12.5px;
+  --type-tiny: 11px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px; --radius-lg: 10px; --radius-xl: 14px; --radius-2xl: 20px;
+  --shadow-sm: 0 1px 2px hsl(220 40% 0% / 0.4);
+  --shadow-md: 0 4px 12px hsl(220 40% 0% / 0.45);
+  --shadow-lg: 0 12px 32px hsl(220 40% 0% / 0.55);
+  --shadow-glow: 0 0 32px hsl(162 72% 45% / 0.25);
+}
+html.light, .light {
+  --background: 40 23% 95%;
+  --card: 0 0% 100%;
+  --popover: 0 0% 100%;
+  --muted: 40 12% 90%;
+  --secondary: 40 12% 88%;
+  --border: 40 12% 86%;
+  --input: 40 14% 92%;
+  --primary: 162 65% 32%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 162 65% 32%;
+  --fg1: 220 40% 10%;
+  --fg2: 220 16% 28%;
+  --fg3: 220 12% 46%;
+}
+</style>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body { margin: 0; padding: 18px 22px; background: hsl(var(--background)); color: hsl(var(--fg1)); font-family: var(--font-body); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  button { font-family: var(--font-body); border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  .btn-primary { background: hsl(var(--primary)); color: white; padding: 9px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; box-shadow: 0 4px 12px -4px hsl(var(--primary) / 0.5); }
+  .btn-primary:hover { background: hsl(162 72% 45%); box-shadow: 0 6px 16px -4px hsl(var(--primary) / 0.6); }
+  .btn-blue { background: var(--mara-blue); color: white; padding: 9px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; box-shadow: 0 8px 18px rgba(24,77,209,0.28); }
+  .btn-secondary { background: hsl(var(--secondary)); color: hsl(var(--fg1)); padding: 9px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; }
+  .btn-ghost { background: transparent; color: hsl(var(--fg2)); padding: 9px 14px; border-radius: 10px; font-weight: 500; font-size: 13px; }
+  .btn-ghost:hover { background: hsl(var(--muted)); }
+  .btn-destructive { background: hsl(var(--destructive)); color: white; padding: 9px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; }
+  .btn-icon { width: 36px; height: 36px; padding: 0; justify-content: center; background: hsl(var(--muted)); color: hsl(var(--fg1)); border-radius: 10px; }
+  [data-lucide] { width: 14px; height: 14px; }
+</style>
+</head>
+<body>
+<button class="btn-primary"><i data-lucide="send-horizontal"></i>Enviar</button>
+<button class="btn-blue"><i data-lucide="log-in"></i>Acessar Sistema</button>
+<button class="btn-secondary">Cancelar</button>
+<button class="btn-ghost">Ver tudo</button>
+<button class="btn-destructive"><i data-lucide="trash-2"></i>Excluir</button>
+<button class="btn-icon" title="Configurações"><i data-lucide="settings"></i></button>
+<button class="btn-icon" title="Recarregar"><i data-lucide="refresh-cw"></i></button>
+<script>lucide.createIcons();</script>
+</body>
+</html>

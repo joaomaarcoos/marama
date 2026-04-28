@@ -8,7 +8,7 @@ import StudentSearch from '@/components/student-search'
 import { AlunosFilter } from '@/components/alunos-filter'
 import { StudentPasswordReset } from '@/components/moodle/student-password-reset'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Users, GraduationCap } from 'lucide-react'
+import { ChevronLeft, ChevronRight, GraduationCap, Download } from 'lucide-react'
 
 export const revalidate = 0
 
@@ -29,7 +29,6 @@ export default async function AlunosPage({ searchParams }: PageProps) {
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
 
-  // Build course list for filter dropdown
   const { data: allStudents } = await supabase.from('students').select('courses')
   const courseMap = new Map<number, { id: number; fullname: string; shortname: string }>()
   for (const s of allStudents ?? []) {
@@ -40,7 +39,6 @@ export default async function AlunosPage({ searchParams }: PageProps) {
   }
   const availableCourses = Array.from(courseMap.values()).sort((a, b) => a.fullname.localeCompare(b.fullname))
 
-  // Paginated filtered query
   let query = supabase
     .from('students')
     .select('*', { count: 'exact' })
@@ -66,7 +64,7 @@ export default async function AlunosPage({ searchParams }: PageProps) {
     .limit(1)
     .single()
 
-  const gestorCount = students?.filter(s => s.role === 'gestor').length ?? 0
+  const hasFilters = !!(q || selectedCursoId || tipo || cpfFilter || telFilter)
 
   function pageUrl(p: number) {
     const params = new URLSearchParams()
@@ -80,241 +78,199 @@ export default async function AlunosPage({ searchParams }: PageProps) {
     return `/alunos${qs ? `?${qs}` : ''}`
   }
 
-  const hasFilters = !!(q || selectedCursoId || tipo || cpfFilter || telFilter)
-
   return (
-    <div className="flex flex-col gap-6">
+    <>
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="app-header">
         <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <GraduationCap size={22} style={{ color: 'hsl(160 84% 39%)' }} />
-            <h1 className="text-xl font-bold" style={{ color: 'hsl(213 31% 92%)' }}>
-              Alunos
-            </h1>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm" style={{ color: 'hsl(215 18% 50%)' }}>
-              {count ?? 0} {(count ?? 0) !== 1 ? 'alunos' : 'aluno'}
-              {hasFilters && ' encontrados'}
-            </span>
-            {gestorCount > 0 && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                style={{ background: 'hsl(270 84% 39% / 0.15)', color: 'hsl(270 84% 70%)', border: '1px solid hsl(270 84% 39% / 0.3)' }}
-              >
-                <Users size={10} />
-                {gestorCount} gestor{gestorCount !== 1 ? 'es' : ''} nesta página
-              </span>
-            )}
-            {lastSync?.last_synced_at && (
-              <span className="text-xs" style={{ color: 'hsl(215 18% 38%)' }}>
-                · Última sync: {formatDate(lastSync.last_synced_at)}
-              </span>
-            )}
-          </div>
-        </div>
-        <MoodleSyncButton />
-      </div>
-
-      {/* Filter bar */}
-      <div
-        className="flex items-center gap-2 flex-wrap rounded-xl px-4 py-3"
-        style={{ background: 'hsl(220 40% 6%)', border: '1px solid hsl(216 32% 13%)' }}
-      >
-        {/* Search inline */}
-        <div className="flex items-center gap-2 flex-1 min-w-[180px]" style={{ position: 'relative' }}>
-          <StudentSearch />
-        </div>
-
-        <AlunosFilter
-          courses={availableCourses}
-          currentCurso={searchParams.curso}
-          currentTipo={tipo}
-          currentCpf={cpfFilter}
-          currentTel={telFilter}
-          currentQ={q}
-        />
-
-        {/* Active filter chips */}
-        {tipo && (
-          <Link
-            href={pageUrl(1).replace(`tipo=${tipo}`, '').replace('&&', '&').replace(/\?$/, '').replace(/&$/, '')}
-            className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
-            style={{ background: 'hsl(160 84% 39% / 0.12)', color: 'hsl(160 84% 60%)', border: '1px solid hsl(160 84% 39% / 0.25)' }}
-          >
-            {tipo === 'aluno' ? 'Alunos' : 'Gestores'}
-            <span style={{ fontSize: '10px', opacity: 0.7 }}>×</span>
-          </Link>
-        )}
-        {cpfFilter && (
-          <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: 'hsl(160 84% 39% / 0.12)', color: 'hsl(160 84% 60%)', border: '1px solid hsl(160 84% 39% / 0.25)' }}>
-            CPF {cpfFilter === 'com' ? 'cadastrado' : 'pendente'}
-          </span>
-        )}
-        {telFilter && (
-          <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: 'hsl(160 84% 39% / 0.12)', color: 'hsl(160 84% 60%)', border: '1px solid hsl(160 84% 39% / 0.25)' }}>
-            Tel. {telFilter === 'com' ? 'cadastrado' : 'pendente'}
-          </span>
-        )}
-        {selectedCursoId && (
-          <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: 'hsl(217 91% 60% / 0.12)', color: 'hsl(217 91% 70%)', border: '1px solid hsl(217 91% 60% / 0.25)' }}>
-            {availableCourses.find(c => c.id === selectedCursoId)?.shortname ?? `Curso ${selectedCursoId}`}
-          </span>
-        )}
-      </div>
-
-      {/* Table */}
-      {(!students || students.length === 0) ? (
-        <div
-          className="flex flex-col items-center justify-center py-20 rounded-xl"
-          style={{ background: 'hsl(220 40% 6%)', border: '1px dashed hsl(216 32% 18%)' }}
-        >
-          <GraduationCap size={36} style={{ color: 'hsl(215 18% 30%)', marginBottom: '12px' }} />
-          <p className="text-sm font-medium" style={{ color: 'hsl(215 18% 55%)' }}>Nenhum aluno encontrado.</p>
-          <p className="text-xs mt-1" style={{ color: 'hsl(215 18% 38%)' }}>
-            {hasFilters
-              ? 'Tente ajustar os filtros aplicados.'
-              : 'Clique em "Sincronizar Moodle" para importar os alunos.'}
+          <h1>Alunos</h1>
+          <p className="app-subtitle">
+            {count ?? 0} {(count ?? 0) !== 1 ? 'alunos' : 'aluno'}
+            {hasFilters ? ' encontrados' : ' sincronizados'}
+            {lastSync?.last_synced_at && ` · última sync ${formatDate(lastSync.last_synced_at)}`}
           </p>
         </div>
-      ) : (
+        <div className="flex items-center gap-2">
+          <button className="ds-btn ds-btn--ghost" style={{ fontSize: '13px' }}>
+            <Download className="h-3.5 w-3.5" />
+            Exportar CSV
+          </button>
+          <MoodleSyncButton />
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="app-content flex flex-col gap-5">
+
+        {/* Filter bar */}
         <div
-          className="rounded-xl overflow-hidden"
-          style={{ background: 'hsl(220 40% 6%)', border: '1px solid hsl(216 32% 13%)' }}
+          className="flex items-center gap-2 flex-wrap rounded-xl px-4 py-3"
+          style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
         >
-          <table className="w-full">
-            <thead>
-              <tr style={{ borderBottom: '1px solid hsl(216 32% 13%)' }}>
-                {['Nome', 'Email', 'CPF', 'Telefone', 'Cursos', 'Tipo', 'Senha', 'Sync'].map(col => (
-                  <th
-                    key={col}
-                    className="text-left px-4 py-3 text-xs font-semibold uppercase"
-                    style={{ color: 'hsl(215 18% 40%)', letterSpacing: '0.07em', background: 'hsl(220 40% 5%)' }}
-                  >
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((s, idx) => {
-                const courses = Array.isArray(s.courses) ? s.courses : []
-                const isGestor = s.role === 'gestor'
-                return (
-                  <tr
-                    key={s.id}
-                    style={{
-                      borderBottom: idx < students.length - 1 ? '1px solid hsl(216 32% 10%)' : undefined,
-                      background: isGestor ? 'hsl(270 84% 39% / 0.04)' : undefined,
-                    }}
-                  >
-                    {/* Nome */}
-                    <td className="px-4 py-3">
-                      <p className="text-sm font-medium" style={{ color: 'hsl(213 31% 90%)' }}>{s.full_name}</p>
-                      <p className="text-xs mt-0.5" style={{ color: 'hsl(215 18% 40%)' }}>ID {s.moodle_id ?? '—'}</p>
-                    </td>
-
-                    {/* Email */}
-                    <td className="px-4 py-3">
-                      <p className="text-xs" style={{ color: s.email ? 'hsl(215 18% 60%)' : 'hsl(215 18% 32%)' }}>
-                        {s.email ?? '—'}
-                      </p>
-                    </td>
-
-                    {/* CPF */}
-                    <td className="px-4 py-3">
-                      <StudentCpfEdit studentId={s.id} initialCpf={s.cpf ?? null} />
-                    </td>
-
-                    {/* Telefone */}
-                    <td className="px-4 py-3">
-                      <StudentPhoneEdit studentId={s.id} initialPhone={s.phone ?? null} />
-                    </td>
-
-                    {/* Cursos */}
-                    <td className="px-4 py-3">
-                      {courses.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {(courses as { shortname: string }[]).map((c, i) => (
-                            <span
-                              key={i}
-                              className="inline-block rounded-md px-1.5 py-0.5 text-xs"
-                              style={{ background: 'hsl(217 91% 60% / 0.1)', color: 'hsl(217 91% 65%)', border: '1px solid hsl(217 91% 60% / 0.2)' }}
-                            >
-                              {c.shortname}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-xs" style={{ color: 'hsl(215 18% 32%)' }}>—</span>
-                      )}
-                    </td>
-
-                    {/* Tipo */}
-                    <td className="px-4 py-3">
-                      <StudentRoleToggle studentId={s.id} initialRole={s.role ?? 'aluno'} />
-                    </td>
-
-                    {/* Senha */}
-                    <td className="px-4 py-3">
-                      <StudentPasswordReset
-                        id={s.id}
-                        fullName={s.full_name}
-                        email={s.email ?? null}
-                        hasMoodleId={!!s.moodle_id}
-                      />
-                    </td>
-
-                    {/* Sync */}
-                    <td className="px-4 py-3">
-                      <p className="text-xs" style={{ color: 'hsl(215 18% 38%)' }}>
-                        {s.last_synced_at ? formatDate(s.last_synced_at) : '—'}
-                      </p>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div
-              className="flex items-center justify-between px-4 py-3"
-              style={{ borderTop: '1px solid hsl(216 32% 13%)' }}
+          <div className="flex items-center gap-2 flex-1 min-w-[180px]" style={{ position: 'relative' }}>
+            <StudentSearch />
+          </div>
+          <AlunosFilter
+            courses={availableCourses}
+            currentCurso={searchParams.curso}
+            currentTipo={tipo}
+            currentCpf={cpfFilter}
+            currentTel={telFilter}
+            currentQ={q}
+          />
+          {tipo && (
+            <Link
+              href={pageUrl(1).replace(`tipo=${tipo}`, '').replace('&&', '&').replace(/\?$/, '').replace(/&$/, '')}
+              className="ds-badge ds-badge--active"
+              style={{ cursor: 'pointer' }}
             >
-              <Link
-                href={pageUrl(page - 1)}
-                aria-disabled={page <= 1}
-                className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg transition-all ${page <= 1 ? 'pointer-events-none opacity-30' : 'hover:opacity-80'}`}
-                style={{ background: 'hsl(220 40% 10%)', color: 'hsl(213 31% 70%)', border: '1px solid hsl(216 32% 15%)' }}
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Anterior
-              </Link>
-
-              <span className="text-xs" style={{ color: 'hsl(215 18% 45%)' }}>
-                Página {page} de {totalPages} · {count} total
-              </span>
-
-              <Link
-                href={pageUrl(page + 1)}
-                aria-disabled={page >= totalPages}
-                className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg transition-all ${page >= totalPages ? 'pointer-events-none opacity-30' : 'hover:opacity-80'}`}
-                style={{ background: 'hsl(220 40% 10%)', color: 'hsl(213 31% 70%)', border: '1px solid hsl(216 32% 15%)' }}
-              >
-                Próxima
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+              {tipo === 'aluno' ? 'Alunos' : 'Gestores'}
+              <span style={{ opacity: 0.7 }}>×</span>
+            </Link>
+          )}
+          {cpfFilter && (
+            <span className="ds-badge ds-badge--active">
+              CPF {cpfFilter === 'com' ? 'cadastrado' : 'pendente'}
+            </span>
+          )}
+          {telFilter && (
+            <span className="ds-badge ds-badge--active">
+              Tel. {telFilter === 'com' ? 'cadastrado' : 'pendente'}
+            </span>
+          )}
+          {selectedCursoId && (
+            <span className="ds-badge ds-badge--course">
+              {availableCourses.find(c => c.id === selectedCursoId)?.shortname ?? `Curso ${selectedCursoId}`}
+            </span>
           )}
         </div>
-      )}
 
-      <p className="text-xs" style={{ color: 'hsl(215 18% 32%)' }}>
-        Clique no CPF ou telefone para editar · Clique no tipo para alternar Aluno/Gestor · Cadeado para redefinir senha do Moodle
-      </p>
-    </div>
+        {/* Table / empty state */}
+        {(!students || students.length === 0) ? (
+          <div
+            className="flex flex-col items-center justify-center py-20 rounded-xl"
+            style={{ background: 'hsl(var(--card))', border: '1px dashed hsl(var(--border))' }}
+          >
+            <GraduationCap size={36} style={{ color: 'hsl(var(--fg4))', marginBottom: '12px' }} />
+            <p className="text-sm font-medium" style={{ color: 'hsl(var(--fg2))' }}>Nenhum aluno encontrado.</p>
+            <p className="text-xs mt-1" style={{ color: 'hsl(var(--fg3))' }}>
+              {hasFilters
+                ? 'Tente ajustar os filtros aplicados.'
+                : 'Clique em "Sincronizar Moodle" para importar os alunos.'}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl overflow-hidden" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  {['Nome', 'Email', 'CPF', 'Telefone', 'Cursos', 'Tipo', 'Senha', 'Sync'].map(col => (
+                    <th key={col}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((s) => {
+                  const courses = Array.isArray(s.courses) ? s.courses : []
+                  const isGestor = s.role === 'gestor'
+                  return (
+                    <tr
+                      key={s.id}
+                      style={isGestor ? { background: 'hsl(var(--accent-violet) / 0.04)' } : undefined}
+                    >
+                      {/* Nome */}
+                      <td>
+                        <p className="font-medium" style={{ color: 'hsl(var(--fg1))', fontSize: '0.8125rem' }}>{s.full_name}</p>
+                        <p className="ds-mono" style={{ marginTop: 2 }}>ID {s.moodle_id ?? '—'}</p>
+                      </td>
+
+                      {/* Email */}
+                      <td>
+                        <span className="ds-mono" style={{ color: s.email ? 'hsl(var(--fg2))' : 'hsl(var(--fg4))' }}>
+                          {s.email ?? '—'}
+                        </span>
+                      </td>
+
+                      {/* CPF */}
+                      <td><StudentCpfEdit studentId={s.id} initialCpf={s.cpf ?? null} /></td>
+
+                      {/* Telefone */}
+                      <td><StudentPhoneEdit studentId={s.id} initialPhone={s.phone ?? null} /></td>
+
+                      {/* Cursos */}
+                      <td>
+                        {courses.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {(courses as { shortname: string }[]).map((c, i) => (
+                              <span key={i} className="ds-badge ds-badge--course">{c.shortname}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="ds-mono">—</span>
+                        )}
+                      </td>
+
+                      {/* Tipo */}
+                      <td><StudentRoleToggle studentId={s.id} initialRole={s.role ?? 'aluno'} /></td>
+
+                      {/* Senha */}
+                      <td>
+                        <StudentPasswordReset
+                          id={s.id}
+                          fullName={s.full_name}
+                          email={s.email ?? null}
+                          hasMoodleId={!!s.moodle_id}
+                        />
+                      </td>
+
+                      {/* Sync */}
+                      <td>
+                        <span className="ds-mono">
+                          {s.last_synced_at ? formatDate(s.last_synced_at) : '—'}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div
+                className="flex items-center justify-between px-4 py-3"
+                style={{ borderTop: '1px solid hsl(var(--border))' }}
+              >
+                <Link
+                  href={pageUrl(page - 1)}
+                  aria-disabled={page <= 1}
+                  className={`ds-btn ds-btn--secondary ${page <= 1 ? 'pointer-events-none opacity-30' : ''}`}
+                  style={{ fontSize: '12px', padding: '6px 12px' }}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Anterior
+                </Link>
+                <span className="ds-mono" style={{ fontSize: '12px', color: 'hsl(var(--fg3))' }}>
+                  Página {page} de {totalPages} · {count} total
+                </span>
+                <Link
+                  href={pageUrl(page + 1)}
+                  aria-disabled={page >= totalPages}
+                  className={`ds-btn ds-btn--secondary ${page >= totalPages ? 'pointer-events-none opacity-30' : ''}`}
+                  style={{ fontSize: '12px', padding: '6px 12px' }}
+                >
+                  Próxima
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        <p style={{ fontSize: 'var(--type-tiny)', color: 'hsl(var(--fg4))' }}>
+          Clique no CPF ou telefone para editar · Clique no tipo para alternar Aluno/Gestor · Cadeado para redefinir senha do Moodle
+        </p>
+      </div>
+    </>
   )
 }

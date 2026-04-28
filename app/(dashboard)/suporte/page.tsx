@@ -342,7 +342,7 @@ export default function SuportePage() {
   const totalPages = Math.ceil(total / pageSize)
 
   return (
-    <div className="flex h-full" style={{ margin: '-2rem', height: '100vh' }}>
+    <div className="flex flex-1 overflow-hidden">
       {/* ── Left: list ── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden p-8">
         {/* Header */}

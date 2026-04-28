@@ -129,7 +129,7 @@ function BackendLogsTab({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="app-content space-y-4">
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
         {(Object.entries(STATUS_CONFIG) as [keyof typeof STATUS_CONFIG, typeof STATUS_CONFIG[keyof typeof STATUS_CONFIG]][]).map(([key, cfg]) => {

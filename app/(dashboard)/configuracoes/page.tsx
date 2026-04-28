@@ -15,7 +15,7 @@ export default async function ConfiguracoesPage() {
   const meta = user.user_metadata ?? {}
 
   return (
-    <div>
+    <div className="app-content">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
           <Settings className="h-6 w-6" style={{ color: 'hsl(var(--primary))' }} />

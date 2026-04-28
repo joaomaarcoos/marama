@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root, html.dark {
+  --background: 220 40% 5%;
+  --card: 220 35% 9%;
+  --popover: 220 35% 11%;
+  --muted: 220 30% 13%;
+  --secondary: 220 30% 14%;
+  --border: 220 28% 18%;
+  --input: 220 30% 14%;
+  --primary: 162 72% 45%;
+  --primary-foreground: 220 40% 5%;
+  --ring: 162 72% 45%;
+  --fg1: 213 31% 92%;
+  --fg2: 215 18% 75%;
+  --fg3: 215 14% 55%;
+  --sidebar-bg: 220 40% 4%;
+  --sidebar-border: 220 28% 16%;
+  --sidebar-border-subtle: 220 26% 12%;
+  --sidebar-text: 215 18% 70%;
+  --sidebar-text-dim: 215 14% 50%;
+  --sidebar-active-color: 162 72% 65%;
+  --sidebar-active-bg: 162 72% 45% / 0.14;
+  --sidebar-hover: 220 30% 14% / 1;
+  --sidebar-brand-color: 162 72% 65%;
+  --sidebar-brand-dim: 215 14% 60%;
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --weight-body: 500;
+  --weight-body-strong: 600;
+  --type-display-1: 40px;
+  --type-display-2: 28px;
+  --type-h1: 22px;
+  --type-h2: 18px;
+  --type-h3: 15px;
+  --type-body: 14px;
+  --type-small: 12.5px;
+  --type-tiny: 11px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px; --radius-lg: 10px; --radius-xl: 14px; --radius-2xl: 20px;
+  --shadow-sm: 0 1px 2px hsl(220 40% 0% / 0.4);
+  --shadow-md: 0 4px 12px hsl(220 40% 0% / 0.45);
+  --shadow-lg: 0 12px 32px hsl(220 40% 0% / 0.55);
+  --shadow-glow: 0 0 32px hsl(162 72% 45% / 0.25);
+}
+html.light, .light {
+  --background: 40 23% 95%;
+  --card: 0 0% 100%;
+  --popover: 0 0% 100%;
+  --muted: 40 12% 90%;
+  --secondary: 40 12% 88%;
+  --border: 40 12% 86%;
+  --input: 40 14% 92%;
+  --primary: 162 65% 32%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 162 65% 32%;
+  --fg1: 220 40% 10%;
+  --fg2: 220 16% 28%;
+  --fg3: 220 12% 46%;
+}
+</style>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body { margin: 0; padding: 16px; background: hsl(var(--background)); color: hsl(var(--fg1)); font-family: var(--font-body); display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .badge [data-lucide] { width: 11px; height: 11px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .pulse { animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity: 0.4 } }
+  .role { padding: 3px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; }
+</style>
+</head>
+<body>
+<span class="badge" style="background: hsl(var(--badge-active-bg)); color: hsl(var(--badge-active-text))"><span class="dot pulse" style="background: currentColor"></span>Ativa</span>
+<span class="badge" style="background: hsl(var(--badge-recent-bg)); color: hsl(var(--badge-recent-text))"><i data-lucide="clock"></i>Aguardando</span>
+<span class="badge" style="background: hsl(var(--badge-inactive-bg)); color: hsl(var(--badge-inactive-text))"><i data-lucide="x"></i>Encerrada</span>
+<span class="badge" style="background: hsl(var(--badge-course-bg)); color: hsl(var(--badge-course-text))">Auxiliar Adm.</span>
+<span class="badge" style="background: hsl(var(--badge-course-bg)); color: hsl(var(--badge-course-text))">Eletricista Industrial</span>
+<span class="role" style="background: hsl(0 63% 50% / 0.18); color: hsl(0 70% 75%)">ADMIN</span>
+<span class="role" style="background: hsl(217 91% 60% / 0.18); color: hsl(217 91% 75%)">GERENTE</span>
+<span class="role" style="background: hsl(160 84% 39% / 0.18); color: hsl(160 70% 65%)">ATENDENTE</span>
+<script>lucide.createIcons();</script>
+</body>
+</html>

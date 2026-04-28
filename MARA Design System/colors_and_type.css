@@ -1,0 +1,215 @@
+/* =============================================================
+   MARA Design System — colors_and_type.css
+   Source of truth: SISTEMAMARA/app/globals.css + tailwind.config.ts
+   Lifted as portable HSL CSS variables; both themes included.
+   ============================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ---- BRAND PALETTE (Bandeira do Maranhão) ---- */
+:root {
+  --mara-red:    #C8102E;   /* flag red — destructive accent */
+  --mara-blue:   #1A4FD6;   /* flag blue — login CTA, primary cool */
+  --mara-yellow: #F5A623;   /* flag yellow — warn / campaigns */
+  --mara-green:  #00C853;   /* flag green — go / connected */
+  --mara-navy:   #15346D;   /* deep state blue — login h1 */
+  --mara-flag-red:  #C53425;
+  --mara-flag-blue: #25247B;
+  --mara-cream:  #F5F4F0;   /* offwhite base */
+  --mara-ink:    #050E1A;   /* near-black for button text */
+}
+
+/* ---- DARK THEME (default, in-product) ---- */
+:root,
+:root.dark {
+  /* shadcn tokens */
+  --background: 220 40% 5%;
+  --foreground: 210 30% 92%;
+  --card: 220 35% 9%;
+  --card-foreground: 210 30% 92%;
+  --popover: 220 35% 11%;
+  --popover-foreground: 210 30% 92%;
+  --primary: 162 72% 40%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 30% 15%;
+  --secondary-foreground: 210 30% 92%;
+  --destructive: 0 63% 50%;
+  --destructive-foreground: 210 30% 92%;
+  --muted: 220 30% 13%;
+  --muted-foreground: 215 18% 48%;
+  --accent: 162 72% 40%;
+  --accent-foreground: 0 0% 100%;
+  --border: 220 28% 18%;
+  --input: 220 28% 16%;
+  --ring: 162 72% 40%;
+  --radius: 0.375rem;
+
+  /* sidebar */
+  --sidebar-bg: 220 40% 4%;
+  --sidebar-border: 220 28% 14%;
+  --sidebar-border-subtle: 220 28% 11%;
+  --sidebar-text: 215 18% 44%;
+  --sidebar-text-dim: 215 18% 28%;
+  --sidebar-active-color: 162 72% 52%;
+  --sidebar-active-bg: 162 72% 40% / 0.1;
+  --sidebar-hover: 0 0% 100% / 0.03;
+  --sidebar-brand-color: 162 72% 48%;
+  --sidebar-brand-dim: 215 18% 32%;
+
+  /* badges */
+  --badge-course-bg: 220 30% 16%;
+  --badge-course-text: 210 25% 72%;
+  --badge-active-bg: 162 60% 20%;
+  --badge-active-text: 162 72% 65%;
+  --badge-recent-bg: 45 70% 22%;
+  --badge-recent-text: 45 80% 65%;
+  --badge-inactive-bg: 0 50% 18%;
+  --badge-inactive-text: 0 70% 65%;
+
+  /* category accents (dashboard top-borders) */
+  --accent-blue:   217 91% 60%;
+  --accent-green:  160 84% 39%;
+  --accent-amber:  38 92% 50%;
+  --accent-violet: 262 80% 65%;
+
+  /* foreground tints */
+  --fg1: 213 31% 92%;   /* primary text */
+  --fg2: 215 18% 55%;   /* secondary text */
+  --fg3: 215 18% 40%;   /* tertiary / labels */
+  --fg4: 215 18% 28%;   /* dim / dividers */
+
+  /* shadows */
+  --shadow-sm: 0 1px 3px hsl(220 40% 2% / 0.4);
+  --shadow-md: 0 4px 16px -4px hsl(220 40% 2% / 0.5);
+  --shadow-lg: 0 8px 24px -8px hsl(220 40% 2% / 0.5);
+  --shadow-xl: 0 20px 40px -12px hsl(220 40% 2% / 0.6);
+}
+
+/* ---- LIGHT THEME (offwhite, #F5F4F0 — bandeira-cream) ---- */
+.light {
+  /* canvas: #F5F4F0 ≈ hsl(40 23% 95%)  — warm cream from the flag */
+  --background: 40 23% 95%;
+  --foreground: 220 40% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 40% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 40% 10%;
+  --primary: 162 65% 32%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 40 12% 88%;
+  --secondary-foreground: 220 40% 18%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --muted: 40 12% 90%;
+  --muted-foreground: 220 12% 42%;
+  --accent: 162 65% 32%;
+  --accent-foreground: 0 0% 100%;
+  --border: 40 12% 86%;
+  --input: 40 14% 92%;
+  --ring: 162 65% 32%;
+
+  --sidebar-bg: 42 25% 97%;
+  --sidebar-border: 40 12% 86%;
+  --sidebar-border-subtle: 40 14% 90%;
+  --sidebar-text: 220 12% 42%;
+  --sidebar-text-dim: 220 12% 60%;
+  --sidebar-active-color: 162 65% 26%;
+  --sidebar-active-bg: 162 65% 32% / 0.10;
+  --sidebar-hover: 40 14% 90% / 1;
+  --sidebar-brand-color: 162 65% 28%;
+  --sidebar-brand-dim: 220 12% 54%;
+
+  --fg1: 220 40% 12%;
+  --fg2: 220 12% 40%;
+  --fg3: 220 12% 56%;
+  --fg4: 220 12% 70%;
+}
+
+/* ---- TYPE TOKENS ---- */
+:root {
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;       /* Roboto-adjacent · firm, high x-height */
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+
+  /* default body weight bumped to 500 — eliminates the "too thin" Manrope look */
+  --weight-body: 500;
+  --weight-body-strong: 600;
+
+  /* type scale (multiplier on top of html { calc(100% + 2px) }) */
+  --type-h1: 1.5rem;     /* page titles "Dashboard", "Alunos" */
+  --type-h2: 1.25rem;
+  --type-h3: 1rem;
+  --type-body: 0.875rem;     /* default — 14px @ 16 base, ~15.75 @ 18 base */
+  --type-small: 0.78rem;
+  --type-tiny:  0.68rem;     /* status pill, count badge */
+  --type-data:  1.875rem;    /* stat-card numerals */
+
+  --tracking-display: -0.01em;
+  --tracking-tight:   -0.02em;
+  --tracking-eyebrow: 0.07em;   /* uppercase column headers + section labels */
+}
+
+/* ---- ELEMENT DEFAULTS ---- */
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, .type-h1 {
+  font-family: var(--font-display);
+  font-size: var(--type-h1);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  color: hsl(var(--fg1));
+}
+
+h2, .type-h2 {
+  font-family: var(--font-display);
+  font-size: var(--type-h2);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  color: hsl(var(--fg1));
+}
+
+h3, .type-h3 {
+  font-family: var(--font-display);
+  font-size: var(--type-h3);
+  font-weight: 600;
+  color: hsl(var(--fg1));
+}
+
+p, .type-body {
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  font-weight: var(--weight-body);  /* 500 — firmer than Manrope 400 */
+  line-height: 1.55;
+  color: hsl(var(--fg2));
+}
+
+.type-small  { font-family: var(--font-body); font-size: var(--type-small); font-weight: var(--weight-body); color: hsl(var(--fg2)); }
+.type-tiny   { font-family: var(--font-body); font-size: var(--type-tiny);  font-weight: var(--weight-body); color: hsl(var(--fg3)); }
+.type-data   { font-family: var(--font-mono); font-size: var(--type-data); font-weight: 500; letter-spacing: var(--tracking-tight); color: hsl(var(--fg1)); }
+.type-eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--type-tiny);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+  color: hsl(var(--fg3));
+}
+.type-brand {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: hsl(var(--sidebar-brand-color));
+  text-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+}
+
+code, pre, .type-mono {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}

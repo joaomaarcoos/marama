@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root, html.dark {
+  --background: 220 40% 5%;
+  --card: 220 35% 9%;
+  --popover: 220 35% 11%;
+  --muted: 220 30% 13%;
+  --secondary: 220 30% 14%;
+  --border: 220 28% 18%;
+  --input: 220 30% 14%;
+  --primary: 162 72% 45%;
+  --primary-foreground: 220 40% 5%;
+  --ring: 162 72% 45%;
+  --fg1: 213 31% 92%;
+  --fg2: 215 18% 75%;
+  --fg3: 215 14% 55%;
+  --sidebar-bg: 220 40% 4%;
+  --sidebar-border: 220 28% 16%;
+  --sidebar-border-subtle: 220 26% 12%;
+  --sidebar-text: 215 18% 70%;
+  --sidebar-text-dim: 215 14% 50%;
+  --sidebar-active-color: 162 72% 65%;
+  --sidebar-active-bg: 162 72% 45% / 0.14;
+  --sidebar-hover: 220 30% 14% / 1;
+  --sidebar-brand-color: 162 72% 65%;
+  --sidebar-brand-dim: 215 14% 60%;
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --weight-body: 500;
+  --weight-body-strong: 600;
+  --type-display-1: 40px;
+  --type-display-2: 28px;
+  --type-h1: 22px;
+  --type-h2: 18px;
+  --type-h3: 15px;
+  --type-body: 14px;
+  --type-small: 12.5px;
+  --type-tiny: 11px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px; --radius-lg: 10px; --radius-xl: 14px; --radius-2xl: 20px;
+  --shadow-sm: 0 1px 2px hsl(220 40% 0% / 0.4);
+  --shadow-md: 0 4px 12px hsl(220 40% 0% / 0.45);
+  --shadow-lg: 0 12px 32px hsl(220 40% 0% / 0.55);
+  --shadow-glow: 0 0 32px hsl(162 72% 45% / 0.25);
+}
+html.light, .light {
+  --background: 40 23% 95%;
+  --card: 0 0% 100%;
+  --popover: 0 0% 100%;
+  --muted: 40 12% 90%;
+  --secondary: 40 12% 88%;
+  --border: 40 12% 86%;
+  --input: 40 14% 92%;
+  --primary: 162 65% 32%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 162 65% 32%;
+  --fg1: 220 40% 10%;
+  --fg2: 220 16% 28%;
+  --fg3: 220 12% 46%;
+}
+</style>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body { margin: 0; padding: 16px; background: hsl(var(--background)); color: hsl(var(--fg1)); font-family: var(--font-body); display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .stat { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-top: 2px solid var(--top); border-radius: 10px; padding: 14px; transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s; cursor: pointer; }
+  .stat:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -8px hsl(220 40% 2% / 0.5); }
+  .stat .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .stat .label { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: hsl(var(--fg2)); }
+  .stat .ico { width: 28px; height: 28px; border-radius: 8px; display:flex;align-items:center;justify-content:center; background: hsl(var(--c) / 0.12); color: hsl(var(--c)); }
+  .stat .ico [data-lucide] { width: 14px; height: 14px; }
+  .stat .value { font-family: var(--font-mono); font-size: 26px; font-weight: 500; letter-spacing: -0.02em; color: hsl(var(--fg1)); }
+  .stat .delta { font-size: 11px; color: hsl(160 84% 50%); margin-top: 4px; display: flex; align-items: center; gap: 3px; }
+  .stat .delta [data-lucide] { width: 11px; height: 11px; }
+</style>
+</head>
+<body>
+<div class="stat" style="--top: hsl(217 91% 60%); --c: 217 91% 60%">
+  <div class="head"><span class="label">Conversas hoje</span><span class="ico"><i data-lucide="message-square"></i></span></div>
+  <div class="value">2.448</div>
+  <div class="delta"><i data-lucide="arrow-up-right"></i>+12% vs ontem</div>
+</div>
+<div class="stat" style="--top: hsl(160 84% 39%); --c: 160 84% 39%">
+  <div class="head"><span class="label">Alunos sincronizados</span><span class="ico"><i data-lucide="graduation-cap"></i></span></div>
+  <div class="value">17.420</div>
+  <div class="delta" style="color: hsl(var(--fg3))"><i data-lucide="check"></i>última sync há 12m</div>
+</div>
+<div class="stat" style="--top: hsl(38 92% 50%); --c: 38 92% 50%">
+  <div class="head"><span class="label">Disparos pendentes</span><span class="ico"><i data-lucide="send"></i></span></div>
+  <div class="value">12</div>
+  <div class="delta" style="color: hsl(38 92% 60%)"><i data-lucide="clock"></i>4 agendados hoje</div>
+</div>
+<div class="stat" style="--top: hsl(262 80% 65%); --c: 262 80% 65%">
+  <div class="head"><span class="label">Documentos · RAG</span><span class="ico"><i data-lucide="book-open"></i></span></div>
+  <div class="value">86</div>
+  <div class="delta" style="color: hsl(var(--fg3))"><i data-lucide="layers"></i>3.412 chunks indexados</div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

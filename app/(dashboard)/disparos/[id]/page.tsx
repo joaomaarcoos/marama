@@ -114,7 +114,7 @@ export default function CampaignPage() {
   const filteredContacts = contacts.filter(c => contactTab === 'all' || c.status === contactTab)
 
   return (
-    <div className="space-y-6">
+    <div className="app-content space-y-6">
       <div className="flex items-center gap-4">
         <Link href="/disparos" className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm">
           <ArrowLeft className="h-4 w-4" /> Voltar

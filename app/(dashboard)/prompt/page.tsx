@@ -10,7 +10,7 @@ export default async function PromptPage() {
     .order('order_index', { ascending: true })
 
   return (
-    <div>
+    <div className="app-content">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Prompt da MARA</h1>
         <p className="text-gray-500 mt-1">

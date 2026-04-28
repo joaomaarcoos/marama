@@ -396,7 +396,7 @@ export default function RelatoriosPage() {
   )
 
   return (
-    <div className="animate-fade-up space-y-6">
+    <div className="app-content animate-fade-up space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-3">

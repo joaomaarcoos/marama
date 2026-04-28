@@ -22,7 +22,7 @@ export default async function DisparosPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div>
+    <div className="app-content">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Disparos</h1>

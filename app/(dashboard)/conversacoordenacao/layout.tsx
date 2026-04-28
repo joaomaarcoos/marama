@@ -1,11 +1,3 @@
 export default function ConversaCoordenacaoLayout({ children }: { children: React.ReactNode }) {
-  // Counteract the p-8 from the dashboard layout to go edge-to-edge
-  return (
-    <div
-      className="flex overflow-hidden"
-      style={{ margin: '-2rem', height: '100vh' }}
-    >
-      {children}
-    </div>
-  )
+  return <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">{children}</div>
 }

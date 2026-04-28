@@ -27,8 +27,8 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar role={role} />
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-8">{children}</div>
+      <main className="app-main">
+        {children}
       </main>
     </div>
   )

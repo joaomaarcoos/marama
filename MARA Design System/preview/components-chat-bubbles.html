@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root, html.dark {
+  --background: 220 40% 5%;
+  --card: 220 35% 9%;
+  --popover: 220 35% 11%;
+  --muted: 220 30% 13%;
+  --secondary: 220 30% 14%;
+  --border: 220 28% 18%;
+  --input: 220 30% 14%;
+  --primary: 162 72% 45%;
+  --primary-foreground: 220 40% 5%;
+  --ring: 162 72% 45%;
+  --fg1: 213 31% 92%;
+  --fg2: 215 18% 75%;
+  --fg3: 215 14% 55%;
+  --sidebar-bg: 220 40% 4%;
+  --sidebar-border: 220 28% 16%;
+  --sidebar-border-subtle: 220 26% 12%;
+  --sidebar-text: 215 18% 70%;
+  --sidebar-text-dim: 215 14% 50%;
+  --sidebar-active-color: 162 72% 65%;
+  --sidebar-active-bg: 162 72% 45% / 0.14;
+  --sidebar-hover: 220 30% 14% / 1;
+  --sidebar-brand-color: 162 72% 65%;
+  --sidebar-brand-dim: 215 14% 60%;
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --weight-body: 500;
+  --weight-body-strong: 600;
+  --type-display-1: 40px;
+  --type-display-2: 28px;
+  --type-h1: 22px;
+  --type-h2: 18px;
+  --type-h3: 15px;
+  --type-body: 14px;
+  --type-small: 12.5px;
+  --type-tiny: 11px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px; --radius-lg: 10px; --radius-xl: 14px; --radius-2xl: 20px;
+  --shadow-sm: 0 1px 2px hsl(220 40% 0% / 0.4);
+  --shadow-md: 0 4px 12px hsl(220 40% 0% / 0.45);
+  --shadow-lg: 0 12px 32px hsl(220 40% 0% / 0.55);
+  --shadow-glow: 0 0 32px hsl(162 72% 45% / 0.25);
+}
+html.light, .light {
+  --background: 40 23% 95%;
+  --card: 0 0% 100%;
+  --popover: 0 0% 100%;
+  --muted: 40 12% 90%;
+  --secondary: 40 12% 88%;
+  --border: 40 12% 86%;
+  --input: 40 14% 92%;
+  --primary: 162 65% 32%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 162 65% 32%;
+  --fg1: 220 40% 10%;
+  --fg2: 220 16% 28%;
+  --fg3: 220 12% 46%;
+}
+</style>
+<style>
+  body { margin: 0; padding: 18px 22px; background: hsl(var(--background)); color: hsl(var(--fg1)); font-family: var(--font-body); display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; gap: 10px; align-items: flex-end; }
+  .bubble { padding: 8px 12px; max-width: 70%; font-size: 13px; line-height: 1.45; box-shadow: 0 1px 2px hsl(220 40% 2% / 0.4); }
+  .from-them { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 14px 14px 14px 4px; }
+  .from-me   { background: hsl(var(--primary) / 0.92); color: white; border-radius: 14px 14px 4px 14px; margin-left: auto; }
+  .meta { font-size: 10.5px; color: hsl(var(--fg3)); margin-top: 4px; display: flex; gap: 6px; align-items: center; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: hsl(220 30% 18%); flex-shrink: 0; display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:hsl(var(--fg2)); }
+  .label { font-size: 11px; color: hsl(var(--fg3)); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
+</style>
+</head>
+<body>
+<span class="label">Conversation bubbles · WhatsApp idiom</span>
+<div class="row">
+  <div class="avatar">M</div>
+  <div>
+    <div class="bubble from-them">Olá! Sou a MARA, assistente do Maranhão Profissionalizado. Como posso ajudar com seu curso?</div>
+    <div class="meta">MARA · 14:02 · IA</div>
+  </div>
+</div>
+<div class="row">
+  <div class="bubble from-me">Quero ver minhas notas do módulo 2.</div>
+</div>
+<div class="row">
+  <div class="avatar">M</div>
+  <div>
+    <div class="bubble from-them">Encontrei suas notas no Moodle. Módulo 2: 8.5 ✓</div>
+    <div class="meta">MARA · 14:02 · agora</div>
+  </div>
+</div>
+</body>
+</html>

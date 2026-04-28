@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root, html.dark {
+  --background: 220 40% 5%;
+  --card: 220 35% 9%;
+  --popover: 220 35% 11%;
+  --muted: 220 30% 13%;
+  --secondary: 220 30% 14%;
+  --border: 220 28% 18%;
+  --input: 220 30% 14%;
+  --primary: 162 72% 45%;
+  --primary-foreground: 220 40% 5%;
+  --ring: 162 72% 45%;
+  --fg1: 213 31% 92%;
+  --fg2: 215 18% 75%;
+  --fg3: 215 14% 55%;
+  --sidebar-bg: 220 40% 4%;
+  --sidebar-border: 220 28% 16%;
+  --sidebar-border-subtle: 220 26% 12%;
+  --sidebar-text: 215 18% 70%;
+  --sidebar-text-dim: 215 14% 50%;
+  --sidebar-active-color: 162 72% 65%;
+  --sidebar-active-bg: 162 72% 45% / 0.14;
+  --sidebar-hover: 220 30% 14% / 1;
+  --sidebar-brand-color: 162 72% 65%;
+  --sidebar-brand-dim: 215 14% 60%;
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --weight-body: 500;
+  --weight-body-strong: 600;
+  --type-display-1: 40px;
+  --type-display-2: 28px;
+  --type-h1: 22px;
+  --type-h2: 18px;
+  --type-h3: 15px;
+  --type-body: 14px;
+  --type-small: 12.5px;
+  --type-tiny: 11px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px; --radius-lg: 10px; --radius-xl: 14px; --radius-2xl: 20px;
+  --shadow-sm: 0 1px 2px hsl(220 40% 0% / 0.4);
+  --shadow-md: 0 4px 12px hsl(220 40% 0% / 0.45);
+  --shadow-lg: 0 12px 32px hsl(220 40% 0% / 0.55);
+  --shadow-glow: 0 0 32px hsl(162 72% 45% / 0.25);
+}
+html.light, .light {
+  --background: 40 23% 95%;
+  --card: 0 0% 100%;
+  --popover: 0 0% 100%;
+  --muted: 40 12% 90%;
+  --secondary: 40 12% 88%;
+  --border: 40 12% 86%;
+  --input: 40 14% 92%;
+  --primary: 162 65% 32%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 162 65% 32%;
+  --fg1: 220 40% 10%;
+  --fg2: 220 16% 28%;
+  --fg3: 220 12% 46%;
+}
+</style>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body { margin: 0; padding: 18px 22px; background: hsl(var(--background)); color: hsl(var(--fg1)); font-family: var(--font-body); display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: 11px; font-weight: 600; color: hsl(var(--fg2)); }
+  input, select { background: hsl(var(--input)); border: 1px solid hsl(var(--border)); color: hsl(var(--fg1)); border-radius: 8px; padding: 9px 12px; font-family: var(--font-body); font-size: 13px; outline: none; }
+  input:focus { border-color: hsl(var(--ring)); box-shadow: 0 0 0 3px hsl(var(--ring) / 0.18); }
+  .search { position: relative; }
+  .search input { padding-left: 34px; width: 100%; box-sizing: border-box; }
+  .search [data-lucide] { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: hsl(var(--fg3)); }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; }
+  .switch { width: 36px; height: 20px; background: hsl(var(--primary)); border-radius: 999px; position: relative; }
+  .switch::after { content:''; position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; background: white; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+</style>
+</head>
+<body>
+<div class="field">
+  <label>Buscar aluno</label>
+  <div class="search"><i data-lucide="search"></i><input placeholder="Nome, CPF ou matrícula..." value="Maria Silva"></div>
+</div>
+<div class="field">
+  <label>Curso</label>
+  <select><option>Todos os cursos</option><option>Auxiliar Administrativo</option></select>
+</div>
+<div class="field">
+  <label>CPF</label>
+  <input value="123.456.789-00" style="font-family: var(--font-mono);">
+</div>
+<div class="field">
+  <label>MARA ativa</label>
+  <div class="toggle"><span class="switch"></span><span style="font-size:12px;color:hsl(var(--fg2))">recebendo mensagens</span></div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>

@@ -18,7 +18,7 @@ export default async function UsuariosPage() {
   const users = data?.users ?? []
 
   return (
-    <div>
+    <div className="app-content">
       <div className="mb-6 flex items-start justify-between">
         <div>
           <div className="flex items-center gap-3 mb-1">

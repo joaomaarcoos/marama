@@ -65,7 +65,7 @@ export default async function ContatosPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="animate-fade-up">
+    <div className="app-content animate-fade-up">
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

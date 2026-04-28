@@ -612,7 +612,7 @@ export default function LoginPage() {
                 <MaranhaoMap />
                 <Image
                   className="mp-login-mascot"
-                  src="https://hvvgyiafelqylbzkzjbi.supabase.co/storage/v1/object/sign/logos-mara/mascote-mara.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNGJiODA1My1lZjk2LTRiOTMtYjg2OC0xOTNmMGYxMmI4YTQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJsb2dvcy1tYXJhL21hc2NvdGUtbWFyYS5wbmciLCJpYXQiOjE3NzcyMzAzMTUsImV4cCI6NDkzMDgzMDMxNX0.m7QpnJvkaOb8IU3dNYko8yzwCEB857NsTHqMgQ8BOvU"
+                  src="https://hvvgyiafelqylbzkzjbi.supabase.co/storage/v1/object/sign/logos-mara/mascote-mara.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNGJiODA1My1lZjk2LTRiOTMtYjg2OC0xOTNmMGYxMmI4YTQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJsb2dvcy1tYXJhL21hc2NvdGUtbWFyYS5wbmciLCJpYXQiOjE3NzcyNDU2MjcsImV4cCI6NDkzMDg0NTYyN30.Fs5FyiFP64W0qKkPsR8P5lWA4A6cVmHCMEz2pYR84F8"
                   alt="Mascote MARA"
                   width={1024}
                   height={1536}

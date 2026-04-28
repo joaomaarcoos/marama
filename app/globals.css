@@ -1,8 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=Manrope:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Base: prevent page-level scroll (chat scrollIntoView must stay contained) ── */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
 
 /* ── Login page keyframes ── */
 @keyframes orb-pulse {
@@ -99,7 +105,7 @@
   width: 100%; padding: 11px 14px; border-radius: 10px;
   border: 1px solid rgba(29,184,122,0.2);
   background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.88);
-  font-family: 'Manrope', sans-serif; font-size: 0.9rem; font-weight: 400;
+  font-family: var(--font-body); font-size: 0.9rem; font-weight: 400;
   outline: none; transition: border-color 0.15s, box-shadow 0.15s;
   caret-color: #1db87a;
 }
@@ -191,11 +197,57 @@
     --badge-inactive-text: 0 70% 65%;
     --badge-never-bg: 220 28% 16%;
     --badge-never-text: 215 18% 55%;
+
+    /* Category accents — dashboard top-borders */
+    --accent-blue:   217 91% 60%;
+    --accent-green:  160 84% 39%;
+    --accent-amber:  38 92% 50%;
+    --accent-violet: 262 80% 65%;
+
+    /* Foreground tints */
+    --fg1: 213 31% 92%;
+    --fg2: 215 18% 55%;
+    --fg3: 215 18% 40%;
+    --fg4: 215 18% 28%;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 3px hsl(220 40% 2% / 0.4);
+    --shadow-md: 0 4px 16px -4px hsl(220 40% 2% / 0.5);
+    --shadow-lg: 0 8px 24px -8px hsl(220 40% 2% / 0.5);
+    --shadow-xl: 0 20px 40px -12px hsl(220 40% 2% / 0.6);
+
+    /* Brand palette (Bandeira do Maranhão) */
+    --mara-red:    #C8102E;
+    --mara-blue:   #1A4FD6;
+    --mara-yellow: #F5A623;
+    --mara-green:  #00C853;
+    --mara-navy:   #15346D;
+    --mara-cream:  #F5F4F0;
+    --mara-ink:    #050E1A;
+
+    /* Font tokens */
+    --font-display: 'Sora', system-ui, sans-serif;
+    --font-body:    'Inter', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+    --weight-body:  500;
+    --weight-body-strong: 600;
+
+    /* Type scale */
+    --type-h1:    1.5rem;
+    --type-h2:    1.25rem;
+    --type-h3:    1rem;
+    --type-body:  0.875rem;
+    --type-small: 0.78rem;
+    --type-tiny:  0.68rem;
+    --type-data:  1.875rem;
+    --tracking-display: -0.01em;
+    --tracking-tight:   -0.02em;
+    --tracking-eyebrow: 0.07em;
   }
 
   .light {
-    /* === TEMA CLARO === */
-    --background: 210 30% 97%;
+    /* === TEMA CLARO — cream #F5F4F0 (bandeira do Maranhão) === */
+    --background: 40 23% 95%;
     --foreground: 220 40% 10%;
     --card: 0 0% 100%;
     --card-foreground: 220 40% 10%;
@@ -205,30 +257,30 @@
     --primary: 162 65% 32%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 92%;
+    --secondary: 40 12% 88%;
     --secondary-foreground: 220 40% 18%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --muted: 210 20% 93%;
-    --muted-foreground: 220 12% 46%;
+    --muted: 40 12% 90%;
+    --muted-foreground: 220 12% 42%;
     --accent: 162 65% 32%;
     --accent-foreground: 0 0% 100%;
-    --border: 220 16% 87%;
-    --input: 220 16% 91%;
+    --border: 40 12% 86%;
+    --input: 40 14% 92%;
     --ring: 162 65% 32%;
 
     /* Sidebar tokens — light */
-    --sidebar-bg: 220 30% 98%;
-    --sidebar-border: 220 16% 88%;
-    --sidebar-border-subtle: 220 16% 92%;
-    --sidebar-text: 220 12% 46%;
-    --sidebar-text-dim: 220 12% 64%;
-    --sidebar-active-color: 162 65% 28%;
-    --sidebar-active-bg: 162 65% 32% / 0.08;
-    --sidebar-hover: 220 16% 91% / 1;
+    --sidebar-bg: 42 25% 97%;
+    --sidebar-border: 40 12% 86%;
+    --sidebar-border-subtle: 40 14% 90%;
+    --sidebar-text: 220 12% 42%;
+    --sidebar-text-dim: 220 12% 60%;
+    --sidebar-active-color: 162 65% 26%;
+    --sidebar-active-bg: 162 65% 32% / 0.10;
+    --sidebar-hover: 40 14% 90% / 1;
     --sidebar-accent: 162 65% 30%;
-    --sidebar-brand-color: 162 65% 32%;
-    --sidebar-brand-dim: 220 12% 58%;
+    --sidebar-brand-color: 162 65% 28%;
+    --sidebar-brand-dim: 220 12% 54%;
 
     /* Badge tokens — light */
     --badge-course-bg: 210 20% 90%;
@@ -241,6 +293,12 @@
     --badge-inactive-text: 0 65% 30%;
     --badge-never-bg: 220 16% 90%;
     --badge-never-text: 220 12% 42%;
+
+    /* Foreground tints — light */
+    --fg1: 220 40% 12%;
+    --fg2: 220 12% 40%;
+    --fg3: 220 12% 56%;
+    --fg4: 220 12% 70%;
   }
 }
 
@@ -259,7 +317,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Manrope', var(--font-outfit, system-ui, sans-serif);
+    font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -293,7 +351,7 @@
     font-family: 'Sora', var(--font-fraunces, 'Georgia', serif);
   }
   .font-data {
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-mono);
   }
 }
 
@@ -442,6 +500,111 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   DESIGN SYSTEM — layout, tables, badges, buttons (kit.css port)
+═══════════════════════════════════════════════════════════════ */
+
+/* ─── App shell layout ──────────────────────────────────────── */
+.app-main {
+  flex: 1; min-width: 0; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.app-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 18px 32px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  flex-shrink: 0;
+}
+.app-header h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em;
+  color: hsl(var(--fg1));
+}
+.app-header .app-subtitle {
+  font-size: 13px; color: hsl(var(--fg3)); margin-top: 3px;
+}
+.app-content {
+  padding: 28px 32px; flex: 1; overflow-y: auto;
+}
+
+/* ─── Data table ────────────────────────────────────────────── */
+table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  text-align: left; padding: 11px 16px;
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+  color: hsl(var(--fg3));
+  background: hsl(var(--muted) / 0.5);
+  border-bottom: 1px solid hsl(var(--border));
+}
+.data-table td {
+  padding: 11px 16px;
+  border-bottom: 1px solid hsl(var(--border));
+  color: hsl(var(--fg1));
+  font-size: 0.8125rem;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: hsl(var(--muted) / 0.4); }
+
+/* ─── Badges ────────────────────────────────────────────────── */
+.ds-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 0.65rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.ds-badge--active  { background: hsl(var(--badge-active-bg));   color: hsl(var(--badge-active-text)); }
+.ds-badge--recent  { background: hsl(var(--badge-recent-bg));   color: hsl(var(--badge-recent-text)); }
+.ds-badge--inactive{ background: hsl(var(--badge-inactive-bg)); color: hsl(var(--badge-inactive-text)); }
+.ds-badge--course  { background: hsl(var(--badge-course-bg));   color: hsl(var(--badge-course-text));
+  text-transform: none; letter-spacing: 0.01em; font-weight: 500; }
+.ds-badge--never   { background: hsl(var(--badge-never-bg));    color: hsl(var(--badge-never-text)); }
+
+/* ─── Status chip (ONLINE / OFFLINE) ────────────────────────── */
+.status-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 6px;
+  font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.08em;
+  background: hsl(160 84% 39% / 0.08); color: hsl(160 70% 45%);
+  border: 1px solid hsl(160 84% 39% / 0.15);
+}
+
+/* ─── Buttons ───────────────────────────────────────────────── */
+.ds-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 10px;
+  font-family: var(--font-body); font-size: 13px; font-weight: 600;
+  border: 1px solid transparent; cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+.ds-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.ds-btn:active:not(:disabled) { transform: translateY(0); }
+.ds-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.ds-btn--primary {
+  background: hsl(var(--primary)); color: white;
+  box-shadow: 0 4px 12px -4px hsl(var(--primary) / 0.5);
+}
+.ds-btn--primary:hover:not(:disabled) { background: hsl(162 72% 45%); }
+.ds-btn--secondary {
+  background: hsl(var(--secondary)); color: hsl(var(--fg1));
+  border-color: hsl(var(--border));
+}
+.ds-btn--secondary:hover:not(:disabled) { background: hsl(var(--muted)); }
+.ds-btn--ghost { background: transparent; color: hsl(var(--fg2)); border-color: transparent; }
+.ds-btn--ghost:hover:not(:disabled) { background: hsl(var(--muted)); color: hsl(var(--fg1)); }
+.ds-btn--blue {
+  background: var(--mara-blue); color: white;
+  box-shadow: 0 8px 18px rgba(26,79,214,0.28);
+}
+.ds-btn--blue:hover:not(:disabled) { filter: brightness(1.1); }
+
+/* ─── Mono utility ──────────────────────────────────────────── */
+.ds-mono { font-family: var(--font-mono); font-size: 0.85em; color: hsl(var(--fg2)); }
+
+/* ═══════════════════════════════════════════════════════════════
    CHAT INTERFACE — tokens + components
 ═══════════════════════════════════════════════════════════════ */
 
@@ -572,7 +735,7 @@
 }
 
 .chat-count-badge {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.7rem;
   font-weight: 700;
   color: var(--chat-avatar-text);
@@ -601,7 +764,7 @@
   border: 1px solid var(--chat-border);
   background: var(--chat-search-bg);
   color: var(--chat-text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.82rem;
   outline: none;
   transition: border-color 0.15s;
@@ -638,20 +801,20 @@
 }
 
 .chat-conv-name {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.84rem;
   font-weight: 600;
   color: var(--chat-text);
 }
 
 .chat-conv-time {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.7rem;
   color: var(--chat-text-dim);
 }
 
 .chat-conv-preview {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.75rem;
   color: var(--chat-text-muted);
   line-height: 1.3;
@@ -719,7 +882,7 @@
 }
 
 .chat-panel-phone {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.72rem;
   color: var(--chat-text-muted);
   margin-top: 1px;
@@ -729,7 +892,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--badge-color, var(--chat-text-muted));
@@ -747,7 +910,7 @@
   padding: 6px 20px;
   background: var(--chat-student-bg);
   border-bottom: 1px solid var(--chat-border);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.72rem;
   color: var(--chat-student-text);
   flex-shrink: 0;
@@ -793,7 +956,7 @@
 }
 
 .chat-date-sep span {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.68rem;
   font-weight: 600;
   color: var(--chat-date-text);
@@ -868,7 +1031,7 @@
 }
 
 .chat-bubble-text {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.83rem;
   line-height: 1.55;
   white-space: pre-wrap;
@@ -877,7 +1040,7 @@
 
 .chat-bubble-time {
   display: block;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.65rem;
   opacity: 0.5;
   text-align: right;
@@ -911,7 +1074,7 @@
 }
 
 .chat-empty-sub {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
   color: var(--chat-text-muted);
 }
@@ -931,7 +1094,7 @@
   flex: 1 1 calc(33.333% - 2px);
   padding: 5px 6px;
   border-radius: 6px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--chat-text-muted);
@@ -959,7 +1122,7 @@
 .chat-label-chip {
   display: inline-flex;
   align-items: center;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.64rem;
   font-weight: 700;
   padding: 1px 6px;
@@ -1027,7 +1190,7 @@
   width: 100%;
   padding: 6px 8px;
   border-radius: 6px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
   color: var(--chat-text);
   background: transparent;
@@ -1079,7 +1242,7 @@
   border: 1px solid var(--chat-border);
   background: var(--chat-search-bg);
   color: var(--chat-text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
   outline: none;
   margin-bottom: 8px;
@@ -1116,7 +1279,7 @@
   gap: 4px;
   padding: 5px 8px;
   border-radius: 6px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.72rem;
   font-weight: 700;
   color: #050e1a;
@@ -1129,7 +1292,7 @@
 .chat-cancel-btn {
   padding: 5px 8px;
   border-radius: 6px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--chat-text-muted);
@@ -1151,7 +1314,7 @@
   gap: 5px;
   padding: 5px 10px;
   border-radius: 7px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--chat-text-muted);
@@ -1206,7 +1369,7 @@
   gap: 4px;
   padding: 5px 9px;
   border-radius: 7px;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--chat-status-waiting);
@@ -1228,7 +1391,7 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--chat-status-closed) 12%, transparent);
   color: var(--chat-text-muted);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.75rem;
   font-weight: 600;
   margin-bottom: 16px;
@@ -1324,7 +1487,7 @@
   outline: 0;
   background: transparent;
   color: var(--chat-text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.84rem;
   line-height: 1.45;
   padding: 9px 0;
@@ -1371,7 +1534,7 @@
 }
 
 .chat-composer-attachment-meta {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.67rem;
   color: var(--chat-text-muted);
 }
@@ -1385,7 +1548,7 @@
   background: hsl(0 75% 54% / 0.08);
   color: hsl(0 72% 62%);
   border: 1px solid hsl(0 75% 54% / 0.16);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.74rem;
   font-weight: 600;
 }
@@ -1538,13 +1701,13 @@
 }
 
 .contact-panel-phone-sm {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.7rem;
   color: var(--chat-text-muted);
 }
 
 .contact-panel-helper {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.7rem;
   line-height: 1.45;
   color: var(--chat-text-muted);
@@ -1572,7 +1735,7 @@
   border: 1px solid var(--chat-border);
   background: color-mix(in srgb, var(--chat-item-hover) 72%, transparent);
   color: var(--chat-text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
   padding: 0 12px;
   outline: none;
@@ -1595,7 +1758,7 @@
   border-radius: 12px;
   background: var(--chat-avatar-bg);
   color: var(--chat-avatar-text);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
@@ -1633,7 +1796,7 @@
 }
 
 .contact-panel-label {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.65rem;
   color: var(--chat-text-dim);
   text-transform: uppercase;
@@ -1642,7 +1805,7 @@
 }
 
 .contact-panel-value {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.75rem;
   color: var(--chat-text);
   font-weight: 500;
@@ -1652,7 +1815,7 @@
 }
 
 .contact-panel-course {
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.72rem;
   color: var(--chat-text);
   background: var(--chat-item-hover);
@@ -1676,7 +1839,7 @@
   padding: 8px 12px;
   background: color-mix(in srgb, hsl(45 96% 58%) 14%, var(--chat-panel-bg));
   border: 1px dashed color-mix(in srgb, hsl(45 96% 48%) 50%, transparent);
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
 }
 
 .dark .chat-note-bubble {

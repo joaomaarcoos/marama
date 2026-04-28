@@ -11,7 +11,7 @@ export default async function DocumentosPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div className="space-y-6">
+    <div className="app-content space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div

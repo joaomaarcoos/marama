@@ -28,7 +28,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/theme-provider'
-import { MARAOrb } from '@/components/mara-orb'
+import Image from 'next/image'
 import React, { useState, useEffect } from 'react'
 import type { UserRole } from '@/lib/roles'
 
@@ -142,13 +142,20 @@ export function Sidebar({ role }: { role: UserRole }) {
       >
         {!collapsed && (
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="shrink-0">
-              <MARAOrb size={36} isStatic />
-            </div>
+            <Image
+              src="https://hvvgyiafelqylbzkzjbi.supabase.co/storage/v1/object/sign/logos-mara/mara-logo-sidebar.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNGJiODA1My1lZjk2LTRiOTMtYjg2OC0xOTNmMGYxMmI4YTQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJsb2dvcy1tYXJhL21hcmEtbG9nby1zaWRlYmFyLnBuZyIsImlhdCI6MTc3NzMzODgyNSwiZXhwIjo0OTMwOTM4ODI1fQ.cKQohrGGY32MCxHONy9-2QBOGZIcqF81nUlbgoMPKWU"
+              alt="MARA"
+              width={44}
+              height={44}
+              unoptimized
+              priority
+              style={{ objectFit: 'contain', flexShrink: 0 }}
+            />
             <div className="min-w-0">
               <p
-                className="font-display italic font-bold text-sm leading-none tracking-wide truncate"
+                className="font-display font-bold leading-none tracking-wide"
                 style={{
+                  fontSize: '1rem',
                   color: 'hsl(var(--sidebar-brand-color))',
                   textShadow: '0 0 20px hsl(var(--primary) / 0.3)',
                 }}
@@ -156,7 +163,7 @@ export function Sidebar({ role }: { role: UserRole }) {
                 MARA
               </p>
               <p
-                className="text-xs mt-0.5 truncate"
+                className="mt-0.5 truncate"
                 style={{ color: 'hsl(var(--sidebar-brand-dim))', fontSize: '0.6rem', letterSpacing: '0.06em' }}
               >
                 MARANHÃO PROF.
@@ -167,7 +174,14 @@ export function Sidebar({ role }: { role: UserRole }) {
 
         {collapsed && (
           <div className="mx-auto">
-            <MARAOrb size={30} isStatic />
+            <Image
+              src="https://hvvgyiafelqylbzkzjbi.supabase.co/storage/v1/object/sign/logos-mara/mara-logo-sidebar.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yNGJiODA1My1lZjk2LTRiOTMtYjg2OC0xOTNmMGYxMmI4YTQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJsb2dvcy1tYXJhL21hcmEtbG9nby1zaWRlYmFyLnBuZyIsImlhdCI6MTc3NzMzODgyNSwiZXhwIjo0OTMwOTM4ODI1fQ.cKQohrGGY32MCxHONy9-2QBOGZIcqF81nUlbgoMPKWU"
+              alt="MARA"
+              width={32}
+              height={32}
+              unoptimized
+              style={{ objectFit: 'contain' }}
+            />
           </div>
         )}
 

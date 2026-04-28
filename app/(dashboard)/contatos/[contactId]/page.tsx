@@ -60,7 +60,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
     : 'hsl(38 92% 50%)'
 
   return (
-    <div className="animate-fade-up">
+    <div className="app-content animate-fade-up">
       <div className="mb-8 flex items-center justify-between gap-4">
         <div>
           <Link

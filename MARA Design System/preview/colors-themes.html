@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root, html.dark {
+  --background: 220 40% 5%;
+  --card: 220 35% 9%;
+  --popover: 220 35% 11%;
+  --muted: 220 30% 13%;
+  --secondary: 220 30% 14%;
+  --border: 220 28% 18%;
+  --input: 220 30% 14%;
+  --primary: 162 72% 45%;
+  --primary-foreground: 220 40% 5%;
+  --ring: 162 72% 45%;
+  --fg1: 213 31% 92%;
+  --fg2: 215 18% 75%;
+  --fg3: 215 14% 55%;
+  --sidebar-bg: 220 40% 4%;
+  --sidebar-border: 220 28% 16%;
+  --sidebar-border-subtle: 220 26% 12%;
+  --sidebar-text: 215 18% 70%;
+  --sidebar-text-dim: 215 14% 50%;
+  --sidebar-active-color: 162 72% 65%;
+  --sidebar-active-bg: 162 72% 45% / 0.14;
+  --sidebar-hover: 220 30% 14% / 1;
+  --sidebar-brand-color: 162 72% 65%;
+  --sidebar-brand-dim: 215 14% 60%;
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --weight-body: 500;
+  --weight-body-strong: 600;
+  --type-display-1: 40px;
+  --type-display-2: 28px;
+  --type-h1: 22px;
+  --type-h2: 18px;
+  --type-h3: 15px;
+  --type-body: 14px;
+  --type-small: 12.5px;
+  --type-tiny: 11px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px; --radius-lg: 10px; --radius-xl: 14px; --radius-2xl: 20px;
+  --shadow-sm: 0 1px 2px hsl(220 40% 0% / 0.4);
+  --shadow-md: 0 4px 12px hsl(220 40% 0% / 0.45);
+  --shadow-lg: 0 12px 32px hsl(220 40% 0% / 0.55);
+  --shadow-glow: 0 0 32px hsl(162 72% 45% / 0.25);
+}
+html.light, .light {
+  --background: 40 23% 95%;
+  --card: 0 0% 100%;
+  --popover: 0 0% 100%;
+  --muted: 40 12% 90%;
+  --secondary: 40 12% 88%;
+  --border: 40 12% 86%;
+  --input: 40 14% 92%;
+  --primary: 162 65% 32%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 162 65% 32%;
+  --fg1: 220 40% 10%;
+  --fg2: 220 16% 28%;
+  --fg3: 220 12% 46%;
+}
+</style>
+<style>
+  body { margin: 0; padding: 14px; background: hsl(220 10% 12%); display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-family: var(--font-body); }
+  .pane { border-radius: 10px; padding: 16px 18px; border: 1px solid; }
+  .pane.dark  { background: hsl(220 40% 5%);  color: hsl(213 31% 92%); border-color: hsl(220 28% 18%); }
+  .pane.light { background: hsl(40 23% 95%);   color: hsl(220 40% 12%); border-color: hsl(40 12% 86%); }
+  .pane h3 { margin: 0 0 6px; font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+  .pane .sub { font-size: 12px; opacity: 0.65; margin-bottom: 14px; font-weight: 500; }
+  .swatch-row { display: flex; gap: 6px; margin-top: 10px; }
+  .sw { flex: 1; height: 22px; border-radius: 4px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .label { font-size: 10px; font-family: var(--font-mono); opacity: 0.7; margin-top: 12px; display: block; }
+  .pane.dark .pill  { background: hsl(162 60% 20%); color: hsl(162 72% 65%); }
+  .pane.light .pill { background: hsl(162 65% 90%); color: hsl(162 65% 26%); }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: hsl(160 84% 39%); }
+</style>
+</head>
+<body>
+<div class="pane dark">
+  <h3>Dark · default</h3>
+  <div class="sub">Operações · uso prolongado · canvas hsl(220 40% 5%)</div>
+  <div class="row"><span class="dot"></span><span style="font-weight:500;font-size:13px">MARA está ativa e recebendo mensagens</span></div>
+  <div style="margin-top:10px"><span class="pill">Ativa</span></div>
+  <div class="swatch-row">
+    <div class="sw" style="background:#C8102E"></div>
+    <div class="sw" style="background:#1A4FD6"></div>
+    <div class="sw" style="background:#F5A623"></div>
+    <div class="sw" style="background:#00C853"></div>
+  </div>
+  <span class="label">bandeira accents on dark</span>
+</div>
+<div class="pane light">
+  <h3>Light · offwhite</h3>
+  <div class="sub">Padrão #F5F4F0 · cream da bandeira · cards brancos</div>
+  <div class="row"><span class="dot"></span><span style="font-weight:500;font-size:13px">MARA está ativa e recebendo mensagens</span></div>
+  <div style="margin-top:10px"><span class="pill">Ativa</span></div>
+  <div class="swatch-row">
+    <div class="sw" style="background:#C8102E"></div>
+    <div class="sw" style="background:#1A4FD6"></div>
+    <div class="sw" style="background:#F5A623"></div>
+    <div class="sw" style="background:#00C853"></div>
+  </div>
+  <span class="label">bandeira accents on cream #F5F4F0</span>
+</div>
+</body>
+</html>

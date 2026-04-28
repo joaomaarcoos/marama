@@ -11,5 +11,9 @@ export default async function ConversasPage() {
     ? { id: user.id, email: user.email ?? '' }
     : null
 
-  return <ChatInterface initialCurrentUser={currentUser} />
+  return (
+    <div className="flex-1 flex overflow-hidden min-h-0">
+      <ChatInterface initialCurrentUser={currentUser} />
+    </div>
+  )
 }
