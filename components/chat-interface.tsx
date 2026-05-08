@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   MessageSquare, Search, User, Bot, Clock, CheckCircle2, XCircle,
   AlertCircle, RefreshCw, Tag, UserCheck, UserPlus, X, ChevronDown,
@@ -126,7 +125,13 @@ function fullDate(iso: string): string {
   yesterday.setDate(yesterday.getDate() - 1)
   if (d.toDateString() === today.toDateString()) return 'Hoje'
   if (d.toDateString() === yesterday.toDateString()) return 'Ontem'
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const sameYear = d.getFullYear() === today.getFullYear()
+  return d.toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
 }
 
 function initials(name: string): string {
@@ -1753,12 +1758,21 @@ export default function ChatInterface({
   selectedPhone?: string
   initialCurrentUser?: { id: string; email: string } | null
 }) {
-  const router = useRouter()
+  const [localPhone, setLocalPhone] = useState<string | null>(selectedPhone ?? null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [allLabels, setAllLabels] = useState<Label[]>([])
   const [allUsers, setAllUsers] = useState<SystemUser[]>([])
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<Tab>(_persistedTab)
+
+  useEffect(() => {
+    const onPop = () => {
+      const match = window.location.pathname.match(/\/conversas\/(.+)/)
+      setLocalPhone(match ? decodeURIComponent(match[1]) : null)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   const changeTab = (t: Tab) => { setTab(t); _persistedTab = t }
   const [loadingList, setLoadingList] = useState(true)
@@ -1860,9 +1874,12 @@ export default function ChatInterface({
               <ConvItem
                 key={conv.phone}
                 conv={conv}
-                selected={conv.phone === selectedPhone}
+                selected={conv.phone === localPhone}
                 allLabels={allLabels}
-                onClick={() => router.push(`/conversas/${encodeURIComponent(conv.phone)}`)}
+                onClick={() => {
+                  setLocalPhone(conv.phone)
+                  window.history.pushState(null, '', `/conversas/${encodeURIComponent(conv.phone)}`)
+                }}
                 currentUserId={uid}
               />
             ))
@@ -1872,10 +1889,10 @@ export default function ChatInterface({
 
       {/* ── Right Panel ── */}
       <div className="chat-panel">
-        {selectedPhone ? (
+        {localPhone ? (
           <ChatPanel
-            key={selectedPhone}
-            phone={selectedPhone}
+            key={localPhone}
+            phone={localPhone}
             allLabels={allLabels}
             allUsers={allUsers}
             currentUser={currentUser}

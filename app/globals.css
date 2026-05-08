@@ -631,8 +631,8 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   --chat-status-active:  #22c55e;
   --chat-status-waiting: #f59e0b;
   --chat-status-closed:  hsl(215 18% 38%);
-  --chat-date-bg:     hsl(220 30% 10%);
-  --chat-date-text:   hsl(215 18% 40%);
+  --chat-date-bg:     hsl(220 28% 16%);
+  --chat-date-text:   hsl(215 18% 62%);
   --chat-header-bg:   hsl(220 40% 5%);
   --chat-search-bg:   hsl(220 32% 9%);
   --chat-student-bg:  hsl(162 72% 40% / 0.06);
@@ -662,8 +662,8 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   --chat-status-active:  #16a34a;
   --chat-status-waiting: #d97706;
   --chat-status-closed:  hsl(220 12% 60%);
-  --chat-date-bg:     hsl(220 16% 91%);
-  --chat-date-text:   hsl(220 12% 52%);
+  --chat-date-bg:     hsl(220 14% 86%);
+  --chat-date-text:   hsl(220 14% 36%);
   --chat-header-bg:   hsl(0 0% 100%);
   --chat-search-bg:   hsl(220 20% 93%);
   --chat-student-bg:  hsl(162 65% 32% / 0.06);
@@ -951,20 +951,29 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .chat-date-sep {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin: 20px 0 14px;
+  gap: 10px;
+  margin: 24px 0 16px;
+}
+
+.chat-date-sep::before,
+.chat-date-sep::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--chat-border);
+  opacity: 0.6;
 }
 
 .chat-date-sep span {
   font-family: var(--font-body);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--chat-date-text);
   background: var(--chat-date-bg);
   border-radius: 99px;
-  padding: 3px 12px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  padding: 3px 14px;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 /* Bubble rows */

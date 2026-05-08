@@ -25,6 +25,7 @@ export interface ContactStudentRecord {
 interface ConversationRecord {
   phone: string
   contact_name: string | null
+  whatsapp_name: string | null
   cpf: string | null
   student_id: string | null
   status: string | null
@@ -43,6 +44,7 @@ export interface ContactProfile {
   displayName: string
   internalName: string | null
   studentName: string | null
+  whatsappName: string | null
   canonicalPhone: string | null
   phoneAliases: string[]
   conversationPhones: string[]
@@ -116,6 +118,7 @@ interface MutableContactProfile {
   id: string
   internalName: string | null
   studentName: string | null
+  whatsappName: string | null
   canonicalPhone: string | null
   phoneAliases: Set<string>
   conversationPhones: Set<string>
@@ -184,6 +187,7 @@ function makeMutableProfile(id: string): MutableContactProfile {
     id,
     internalName: null,
     studentName: null,
+    whatsappName: null,
     canonicalPhone: null,
     phoneAliases: new Set<string>(),
     conversationPhones: new Set<string>(),
@@ -315,6 +319,10 @@ function applyConversation(profile: MutableContactProfile, conversation: Convers
     profile.internalName = conversation.contact_name.trim()
   }
 
+  if (conversation.whatsapp_name?.trim() && !profile.whatsappName) {
+    profile.whatsappName = conversation.whatsapp_name.trim()
+  }
+
   if (conversation.cpf) {
     profile.cpf = normalizeCpf(conversation.cpf) ?? conversation.cpf
   }
@@ -360,6 +368,7 @@ function finalizeProfile(profile: MutableContactProfile): ContactProfile {
   const displayName =
     profile.internalName
     ?? profile.studentName
+    ?? profile.whatsappName
     ?? canonicalPhone
     ?? 'Contato sem identificacao'
 
@@ -376,6 +385,7 @@ function finalizeProfile(profile: MutableContactProfile): ContactProfile {
     displayName,
     internalName: profile.internalName,
     studentName: profile.studentName,
+    whatsappName: profile.whatsappName,
     canonicalPhone,
     phoneAliases: aliases.sort(),
     conversationPhones: Array.from(profile.conversationPhones).sort(),
@@ -410,7 +420,7 @@ async function loadContactSources(): Promise<ContactSourceBundle> {
       .order('full_name', { ascending: true }),
     adminClient
       .from('conversations')
-      .select('phone, contact_name, cpf, student_id, status, followup_stage, last_message_at, last_message, message_count, labels, lgpd_accepted_at, assigned_name, students(id, moodle_id, full_name, email, phone, phone2, username, cpf, role, courses)')
+      .select('phone, contact_name, whatsapp_name, cpf, student_id, status, followup_stage, last_message_at, last_message, message_count, labels, lgpd_accepted_at, assigned_name, students(id, moodle_id, full_name, email, phone, phone2, username, cpf, role, courses)')
       .order('last_message_at', { ascending: false }),
   ])
 
@@ -427,6 +437,7 @@ async function loadContactSources(): Promise<ContactSourceBundle> {
     return {
       phone: String(candidate.phone ?? ''),
       contact_name: typeof candidate.contact_name === 'string' ? candidate.contact_name : null,
+      whatsapp_name: typeof candidate.whatsapp_name === 'string' ? candidate.whatsapp_name : null,
       cpf: typeof candidate.cpf === 'string' ? candidate.cpf : null,
       student_id: typeof candidate.student_id === 'string' ? candidate.student_id : null,
       status: typeof candidate.status === 'string' ? candidate.status : null,
@@ -517,6 +528,7 @@ function filterProfiles(profiles: ContactProfile[], search?: string) {
       profile.displayName,
       profile.internalName,
       profile.studentName,
+      profile.whatsappName,
       profile.email,
       profile.cpf,
       profile.username,
@@ -546,6 +558,7 @@ function mapPersistedRow(row: PersistedContactRow): ContactProfile {
     displayName: row.display_name,
     internalName: row.internal_name,
     studentName: row.student_name,
+    whatsappName: null,
     canonicalPhone: row.canonical_phone,
     phoneAliases: Array.from(new Set(aliases)).sort(),
     conversationPhones: Array.isArray(row.conversation_phones) ? row.conversation_phones : [],
@@ -973,7 +986,7 @@ async function findConversationByPhoneCandidates(phoneCandidates: string[]): Pro
 
   const { data, error } = await adminClient
     .from('conversations')
-    .select('phone, contact_name, cpf, student_id, status, followup_stage, last_message_at, last_message, message_count, labels, lgpd_accepted_at, assigned_name, students(id, moodle_id, full_name, email, phone, phone2, username, cpf, role, courses)')
+    .select('phone, contact_name, whatsapp_name, cpf, student_id, status, followup_stage, last_message_at, last_message, message_count, labels, lgpd_accepted_at, assigned_name, students(id, moodle_id, full_name, email, phone, phone2, username, cpf, role, courses)')
     .in('phone', phoneCandidates)
     .order('last_message_at', { ascending: false })
     .limit(1)
@@ -988,6 +1001,7 @@ async function findConversationByPhoneCandidates(phoneCandidates: string[]): Pro
   return {
     phone: String(candidate.phone ?? ''),
     contact_name: typeof candidate.contact_name === 'string' ? candidate.contact_name : null,
+    whatsapp_name: typeof candidate.whatsapp_name === 'string' ? candidate.whatsapp_name : null,
     cpf: typeof candidate.cpf === 'string' ? candidate.cpf : null,
     student_id: typeof candidate.student_id === 'string' ? candidate.student_id : null,
     status: typeof candidate.status === 'string' ? candidate.status : null,

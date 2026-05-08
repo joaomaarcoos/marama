@@ -31,6 +31,8 @@ interface Summary {
 interface AgentRow {
   name: string
   count: number
+  resolved: number
+  resolutionRate: number
   phones: string[]
 }
 
@@ -63,6 +65,10 @@ interface ReportData {
   period: Period
   from: string
   to: string
+  page: number
+  pageSize: number
+  totalCount: number
+  totalPages: number
   summary: Summary
   byAgent: AgentRow[]
   topics: Topic[]
@@ -349,14 +355,16 @@ export default function RelatoriosPage() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<'geral' | 'agentes' | 'todos'>('geral')
+  const [currentPage, setCurrentPage] = useState(1)
 
-  const load = useCallback(async (p: Period) => {
+  const load = useCallback(async (p: Period, page: number = 1) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/relatorios?period=${p}`)
+      const res = await fetch(`/api/relatorios?period=${p}&page=${page}&pageSize=50`)
       if (!res.ok) throw new Error('Erro ao carregar relatório')
       setData(await res.json())
+      setCurrentPage(page)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro desconhecido')
     } finally {
@@ -760,6 +768,12 @@ export default function RelatoriosPage() {
                       Atendimentos
                     </th>
                     <th className="text-right px-5 py-3 text-xs uppercase tracking-widest" style={{ color: 'hsl(215 18% 42%)' }}>
+                      Resolvidos
+                    </th>
+                    <th className="text-right px-5 py-3 text-xs uppercase tracking-widest" style={{ color: 'hsl(215 18% 42%)' }}>
+                      Taxa Resolução
+                    </th>
+                    <th className="text-right px-5 py-3 text-xs uppercase tracking-widest" style={{ color: 'hsl(215 18% 42%)' }}>
                       % do total
                     </th>
                   </tr>
@@ -791,6 +805,12 @@ export default function RelatoriosPage() {
                       </td>
                       <td className="px-5 py-4 text-right tabular-nums font-semibold" style={{ color: 'hsl(213 31% 91%)' }}>
                         {agent.count}
+                      </td>
+                      <td className="px-5 py-4 text-right tabular-nums" style={{ color: 'hsl(160 84% 39%)' }}>
+                        {agent.resolved}
+                      </td>
+                      <td className="px-5 py-4 text-right tabular-nums font-semibold" style={{ color: agent.resolutionRate >= 80 ? 'hsl(160 84% 39%)' : agent.resolutionRate >= 50 ? 'hsl(38 92% 50%)' : 'hsl(0 75% 60%)' }}>
+                        {agent.resolutionRate}%
                       </td>
                       <td className="px-5 py-4 text-right text-xs" style={{ color: 'hsl(215 18% 42%)' }}>
                         {s ? `${pct(agent.count, s.total)}%` : '—'}
@@ -967,6 +987,66 @@ export default function RelatoriosPage() {
               </div>
             )}
           </div>
+
+          {/* Pagination */}
+          {data && data.totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <button
+                onClick={() => load(period, currentPage - 1)}
+                disabled={currentPage === 1 || loading}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium transition-opacity disabled:opacity-50"
+                style={{
+                  background: 'hsl(220 40% 8%)',
+                  border: '1px solid hsl(216 32% 15%)',
+                  color: 'hsl(215 18% 55%)',
+                }}
+              >
+                ← Anterior
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: data.totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    onClick={() => load(period, pageNum)}
+                    disabled={loading}
+                    className="rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all"
+                    style={
+                      pageNum === currentPage
+                        ? {
+                            background: 'hsl(262 80% 65%)',
+                            color: 'hsl(220 26% 8%)',
+                          }
+                        : {
+                            background: 'hsl(220 40% 8%)',
+                            border: '1px solid hsl(216 32% 15%)',
+                            color: 'hsl(215 18% 55%)',
+                          }
+                    }
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => load(period, currentPage + 1)}
+                disabled={currentPage === data.totalPages || loading}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium transition-opacity disabled:opacity-50"
+                style={{
+                  background: 'hsl(220 40% 8%)',
+                  border: '1px solid hsl(216 32% 15%)',
+                  color: 'hsl(215 18% 55%)',
+                }}
+              >
+                Próxima →
+              </button>
+
+              <span className="text-xs ml-2" style={{ color: 'hsl(215 18% 42%)' }}>
+                Página {currentPage} de {data.totalPages} • {data.totalCount} atendimento(s)
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>
