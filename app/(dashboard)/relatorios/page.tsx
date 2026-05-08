@@ -924,17 +924,21 @@ export default function RelatoriosPage() {
                             <span
                               className="rounded-full px-2 py-0.5 text-[11px] font-medium"
                               style={
-                                c.status === 'resolved'
+                                c.status === 'closed'
                                   ? { color: 'hsl(160 84% 39%)', background: 'hsl(160 84% 39% / 0.1)' }
                                   : c.status === 'active'
                                   ? { color: 'hsl(217 91% 60%)', background: 'hsl(217 91% 60% / 0.1)' }
+                                  : c.status === 'waiting'
+                                  ? { color: 'hsl(38 92% 50%)', background: 'hsl(38 92% 50% / 0.1)' }
                                   : { color: 'hsl(215 18% 55%)', background: 'hsl(216 32% 15%)' }
                               }
                             >
-                              {c.status === 'resolved'
-                                ? 'Resolvido'
+                              {c.status === 'closed'
+                                ? 'Encerrado'
                                 : c.status === 'active'
                                 ? 'Ativo'
+                                : c.status === 'waiting'
+                                ? 'Aguardando'
                                 : c.status ?? '—'}
                             </span>
                           </td>

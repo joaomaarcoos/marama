@@ -30,7 +30,6 @@ const PT_STOPWORDS = new Set([
   'algum','alguma','nenhum','nenhuma','qualquer','cada',
   'assim','então','porém','contudo','todavia','entretanto',
   'aqui','cá','lá','ali','aí',
-  // Nomes próprios comuns em português (para filtrar de tópicos)
   'maria','santos','joão','josé','francisco','carlos','pedro','paulo',
   'silva','oliveira','ferreira','costa','rocha','gomes','sousa','alves',
   'ana','paula','gabriela','juliana','patricia','barbara','carmem',
@@ -48,7 +47,6 @@ function extractTopics(messages: string[], topN = 10) {
   const freq = new Map<string, number>()
 
   for (const msg of messages) {
-    // Normalize: lowercase, strip punctuation/numbers, split words
     const words = msg
       .toLowerCase()
       .replace(/https?:\/\/\S+/g, '')
@@ -56,7 +54,6 @@ function extractTopics(messages: string[], topN = 10) {
       .split(/\s+/)
       .filter(w => w.length >= 4 && !PT_STOPWORDS.has(w))
 
-    // Deduplicate within the same message so one chatty person doesn't skew counts
     const unique = Array.from(new Set(words))
     for (const w of unique) {
       freq.set(w, (freq.get(w) ?? 0) + 1)
@@ -117,138 +114,154 @@ export async function GET(request: NextRequest) {
   const { from, to } = getPeriodRange(period)
 
   try {
-  // Fetch conversations in period with pagination
-  const convsResult = await adminClient
-    .from('conversations')
-    .select(
-      'phone, contact_name, last_message, last_message_at, status, assigned_to, assigned_name, labels, followup_stage, contact_id, students(full_name)',
-      { count: 'exact' }
-    )
-    .gte('last_message_at', from)
-    .lte('last_message_at', to)
-    .order('last_message_at', { ascending: false })
-    .range(offset, offset + pageSize - 1)
+    // Fetch ALL conversations for the period (lightweight fields for stats)
+    // and the paginated slice (full fields for the list) in parallel.
+    const [allConvsResult, pagedConvsResult] = await Promise.all([
+      adminClient
+        .from('conversations')
+        .select('phone, assigned_to, assigned_name, status, followup_stage, last_message_at', { count: 'exact' })
+        .gte('last_message_at', from)
+        .lte('last_message_at', to)
+        .order('last_message_at', { ascending: false })
+        .limit(10000),
 
-  const conversations = convsResult.data ?? []
-  const totalCount = convsResult.count ?? 0
+      adminClient
+        .from('conversations')
+        .select(
+          'phone, contact_name, last_message, last_message_at, status, assigned_to, assigned_name, labels, followup_stage, contact_id, students(full_name)',
+          { count: 'exact' }
+        )
+        .gte('last_message_at', from)
+        .lte('last_message_at', to)
+        .order('last_message_at', { ascending: false })
+        .range(offset, offset + pageSize - 1),
+    ])
 
-  // --- Summary counts ---
-  const total = conversations.length
-  const maraCount = conversations.filter((c) => !c.assigned_to).length
-  const humanCount = conversations.filter((c) => !!c.assigned_to).length
-  const resolvedCount = conversations.filter((c) => c.status === 'resolved' || c.followup_stage === 'closed').length
-  const activeCount = conversations.filter((c) => c.status === 'active').length
+    // allConvs = full period data for aggregations
+    const allConvs = allConvsResult.data ?? []
+    const totalCount = allConvsResult.count ?? 0
 
-  // --- Fetch contacts to get labels (P1.1) ---
-  const contactIds = conversations
-    .map((c) => (c.contact_id as string | null))
-    .filter((id): id is string => id !== null)
-  
-  const contactsMap = new Map<string, { labels: string[] }>()
-  if (contactIds.length > 0) {
-    const { data: contacts } = await adminClient
-      .from('contacts')
-      .select('id, labels')
-      .in('id', contactIds)
-    
-    contacts?.forEach((contact) => {
-      contactsMap.set(contact.id as string, {
-        labels: Array.isArray(contact.labels) ? contact.labels : [],
+    // Paginated list
+    const conversations = pagedConvsResult.data ?? []
+
+    // --- Summary counts (from ALL conversations in period) ---
+    const maraCount    = allConvs.filter(c => !c.assigned_to).length
+    const humanCount   = allConvs.filter(c => !!c.assigned_to).length
+    // status values in DB: 'active' | 'waiting' | 'closed'
+    const resolvedCount = allConvs.filter(c => c.status === 'closed' || c.followup_stage === 'closed').length
+    const activeCount  = allConvs.filter(c => c.status === 'active').length
+
+    // --- Fetch contacts labels for the current page ---
+    const contactIds = conversations
+      .map(c => (c.contact_id as string | null))
+      .filter((id): id is string => id !== null)
+
+    const contactsMap = new Map<string, { labels: string[] }>()
+    if (contactIds.length > 0) {
+      const { data: contacts } = await adminClient
+        .from('contacts')
+        .select('id, labels')
+        .in('id', contactIds)
+
+      contacts?.forEach(contact => {
+        contactsMap.set(contact.id as string, {
+          labels: Array.isArray(contact.labels) ? contact.labels : [],
+        })
       })
+    }
+
+    // --- Breakdown by agent (ALL conversations) ---
+    const agentMap = new Map<string, { name: string; count: number; resolved: number; phones: string[] }>()
+    for (const c of allConvs) {
+      if (!c.assigned_to) continue
+      const key = c.assigned_to as string
+      const name = (c.assigned_name as string | null) ?? key
+      if (!agentMap.has(key)) agentMap.set(key, { name, count: 0, resolved: 0, phones: [] })
+      const entry = agentMap.get(key)!
+      entry.count++
+      entry.phones.push(c.phone as string)
+      if (c.status === 'closed' || c.followup_stage === 'closed') entry.resolved++
+    }
+
+    const byAgent = Array.from(agentMap.values())
+      .map(a => ({
+        name: a.name,
+        count: a.count,
+        resolved: a.resolved,
+        resolutionRate: a.count > 0 ? Math.round((a.resolved / a.count) * 100) : 0,
+        phones: a.phones,
+      }))
+      .sort((a, b) => b.count - a.count)
+
+    // --- Topics from chatmemory (ALL phones in period) ---
+    const allPhones = allConvs.map(c => c.phone as string)
+    let topics: Array<{ label: string; color: string; count: number }> = []
+
+    if (allPhones.length > 0) {
+      const { data: msgs } = await adminClient
+        .from('chatmemory')
+        .select('content')
+        .in('session_id', allPhones.slice(0, 200))
+        .eq('role', 'user')
+        .gte('created_at', from)
+        .lte('created_at', to)
+        .limit(1500)
+
+      topics = extractTopics((msgs ?? []).map(m => m.content as string))
+    }
+
+    // --- Daily timeline (ALL conversations) ---
+    const dayBuckets = new Map<string, { mara: number; human: number }>()
+    for (const c of allConvs) {
+      if (!c.last_message_at) continue
+      const day = (c.last_message_at as string).slice(0, 10)
+      if (!dayBuckets.has(day)) dayBuckets.set(day, { mara: 0, human: 0 })
+      const bucket = dayBuckets.get(day)!
+      if (c.assigned_to) bucket.human++
+      else bucket.mara++
+    }
+    const timeline = Array.from(dayBuckets.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, counts]) => ({ date, ...counts }))
+
+    // --- Build paginated list ---
+    const list = conversations.map(c => {
+      const contactId = c.contact_id as string | null
+      const contactLabels = contactId ? contactsMap.get(contactId)?.labels ?? [] : []
+      return {
+        phone: c.phone,
+        contact_name: c.contact_name ?? (c.students as { full_name?: string } | null)?.full_name ?? null,
+        last_message: c.last_message,
+        last_message_at: c.last_message_at,
+        status: c.status,
+        assigned_to: c.assigned_to,
+        assigned_name: c.assigned_name,
+        followup_stage: c.followup_stage,
+        labels: (c.labels as string[] | null) ?? [],
+        label_names: contactLabels,
+      }
     })
-  }
 
-  // --- Breakdown by agent with resolution rate (P1.3) ---
-  const agentMap = new Map<string, { name: string; count: number; resolved: number; phones: string[] }>()
-  for (const c of conversations) {
-    if (!c.assigned_to) continue
-    const key = c.assigned_to as string
-    const name = (c.assigned_name as string | null) ?? key
-    if (!agentMap.has(key)) agentMap.set(key, { name, count: 0, resolved: 0, phones: [] })
-    const entry = agentMap.get(key)!
-    entry.count++
-    entry.phones.push(c.phone as string)
-    
-    // Check if resolved
-    if (c.status === 'resolved' || c.followup_stage === 'closed') {
-      entry.resolved++
-    }
-  }
-  
-  const byAgent = Array.from(agentMap.values())
-    .map((a) => ({
-      name: a.name,
-      count: a.count,
-      resolved: a.resolved,
-      resolutionRate: a.count > 0 ? Math.round((a.resolved / a.count) * 100) : 0,
-      phones: a.phones,
-    }))
-    .sort((a, b) => b.count - a.count)
-
-  // --- Topics from chatmemory keyword frequency ---
-  const phones = conversations.map((c) => c.phone as string)
-  let topics: Array<{ label: string; color: string; count: number }> = []
-
-  if (phones.length > 0) {
-    const { data: msgs } = await adminClient
-      .from('chatmemory')
-      .select('content')
-      .in('session_id', phones.slice(0, 200)) // guard against PostgREST IN limit
-      .eq('role', 'user')
-      .gte('created_at', from)
-      .lte('created_at', to)
-      .limit(1500)
-
-    topics = extractTopics((msgs ?? []).map((m) => m.content as string))
-  }
-
-  // --- Daily timeline (last N days) ---
-  const dayBuckets = new Map<string, { mara: number; human: number }>()
-  for (const c of conversations) {
-    if (!c.last_message_at) continue
-    const day = (c.last_message_at as string).slice(0, 10)
-    if (!dayBuckets.has(day)) dayBuckets.set(day, { mara: 0, human: 0 })
-    const bucket = dayBuckets.get(day)!
-    if (c.assigned_to) bucket.human++
-    else bucket.mara++
-  }
-  const timeline = Array.from(dayBuckets.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, counts]) => ({ date, ...counts }))
-
-  // Clean up conversations for list response
-  const list = conversations.map((c) => {
-    const contactId = c.contact_id as string | null
-    const contactLabels = contactId ? contactsMap.get(contactId)?.labels ?? [] : []
-    
-    return {
-      phone: c.phone,
-      contact_name: c.contact_name ?? (c.students as { full_name?: string } | null)?.full_name ?? null,
-      last_message: c.last_message,
-      last_message_at: c.last_message_at,
-      status: c.status,
-      assigned_to: c.assigned_to,
-      assigned_name: c.assigned_name,
-      followup_stage: c.followup_stage,
-      labels: (c.labels as string[] | null) ?? [],
-      label_names: contactLabels,
-    }
-  })
-
-  return NextResponse.json({
-    period,
-    from,
-    to,
-    page,
-    pageSize,
-    totalCount,
-    totalPages: Math.ceil(totalCount / pageSize),
-    summary: { total, mara: maraCount, human: humanCount, resolved: resolvedCount, active: activeCount },
-    byAgent,
-    topics,
-    timeline,
-    conversations: list,
-  })
+    return NextResponse.json({
+      period,
+      from,
+      to,
+      page,
+      pageSize,
+      totalCount,
+      totalPages: Math.ceil(totalCount / pageSize),
+      summary: {
+        total: totalCount,
+        mara: maraCount,
+        human: humanCount,
+        resolved: resolvedCount,
+        active: activeCount,
+      },
+      byAgent,
+      topics,
+      timeline,
+      conversations: list,
+    })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Erro ao gerar relatório'
     console.error('[/api/relatorios]', err)
