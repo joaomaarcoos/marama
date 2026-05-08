@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { findChats } from '@/lib/evolution'
 import { syncContactsSnapshot } from '@/lib/contacts'
+import { requireApiUser } from '@/lib/api-auth'
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: { phone: string } }
 ) {
+  const auth = await requireApiUser()
+  if (!auth.ok) return auth.response
+
   const phone = decodeURIComponent(params.phone)
 
   const [conversationResult, messagesResult, chatsResult] = await Promise.all([
@@ -49,6 +53,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { phone: string } }
 ) {
+  const auth = await requireApiUser()
+  if (!auth.ok) return auth.response
+
   const phone = decodeURIComponent(params.phone)
   const body = await request.json() as {
     status?: string

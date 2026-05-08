@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminClient } from '@/lib/supabase/admin'
+import { requireApiUser } from '@/lib/api-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,6 +8,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { phone: string } }
 ) {
+  const auth = await requireApiUser()
+  if (!auth.ok) return auth.response
+
   const phone = decodeURIComponent(params.phone)
   const supabase = getAdminClient()
 
@@ -41,6 +45,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { phone: string } }
 ) {
+  const auth = await requireApiUser()
+  if (!auth.ok) return auth.response
+
   const phone = decodeURIComponent(params.phone)
   const body = await req.json() as { assigned_to?: string | null; assigned_name?: string | null }
   const supabase = getAdminClient()

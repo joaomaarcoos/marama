@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminClient } from '@/lib/supabase/admin'
 import { coordSendText } from '@/lib/evolution-coord'
+import { requireApiUser } from '@/lib/api-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,6 +9,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { phone: string } }
 ) {
+  const auth = await requireApiUser()
+  if (!auth.ok) return auth.response
+
   const phone = decodeURIComponent(params.phone)
 
   let text = ''

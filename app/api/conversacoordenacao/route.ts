@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getAdminClient } from '@/lib/supabase/admin'
+import { requireApiUser } from '@/lib/api-auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  const auth = await requireApiUser()
+  if (!auth.ok) return auth.response
+
   const supabase = getAdminClient()
 
   const { data, error } = await supabase

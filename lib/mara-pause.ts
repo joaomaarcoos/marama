@@ -36,6 +36,7 @@ export async function getMaraPauseState(phone: string): Promise<{
   pausedUntil: string | null
   manualPaused: boolean
   humanHandoffActive: boolean
+  queueAssigned: boolean
   assignedName: string | null
 }> {
   const candidates = getConversationPhoneCandidates(phone)
@@ -46,6 +47,7 @@ export async function getMaraPauseState(phone: string): Promise<{
       pausedUntil: null,
       manualPaused: false,
       humanHandoffActive: false,
+      queueAssigned: false,
       assignedName: null,
     }
   }
@@ -62,7 +64,7 @@ export async function getMaraPauseState(phone: string): Promise<{
   const assignedName = (data ?? [])
     .map((row) => row.assigned_name)
     .find((value): value is string => typeof value === 'string' && value.trim().length > 0) ?? null
-  const humanHandoffActive = (data ?? []).some((row) =>
+  const queueAssigned = (data ?? []).some((row) =>
     (typeof row.assigned_to === 'string' && row.assigned_to.trim().length > 0) ||
     (typeof row.assigned_name === 'string' && row.assigned_name.trim().length > 0)
   )
@@ -72,5 +74,7 @@ export async function getMaraPauseState(phone: string): Promise<{
     .filter((value) => new Date(value).getTime() > now)
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null
 
-  return { candidates, pausedUntil, manualPaused, humanHandoffActive, assignedName }
+  const humanHandoffActive = manualPaused || pausedUntil !== null
+
+  return { candidates, pausedUntil, manualPaused, humanHandoffActive, queueAssigned, assignedName }
 }

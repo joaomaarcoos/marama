@@ -60,6 +60,14 @@ function buildStoredContent(text: string, file: File | null, mediaKind: MediaKin
   return trimmed ? `${prefix}\n${trimmed}` : prefix
 }
 
+function buildStoredTimelinePayload(content: string, attendantName: string) {
+  return JSON.stringify({
+    _meta: 'human_attendant',
+    attendantName,
+    text: content,
+  })
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { phone: string } }
@@ -124,12 +132,13 @@ export async function POST(
 
     // ─── PASSO 3: salvar no histórico e atualizar conversa ──────────────────────
     const content = buildStoredContent(signedText, file, mediaKind)
+    const timelinePayload = buildStoredTimelinePayload(content, attendantName)
     const { data: message, error: insertError } = await adminClient
       .from('chatmemory')
       .insert({
         session_id: phone,
         role: 'assistant',
-        content,
+        content: timelinePayload,
       })
       .select('role, content, created_at')
       .single()

@@ -945,8 +945,18 @@ type ParsedContent =
   | { kind: 'image'; url: string; caption?: string }
   | { kind: 'audio'; url: string; transcript: string }
   | { kind: 'audio_text'; transcript: string }
+  | { kind: 'human_attendant'; text: string }
 
 function parseChatContent(content: string): ParsedContent {
+  if (content.startsWith('{"_meta":"human_attendant"')) {
+    try {
+      const payload = JSON.parse(content) as { _meta: string; text?: string }
+      if (payload._meta === 'human_attendant') {
+        return { kind: 'human_attendant', text: payload.text ?? '' }
+      }
+    } catch { /* fall through */ }
+  }
+
   // New structured format: {"_media":"image"|"audio",...}
   if (content.startsWith('{"_media":')) {
     try {
@@ -1021,6 +1031,10 @@ function MessageContent({ content }: { content: string }) {
     )
   }
 
+  if (parsed.kind === 'human_attendant') {
+    return <p className="chat-bubble-text">{parsed.text}</p>
+  }
+
   return <p className="chat-bubble-text">{parsed.text}</p>
 }
 
@@ -1034,6 +1048,7 @@ function ChatPanel({
   onRefresh,
   onLabelsChange,
   onConversationUpdate,
+  onSetActing,
 }: {
   phone: string
   allLabels: Label[]
@@ -1042,6 +1057,7 @@ function ChatPanel({
   onRefresh: () => void | Promise<void>
   onLabelsChange: (labels: Label[]) => void
   onConversationUpdate: (phone: string, updates: Partial<Conversation>) => void
+  onSetActing: (acting: boolean) => void
 }) {
   const [data, setData] = useState<ConversationDetail | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
@@ -1120,9 +1136,16 @@ function ChatPanel({
   }, [])
 
   const act = async (fn: () => Promise<void>, optimistic?: () => void) => {
+    onSetActing(true)
     optimistic?.()
     setActing(true)
-    try { await fn() } finally { setActing(false); await Promise.all([load(), onRefresh()]) }
+    try {
+      await fn()
+    } finally {
+      setActing(false)
+      await Promise.all([load(), onRefresh()])
+      onSetActing(false)
+    }
   }
 
   const handleToggleLabel = async (labelId: string) => {
@@ -1434,7 +1457,7 @@ function ChatPanel({
           {!closed ? (
             <button onClick={() => act(
               () => patchConversation(phone, { status: 'closed', followup_stage: null }),
-              () => onConversationUpdate(phone, { status: 'closed', followup_stage: null, assigned_to: null, assigned_name: null })
+              () => onConversationUpdate(phone, { status: 'closed', followup_stage: null, assigned_to: null, assigned_name: null, mara_paused_until: null, mara_manual_paused: false })
             )} disabled={acting} className="chat-action-btn chat-action-btn--danger">
               <LogOut size={14} />
               <span className="hidden sm:inline">Encerrar</span>
@@ -1740,8 +1763,10 @@ export default function ChatInterface({
   const changeTab = (t: Tab) => { setTab(t); _persistedTab = t }
   const [loadingList, setLoadingList] = useState(true)
   const [currentUser] = useState<{ id: string; email: string } | null>(initialCurrentUser ?? null)
+  const panelActingRef = useRef(false)
 
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (force = false) => {
+    if (panelActingRef.current && !force) return
     const res = await fetch('/api/conversas', { cache: 'no-store' })
     if (res.ok) setConversations(await res.json())
     setLoadingList(false)
@@ -1854,9 +1879,10 @@ export default function ChatInterface({
             allLabels={allLabels}
             allUsers={allUsers}
             currentUser={currentUser}
-            onRefresh={loadConversations}
+            onRefresh={() => loadConversations(true)}
             onLabelsChange={setAllLabels}
             onConversationUpdate={updateConversationLocally}
+            onSetActing={(v) => { panelActingRef.current = v }}
           />
         ) : (
           <EmptyPane />

@@ -33,6 +33,12 @@ export type ChatMessage = {
   content: string | OpenAI.Chat.ChatCompletionContentPart[]
 }
 
+export type AssistantRouteDecision = {
+  route: 'REPLY' | 'HUMAN' | 'OFFER_TICKET'
+  confidence: 'low' | 'medium' | 'high'
+  reason: string
+}
+
 export async function chatCompletion(messages: ChatMessage[]): Promise<string> {
   const openai = getOpenAIClient()
   const response = await openai.chat.completions.create({
@@ -43,6 +49,57 @@ export async function chatCompletion(messages: ChatMessage[]): Promise<string> {
   })
 
   return response.choices[0]?.message?.content ?? ''
+}
+
+export async function routeChatCompletion(messages: ChatMessage[]): Promise<AssistantRouteDecision> {
+  const openai = getOpenAIClient()
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content:
+          'Voce e um roteador operacional da MARA. Sua unica funcao e decidir a proxima rota do atendimento. Nao responda ao usuario. Retorne somente JSON valido no schema solicitado.',
+      },
+      ...messages,
+    ] as OpenAI.Chat.ChatCompletionMessageParam[],
+    temperature: 0,
+    max_tokens: 250,
+    response_format: {
+      type: 'json_schema',
+      json_schema: {
+        name: 'mara_route_decision',
+        strict: true,
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            route: {
+              type: 'string',
+              enum: ['REPLY', 'HUMAN', 'OFFER_TICKET'],
+            },
+            confidence: {
+              type: 'string',
+              enum: ['low', 'medium', 'high'],
+            },
+            reason: {
+              type: 'string',
+            },
+          },
+          required: ['route', 'confidence', 'reason'],
+        },
+      },
+    },
+  })
+
+  const content = response.choices[0]?.message?.content ?? ''
+  const parsed = JSON.parse(content) as AssistantRouteDecision
+
+  if (!parsed.route || !parsed.confidence || !parsed.reason) {
+    throw new Error('Route decision incompleta')
+  }
+
+  return parsed
 }
 
 export async function transcribeAudio(audioBuffer: Buffer, mimetype: string): Promise<string> {

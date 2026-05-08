@@ -1,9 +1,16 @@
 import { NextRequest } from 'next/server'
 import { addCoordSseClient, removeCoordSseClient } from '@/lib/coord-sse'
+import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return new Response('Unauthorized', { status: 401 })
+
   let controller: ReadableStreamDefaultController
   const stream = new ReadableStream({
     start(ctrl) {

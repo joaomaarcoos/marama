@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { findChats } from '@/lib/evolution'
+import { requireApiUser } from '@/lib/api-auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  const auth = await requireApiUser()
+  if (!auth.ok) return auth.response
+
   const [conversationsResult, chatsResult] = await Promise.allSettled([
     adminClient
       .from('conversations')

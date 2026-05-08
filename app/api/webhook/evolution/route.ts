@@ -178,7 +178,7 @@ function enqueue(sessionId: string, replyTarget: string, message: PendingMessage
 
     try {
       const pauseState = await getMaraPauseState(sessionId)
-      if (pauseState.pausedUntil || pauseState.humanHandoffActive || pauseState.manualPaused) {
+      if (pauseState.pausedUntil || pauseState.manualPaused) {
         console.log(`[Webhook] Conversa bloqueada para MARA (candidatos: ${pauseState.candidates.join(',')}) — descartando lote`)
         void logWebhookEvent({ phone: sessionId, message_type: msgType, message_preview: msgPreview, status: 'blocked' })
         return
@@ -391,7 +391,7 @@ async function handleWebhookEvent(body: Record<string, unknown>) {
   // Usa ambos os formatos do número brasileiro (com/sem nono dígito) para garantir
   // que o mismatch de formato não impeça a detecção da pausa.
   const preQueuePauseState = await getMaraPauseState(routing.sessionId)
-  if (preQueuePauseState.pausedUntil || preQueuePauseState.humanHandoffActive || preQueuePauseState.manualPaused) {
+  if (preQueuePauseState.pausedUntil || preQueuePauseState.manualPaused) {
     console.log(`[Webhook] Conversa bloqueada para MARA (candidatos: ${preQueuePauseState.candidates.join(',')}) — não enfileirado`)
     return
   }
