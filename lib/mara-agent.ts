@@ -2,7 +2,7 @@ import { adminClient, getAdminClient } from './supabase/admin'
 import { getMaraPauseState } from './mara-pause'
 import { buildSystemPrompt } from './prompt-builder'
 import { sendText, downloadMedia } from './evolution'
-import { chatCompletion, routeChatCompletion, transcribeAudio, buildImageMessage, ChatMessage } from './openai'
+import { chatCompletion, transcribeAudio, buildImageMessage, ChatMessage } from './openai'
 import { searchRelevantChunks, buildRagContext } from './rag'
 import { resolveKnownContact, syncContactsSnapshot, type ContactProfile, type ContactStudentRecord } from './contacts'
 import {
@@ -1100,10 +1100,25 @@ export async function processMessages(
     const systemPrompt = [
       basePrompt,
       identityHints,
-      `## Roteamento Operacional
-Se a duvida puder ser resolvida com seguranca, responda normalmente.
-Se o melhor caminho for atendimento humano, nao finja resolver.
-Se o melhor caminho for ticket, primeiro ofereca essa abertura antes de criar o chamado.`,
+      `## Roteamento (instrucao interna — inclua a tag no final de TODA resposta)
+
+Use SEMPRE uma das tags abaixo ao final da sua mensagem. A tag sera removida antes de enviar ao usuario.
+
+[[ROUTE:REPLY]] — Padrao absoluto. Use sempre que conseguir responder, orientar, informar ou esclarecer, mesmo que parcialmente. Use tambem quando precisar pedir mais informacoes ao usuario.
+
+[[ROUTE:OFFER_TICKET]] — Use somente quando o usuario relatou um problema tecnico persistente, bug ou reclamacao formal que precisa de acompanhamento registrado. Responda antes de oferecer o ticket.
+
+[[ROUTE:HUMAN]] — Use SOMENTE nas situacoes abaixo. Em qualquer duvida, use REPLY.
+- O usuario pediu explicitamente para falar com uma pessoa humana
+- A resolucao requer acao em sistema externo com acesso privilegiado que voce nao possui (ex: cancelamento de matricula, ajuste financeiro, desbloqueio manual de conta no sistema da secretaria)
+- Situacao de emergencia ou vulnerabilidade humana confirmada (violencia, saude critica)
+
+NUNCA use [[ROUTE:HUMAN]] nos seguintes casos — nesses casos, responda normalmente com [[ROUTE:REPLY]]:
+- Usuario informou nome e/ou CPF (e coleta de identidade, atenda normalmente)
+- Duvida e complexa ou voce nao tem certeza — responda com o que sabe e oriente
+- Usuario tem duvidas sobre Moodle, notas, certificados, acesso, cursos — tente resolver
+- Usuario repetiu a pergunta ou nao entendeu a resposta anterior — tente novamente com mais clareza
+- Usuario e novo e ainda nao disse o que precisa — aguarde ou pergunte como pode ajudar`,
     ].filter(Boolean).join('\n\n')
 
     const normalizedHistory: ChatMessage[] = (history ?? [])
@@ -1127,31 +1142,6 @@ Se o melhor caminho for ticket, primeiro ofereca essa abertura antes de criar o 
 
     await storeUserMessage(phone, userContentText)
 
-    const routeDecision = await routeChatCompletion(chatMessages)
-
-    if (routeDecision.route === 'HUMAN') {
-      if (await abortIfPaused('antes da resposta de transferencia humana')) return
-      await activateHumanHandoff(
-        phone,
-        replyTarget,
-        'Vou transferir voce para um atendimento humano agora. Em alguns minutos nossa equipe continua por aqui.'
-      )
-      await syncContactsSnapshot()
-      return
-    }
-
-    if (routeDecision.route === 'OFFER_TICKET') {
-      if (await abortIfPaused('antes da oferta de ticket')) return
-      await sendAssistantMessage(
-        phone,
-        replyTarget,
-        'Se quiser, posso abrir um ticket de suporte com protocolo para acompanhar esse caso. Deseja que eu faca isso?',
-        { pending_action: { type: 'support_ticket_offer' } }
-      )
-      await syncContactsSnapshot()
-      return
-    }
-
     if (await abortIfPaused('imediatamente antes do envio da resposta')) return
 
     const rawResponse = await chatCompletion(chatMessages)
@@ -1162,6 +1152,27 @@ Se o melhor caminho for ticket, primeiro ofereca essa abertura antes de criar o 
         name: parsedResponse.extractedName,
         cpf: parsedResponse.extractedCpf,
       })
+    }
+
+    if (parsedResponse.route === 'HUMAN') {
+      await activateHumanHandoff(
+        phone,
+        replyTarget,
+        parsedResponse.content || 'Vou transferir voce para um atendimento humano agora. Em alguns minutos nossa equipe continua por aqui.'
+      )
+      await syncContactsSnapshot()
+      return
+    }
+
+    if (parsedResponse.route === 'OFFER_TICKET') {
+      await sendAssistantMessage(
+        phone,
+        replyTarget,
+        parsedResponse.content || 'Se quiser, posso abrir um ticket de suporte com protocolo para acompanhar esse caso. Deseja que eu faca isso?',
+        { pending_action: { type: 'support_ticket_offer' } }
+      )
+      await syncContactsSnapshot()
+      return
     }
 
     await sendAssistantMessage(phone, replyTarget, parsedResponse.content || rawResponse)
@@ -1197,7 +1208,7 @@ export async function checkInactivity(): Promise<{ followups: number; closings: 
     .lt('last_message_at', ninetyMinutesAgo)
 
   for (const conv of idleConvs ?? []) {
-    if (conv.assigned_to || conv.assigned_name) continue
+    if (conv.assigned_to) continue
     if (conv.mara_manual_paused) continue
     if (conv.mara_paused_until && new Date(conv.mara_paused_until) > new Date()) continue
 
@@ -1205,7 +1216,12 @@ export async function checkInactivity(): Promise<{ followups: number; closings: 
       await sendText(conv.phone, FOLLOWUP_MESSAGE)
       await adminClient
         .from('conversations')
-        .update({ followup_stage: 'followup_1', followup_sent_at: new Date().toISOString() })
+        .update({
+          followup_stage: 'followup_1',
+          followup_sent_at: new Date().toISOString(),
+          assigned_name: null,
+          mara_paused_until: null,
+        })
         .eq('phone', conv.phone)
       followups++
     } catch (err) {
@@ -1220,7 +1236,7 @@ export async function checkInactivity(): Promise<{ followups: number; closings: 
     .lt('followup_sent_at', sixtyMinutesAgo)
 
   for (const conv of staleConvs ?? []) {
-    if (conv.assigned_to || conv.assigned_name) continue
+    if (conv.assigned_to) continue
     if (conv.mara_manual_paused) continue
     if (conv.mara_paused_until && new Date(conv.mara_paused_until) > new Date()) continue
 

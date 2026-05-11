@@ -64,10 +64,15 @@ export async function getMaraPauseState(phone: string): Promise<{
   const assignedName = (data ?? [])
     .map((row) => row.assigned_name)
     .find((value): value is string => typeof value === 'string' && value.trim().length > 0) ?? null
-  const queueAssigned = (data ?? []).some((row) =>
-    (typeof row.assigned_to === 'string' && row.assigned_to.trim().length > 0) ||
-    (typeof row.assigned_name === 'string' && row.assigned_name.trim().length > 0)
-  )
+  // queueAssigned = real human present (assigned_to set, manual pause, or within active handoff window)
+  // After the 12h handoff window expires with no human, queueAssigned becomes false so MARA can resume
+  const queueAssigned = (data ?? []).some((row) => {
+    if (typeof row.assigned_to === 'string' && row.assigned_to.trim().length > 0) return true
+    if (row.mara_manual_paused === true) return true
+    const hasAssignedName = typeof row.assigned_name === 'string' && row.assigned_name.trim().length > 0
+    const hasPause = typeof row.mara_paused_until === 'string' && new Date(row.mara_paused_until).getTime() > now
+    return hasAssignedName && hasPause
+  })
   const pausedUntil = (data ?? [])
     .map((row) => row.mara_paused_until)
     .filter((value): value is string => typeof value === 'string' && value.length > 0)
