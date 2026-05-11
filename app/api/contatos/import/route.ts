@@ -16,7 +16,13 @@ const LABEL_COLORS = [
   'hsl(48 96% 53%)',
 ]
 
-function parseCsvLine(line: string): string[] {
+function detectSeparator(headerLine: string): string {
+  const semicolons = (headerLine.match(/;/g) ?? []).length
+  const commas = (headerLine.match(/,/g) ?? []).length
+  return semicolons >= commas ? ';' : ','
+}
+
+function parseCsvLine(line: string, sep: string): string[] {
   const result: string[] = []
   let current = ''
   let inQuotes = false
@@ -30,7 +36,7 @@ function parseCsvLine(line: string): string[] {
       } else {
         inQuotes = !inQuotes
       }
-    } else if (ch === ',' && !inQuotes) {
+    } else if (ch === sep && !inQuotes) {
       result.push(current.trim())
       current = ''
     } else {
@@ -82,11 +88,15 @@ export async function POST(request: Request) {
   const file = formData.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'Nenhum arquivo enviado.' }, { status: 400 })
 
-  const text = await file.text()
+  const rawText = await file.text()
+  // Strip UTF-8 BOM if present
+  const text = rawText.replace(/^\ufeff/, '')
   const lines = text.split(/\r?\n/).filter((l) => l.trim())
   if (lines.length < 2) return NextResponse.json({ error: 'Arquivo vazio ou sem dados.' }, { status: 400 })
 
-  const header = parseCsvLine(lines[0]).map((h) =>
+  const sep = detectSeparator(lines[0])
+
+  const header = parseCsvLine(lines[0], sep).map((h) =>
     h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   )
 
@@ -98,9 +108,9 @@ export async function POST(request: Request) {
   const iCpf       = colIndex(['cpf'])
   const iEtiquetas = colIndex(['etiquetas', 'labels', 'tags', 'etiqueta'])
 
-  if (iNome < 0 || iTelefone < 0) {
+  if (iTelefone < 0) {
     return NextResponse.json(
-      { error: 'O CSV precisa ter as colunas "nome" e "telefone".' },
+      { error: 'O CSV precisa ter a coluna "telefone".' },
       { status: 400 }
     )
   }
@@ -113,15 +123,15 @@ export async function POST(request: Request) {
   const errors: string[]          = []
 
   for (let i = 1; i < lines.length; i++) {
-    const cols    = parseCsvLine(lines[i])
-    const nome    = cols[iNome]?.trim()
+    const cols     = parseCsvLine(lines[i], sep)
+    const nome     = iNome >= 0 ? cols[iNome]?.trim() || null : null
     const rawPhone = cols[iTelefone]?.trim()
-    const email   = iEmail     >= 0 ? cols[iEmail]?.trim()     || null : null
-    const rawCpf  = iCpf       >= 0 ? cols[iCpf]?.trim()       || null : null
-    const rawTags = iEtiquetas >= 0 ? cols[iEtiquetas]?.trim() || ''   : ''
+    const email    = iEmail     >= 0 ? cols[iEmail]?.trim()     || null : null
+    const rawCpf   = iCpf       >= 0 ? cols[iCpf]?.trim()       || null : null
+    const rawTags  = iEtiquetas >= 0 ? cols[iEtiquetas]?.trim() || ''   : ''
 
-    if (!nome || !rawPhone) {
-      errors.push(`Linha ${i + 1}: nome ou telefone em branco — ignorado.`)
+    if (!rawPhone) {
+      errors.push(`Linha ${i + 1}: telefone em branco — ignorado.`)
       continue
     }
 
@@ -132,11 +142,13 @@ export async function POST(request: Request) {
     }
 
     const cpf = rawCpf ? normalizeCpf(rawCpf) ?? rawCpf : null
+    const full_name = nome ?? phone
 
-    studentRows.push({ full_name: nome, phone, email, cpf })
+    studentRows.push({ full_name, phone, email, cpf })
 
+    const labelSep = sep === ';' ? /[,|]/ : /[;,|]/
     const labelNames = rawTags
-      .split(/[;|]/)
+      .split(labelSep)
       .map((t) => t.trim())
       .filter(Boolean)
 
