@@ -25,6 +25,7 @@ import {
   BarChart2,
   Settings,
   TicketCheck,
+  Coins,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/theme-provider'
@@ -102,7 +103,9 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ]
 
-export function Sidebar({ role }: { role: UserRole }) {
+const OWNER_EMAIL = 'joaomaarcoos@gmail.com'
+
+export function Sidebar({ role, email }: { role: UserRole; email?: string | null }) {
   const pathname = usePathname()
   const { theme, toggle } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
@@ -267,6 +270,47 @@ export function Sidebar({ role }: { role: UserRole }) {
           </div>
         ))}
       </nav>
+
+      {/* Créditos — visível apenas para o owner */}
+      {email === OWNER_EMAIL && (
+        <div className="px-1.5 pb-1">
+          {!collapsed && (
+            <p
+              className="px-2 pb-1 text-xs font-semibold uppercase tracking-widest"
+              style={{ color: 'hsl(var(--sidebar-text-dim))', fontSize: '0.58rem' }}
+            >
+              Conta
+            </p>
+          )}
+          {collapsed && (
+            <div className="mx-2 my-1 border-t" style={{ borderColor: 'hsl(var(--sidebar-border-subtle))' }} />
+          )}
+          <Link
+            href="/creditos"
+            title={collapsed ? 'Créditos' : undefined}
+            className={cn(
+              'relative flex items-center gap-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
+              collapsed ? 'justify-center px-0' : 'px-2.5'
+            )}
+            style={
+              pathname === '/creditos'
+                ? { color: 'hsl(var(--sidebar-active-color))', background: 'hsl(var(--sidebar-active-bg))' }
+                : { color: 'hsl(var(--sidebar-text))' }
+            }
+            onMouseEnter={e => { if (pathname !== '/creditos') (e.currentTarget as HTMLElement).style.background = 'hsl(var(--sidebar-hover))' }}
+            onMouseLeave={e => { if (pathname !== '/creditos') (e.currentTarget as HTMLElement).style.background = '' }}
+          >
+            {pathname === '/creditos' && (
+              <span
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full"
+                style={{ background: 'hsl(var(--primary))', boxShadow: '0 0 8px hsl(var(--primary) / 0.6)' }}
+              />
+            )}
+            <Coins className="h-3.5 w-3.5 shrink-0" />
+            {!collapsed && <span>Créditos</span>}
+          </Link>
+        </div>
+      )}
 
       {/* Footer */}
       <div

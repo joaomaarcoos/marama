@@ -991,7 +991,7 @@ export async function processMessages(
       } else if (msg.type === 'audio' && msg.mediaId) {
         try {
           const { base64, mimetype } = await downloadMedia(msg.mediaId)
-          const transcribed = await transcribeAudio(Buffer.from(base64, 'base64'), mimetype)
+          const transcribed = await transcribeAudio(Buffer.from(base64, 'base64'), mimetype, phone)
           audioMedia = { url: `data:${mimetype};base64,${base64}`, transcript: transcribed }
           if (combinedText) combinedText += '\n'
           combinedText += transcribed
@@ -1082,7 +1082,7 @@ export async function processMessages(
       .select('role, content')
       .eq('session_id', phone)
       .order('created_at', { ascending: false })
-      .limit(15)
+      .limit(10)
 
     const ragChunks = await searchRelevantChunks(queryText)
     const ragContext = buildRagContext(ragChunks)
@@ -1144,7 +1144,7 @@ NUNCA use [[ROUTE:HUMAN]] nos seguintes casos — nesses casos, responda normalm
 
     if (await abortIfPaused('imediatamente antes do envio da resposta')) return
 
-    const rawResponse = await chatCompletion(chatMessages)
+    const rawResponse = await chatCompletion(chatMessages, 'chat/mara_reply', phone)
     const parsedResponse = parseAssistantRoute(rawResponse)
 
     if (parsedResponse.extractedName || parsedResponse.extractedCpf) {

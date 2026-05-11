@@ -91,7 +91,7 @@ export async function embedAndStoreDocument(
 
   for (let i = 0; i < chunks.length; i += batchSize) {
     const batch = chunks.slice(i, i + batchSize)
-    const embeddings = await Promise.all(batch.map((c) => createEmbedding(c)))
+    const embeddings = await Promise.all(batch.map((c) => createEmbedding(c, 'embed/doc_index')))
     for (let j = 0; j < batch.length; j++) {
       rows.push({
         document_id: documentId,
@@ -124,7 +124,7 @@ export async function searchRelevantChunks(
   matchCount = 8
 ): Promise<MatchedChunk[]> {
   try {
-    const queryEmbedding = await createEmbedding(query)
+    const queryEmbedding = await createEmbedding(query, 'embed/rag_query')
 
     const { data, error } = await adminClient.rpc('match_document_chunks', {
       query_embedding: queryEmbedding,  // passa como array — PostgREST converte para vector
