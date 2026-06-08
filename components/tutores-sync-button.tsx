@@ -2,22 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { RefreshCw, Loader2, CheckCircle, AlertCircle, AlertTriangle } from 'lucide-react'
+import { RefreshCw, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 
-interface SyncResult {
-  synced: number
-  processed: number
-  errors: string[]
-  courses_scanned: number
-  courses_failed: number
-}
-
-const TIMEOUT_MS = 90_000
-
-export function MoodleSyncButton() {
+export function TutoresSyncButton() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<SyncResult | null>(null)
+  const [result, setResult] = useState<{ synced: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSync() {
@@ -26,10 +16,10 @@ export function MoodleSyncButton() {
     setError(null)
 
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+    const timer = setTimeout(() => controller.abort(), 120_000)
 
     try {
-      const res = await fetch('/api/moodle/sync', {
+      const res = await fetch('/api/moodle/tutores', {
         method: 'POST',
         signal: controller.signal,
       })
@@ -45,7 +35,7 @@ export function MoodleSyncButton() {
     } catch (err) {
       clearTimeout(timer)
       if (err instanceof Error && err.name === 'AbortError') {
-        setError('Tempo limite atingido (90s). A sync pode ter completado — recarregue a página.')
+        setError('Tempo limite atingido (120s). Recarregue a página.')
       } else {
         setError('Erro de conexão com o servidor')
       }
@@ -54,9 +44,6 @@ export function MoodleSyncButton() {
     }
   }
 
-  const hasPartialErrors = result && result.errors.length > 0
-  const allFailed = result && result.synced === 0 && result.errors.length > 0
-
   return (
     <div className="flex flex-col items-end gap-2 shrink-0">
       <button
@@ -64,9 +51,9 @@ export function MoodleSyncButton() {
         disabled={loading}
         className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all disabled:opacity-50"
         style={{
-          background: 'hsl(160 84% 39% / 0.15)',
-          border: '1px solid hsl(160 84% 39% / 0.35)',
-          color: 'hsl(160 84% 50%)',
+          background: 'hsl(var(--primary) / 0.12)',
+          border: '1px solid hsl(var(--primary) / 0.3)',
+          color: 'hsl(var(--primary))',
         }}
       >
         {loading
@@ -75,31 +62,23 @@ export function MoodleSyncButton() {
         {loading ? 'Sincronizando...' : 'Sincronizar Moodle'}
       </button>
 
-      {result && !allFailed && (
+      {result && (
         <div
-          className="flex flex-col gap-1 px-3 py-1.5 rounded-lg text-xs max-w-xs"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
           style={{ background: 'hsl(160 84% 39% / 0.1)', color: 'hsl(160 84% 55%)', border: '1px solid hsl(160 84% 39% / 0.2)' }}
         >
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-3.5 w-3.5 shrink-0" />
-            <span>{result.synced} alunos · {result.courses_scanned} cursos</span>
-          </div>
-          {hasPartialErrors && (
-            <div className="flex items-start gap-2" style={{ color: 'hsl(38 92% 60%)' }}>
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
-              <span>{result.courses_failed} curso(s) com falha: {result.errors.slice(0, 2).join(' · ')}{result.errors.length > 2 ? ` +${result.errors.length - 2}` : ''}</span>
-            </div>
-          )}
+          <CheckCircle className="h-3.5 w-3.5" />
+          {result.synced} tutores sincronizados
         </div>
       )}
 
-      {(error || allFailed) && (
+      {error && (
         <div
           className="flex items-start gap-2 px-3 py-1.5 rounded-lg text-xs max-w-xs"
           style={{ background: 'hsl(0 84% 39% / 0.1)', color: 'hsl(0 84% 60%)', border: '1px solid hsl(0 84% 39% / 0.2)' }}
         >
           <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
-          <span>{error ?? result?.errors[0]}</span>
+          <span>{error}</span>
         </div>
       )}
     </div>

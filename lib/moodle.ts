@@ -98,39 +98,35 @@ export interface EnrolledStudent {
 
 // ─── Sync Functions (used during full bulk sync) ───────────────────────────────
 
-/** Get all students enrolled in a specific course (role=student only) */
+/** Get all students enrolled in a specific course (role=student only). Throws on Moodle error. */
 export async function getEnrolledStudents(courseId: number): Promise<EnrolledStudent[]> {
-  try {
-    const data = await moodleGet<{
-      id: number
-      fullname: string
-      email: string
-      username: string
-      phone1?: string
-      phone2?: string
-      idnumber?: string
-      roles: { shortname: string }[]
-      enrolledcourses?: { id: number; fullname: string; shortname: string }[]
-    }[]>(
-      'core_enrol_get_enrolled_users',
-      { courseid: String(courseId) }
-    )
-    if (!Array.isArray(data)) return []
-    return data
-      .filter(u => (u.roles ?? []).some(r => r.shortname === 'student'))
-      .map(u => ({
-        id: u.id,
-        fullname: u.fullname,
-        email: u.email ?? '',
-        username: u.username ?? '',
-        phone1: u.phone1 && u.phone1.trim() ? u.phone1.trim() : null,
-        phone2: u.phone2 && u.phone2.trim() ? u.phone2.trim() : null,
-        idnumber: u.idnumber && u.idnumber.trim() ? u.idnumber.trim() : null,
-        courses: u.enrolledcourses ?? [],
-      }))
-  } catch {
-    return []
-  }
+  const data = await moodleGet<{
+    id: number
+    fullname: string
+    email: string
+    username: string
+    phone1?: string
+    phone2?: string
+    idnumber?: string
+    roles: { shortname: string }[]
+    enrolledcourses?: { id: number; fullname: string; shortname: string }[]
+  }[]>(
+    'core_enrol_get_enrolled_users',
+    { courseid: String(courseId) }
+  )
+  if (!Array.isArray(data)) return []
+  return data
+    .filter(u => (u.roles ?? []).some(r => r.shortname === 'student'))
+    .map(u => ({
+      id: u.id,
+      fullname: u.fullname,
+      email: u.email ?? '',
+      username: u.username ?? '',
+      phone1: u.phone1 && u.phone1.trim() ? u.phone1.trim() : null,
+      phone2: u.phone2 && u.phone2.trim() ? u.phone2.trim() : null,
+      idnumber: u.idnumber && u.idnumber.trim() ? u.idnumber.trim() : null,
+      courses: u.enrolledcourses ?? [],
+    }))
 }
 
 export async function getUserCourses(userId: number): Promise<MoodleCourse[]> {
