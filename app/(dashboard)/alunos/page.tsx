@@ -160,85 +160,88 @@ export default async function AlunosPage({ searchParams }: PageProps) {
             </p>
           </div>
         ) : (
-          <div className="rounded-xl overflow-hidden" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  {['Nome', 'Email', 'CPF', 'Telefone', 'Cursos', 'Tipo', 'Senha', 'Sync'].map(col => (
-                    <th key={col}>{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((s) => {
-                  const courses = Array.isArray(s.courses) ? s.courses : []
-                  const isGestor = s.role === 'gestor'
-                  return (
-                    <tr
-                      key={s.id}
-                      style={isGestor ? { background: 'hsl(var(--accent-violet) / 0.04)' } : undefined}
-                    >
-                      {/* Nome */}
-                      <td>
-                        <p className="font-medium" style={{ color: 'hsl(var(--fg1))', fontSize: '0.8125rem' }}>{s.full_name}</p>
-                        <p className="ds-mono" style={{ marginTop: 2 }}>ID {s.moodle_id ?? '—'}</p>
-                      </td>
+          <div className="rounded-xl" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
+            {/* overflow-x-auto permite scroll horizontal em telas estreitas sem cortar os cantos */}
+            <div className="overflow-x-auto rounded-xl">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    {['Nome', 'Email', 'CPF', 'Telefone', 'Cursos', 'Tipo', 'Senha', 'Sync'].map(col => (
+                      <th key={col}>{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((s) => {
+                    const courses = Array.isArray(s.courses) ? s.courses : []
+                    const isGestor = s.role === 'gestor'
+                    return (
+                      <tr
+                        key={s.id}
+                        style={isGestor ? { background: 'hsl(var(--accent-violet) / 0.04)' } : undefined}
+                      >
+                        {/* Nome */}
+                        <td style={{ minWidth: '160px' }}>
+                          <p className="font-medium" style={{ color: 'hsl(var(--fg1))', fontSize: '0.8125rem' }}>{s.full_name}</p>
+                          <p className="ds-mono" style={{ marginTop: 2 }}>ID {s.moodle_id ?? '—'}</p>
+                        </td>
 
-                      {/* Email */}
-                      <td>
-                        <span className="ds-mono" style={{ color: s.email ? 'hsl(var(--fg2))' : 'hsl(var(--fg4))' }}>
-                          {s.email ?? '—'}
-                        </span>
-                      </td>
+                        {/* Email */}
+                        <td style={{ minWidth: '180px' }}>
+                          <span className="ds-mono" style={{ color: s.email ? 'hsl(var(--fg2))' : 'hsl(var(--fg4))' }}>
+                            {s.email ?? '—'}
+                          </span>
+                        </td>
 
-                      {/* CPF */}
-                      <td><StudentCpfEdit studentId={s.id} initialCpf={s.cpf ?? null} /></td>
+                        {/* CPF */}
+                        <td style={{ minWidth: '130px' }}><StudentCpfEdit studentId={s.id} initialCpf={s.cpf ?? null} /></td>
 
-                      {/* Telefone */}
-                      <td><StudentPhoneEdit studentId={s.id} initialPhone={s.phone ?? null} /></td>
+                        {/* Telefone */}
+                        <td style={{ minWidth: '140px' }}><StudentPhoneEdit studentId={s.id} initialPhone={s.phone ?? null} /></td>
 
-                      {/* Cursos */}
-                      <td>
-                        {courses.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {(courses as { shortname: string }[]).map((c, i) => (
-                              <span key={i} className="ds-badge ds-badge--course">{c.shortname}</span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="ds-mono">—</span>
-                        )}
-                      </td>
+                        {/* Cursos */}
+                        <td style={{ minWidth: '120px' }}>
+                          {courses.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {(courses as { shortname: string }[]).map((c, i) => (
+                                <span key={i} className="ds-badge ds-badge--course">{c.shortname}</span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="ds-mono">—</span>
+                          )}
+                        </td>
 
-                      {/* Tipo */}
-                      <td><StudentRoleToggle studentId={s.id} initialRole={s.role ?? 'aluno'} /></td>
+                        {/* Tipo */}
+                        <td style={{ minWidth: '90px' }}><StudentRoleToggle studentId={s.id} initialRole={s.role ?? 'aluno'} /></td>
 
-                      {/* Senha */}
-                      <td>
-                        <StudentPasswordReset
-                          id={s.id}
-                          fullName={s.full_name}
-                          email={s.email ?? null}
-                          hasMoodleId={!!s.moodle_id}
-                        />
-                      </td>
+                        {/* Senha */}
+                        <td style={{ minWidth: '80px' }}>
+                          <StudentPasswordReset
+                            id={s.id}
+                            fullName={s.full_name}
+                            email={s.email ?? null}
+                            hasMoodleId={!!s.moodle_id}
+                          />
+                        </td>
 
-                      {/* Sync */}
-                      <td>
-                        <span className="ds-mono">
-                          {s.last_synced_at ? formatDate(s.last_synced_at) : '—'}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                        {/* Sync */}
+                        <td style={{ minWidth: '90px', whiteSpace: 'nowrap' }}>
+                          <span className="ds-mono">
+                            {s.last_synced_at ? formatDate(s.last_synced_at) : '—'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-            {/* Pagination */}
+            {/* Pagination — fora do overflow-x-auto para não ser arrastada horizontalmente */}
             {totalPages > 1 && (
               <div
-                className="flex items-center justify-between px-4 py-3"
+                className="flex items-center justify-between px-4 py-3 flex-wrap gap-2"
                 style={{ borderTop: '1px solid hsl(var(--border))' }}
               >
                 <Link
