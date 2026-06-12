@@ -20,6 +20,7 @@ import {
 } from './moodle'
 import { extractCpf, normalizeCpf } from './utils'
 import { createTicket } from './ticket'
+import { notifyConversationClients } from './conversation-sse'
 
 export interface WebhookMessage {
   type: 'text' | 'audio' | 'image' | 'document' | 'unknown'
@@ -353,7 +354,11 @@ function getMissingIdentityFields(
 }
 
 async function storeUserMessage(phone: string, content: string) {
-  await adminClient.from('chatmemory').insert({ session_id: phone, role: 'user', content })
+  const { error } = await adminClient
+    .from('chatmemory')
+    .insert({ session_id: phone, role: 'user', content })
+  if (error) throw error
+  notifyConversationClients(phone)
 }
 
 function summarizeStoredHistoryContent(
@@ -492,6 +497,7 @@ async function sendAssistantMessage(
       ...conversationUpdates,
     })
     .eq('phone', phone)
+  notifyConversationClients(phone)
 }
 
 async function activateHumanHandoff(phone: string, replyTarget: string, text: string) {

@@ -1,0 +1,99 @@
+
+> sistemamara@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 2s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 624ms (122 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 4s (588 modules)
+ GET /login 200 in 4206ms
+ ✓ Compiled in 491ms (248 modules)
+ ✓ Compiled /_not-found in 172ms (577 modules)
+ GET /_next/static/chunks/app/(dashboard)/layout.js 404 in 260ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 943ms (733 modules)
+ GET /dashboard 200 in 1535ms
+ ○ Compiling /conversas ...
+ ✓ Compiled /conversas in 901ms (904 modules)
+ ✓ Compiled /api/labels in 241ms (572 modules)
+ ✓ Compiled (574 modules)
+ GET /api/labels 200 in 650ms
+ GET /api/labels 200 in 173ms
+ GET /api/conversas 200 in 1073ms
+ GET /api/conversas 200 in 10ms
+ ✓ Compiled /conversas/[phone] in 238ms (938 modules)
+ ✓ Compiled /api/conversas/[phone] in 179ms (578 modules)
+ GET /api/conversas 200 in 364ms
+ GET /api/labels 200 in 486ms
+ GET /api/conversas 200 in 11ms
+ GET /api/labels 200 in 174ms
+ GET /api/conversas/246449887547455%40lid 200 in 1390ms
+ GET /api/conversas/246449887547455%40lid 200 in 309ms
+ GET /api/conversas/246449887547455%40lid 200 in 654ms
+ GET /api/conversas 200 in 13ms
+ GET /api/conversas/246449887547455%40lid 200 in 638ms
+ GET /api/conversas/246449887547455%40lid 200 in 790ms
+ GET /api/conversas 200 in 12ms
+ GET /api/conversas/246449887547455%40lid 200 in 696ms
+ GET /api/conversas/246449887547455%40lid 200 in 601ms
+ GET /api/conversas 200 in 11ms
+ GET /api/conversas/246449887547455%40lid 200 in 591ms
+ GET /api/conversas/246449887547455%40lid 200 in 591ms
+ GET /api/conversas 200 in 10ms
+ GET /api/conversas/246449887547455%40lid 200 in 701ms
+ GET /api/conversas 200 in 11ms
+ GET /api/conversas 200 in 11ms
+ GET /api/conversas 200 in 29ms
+ GET /api/conversas/246449887547455%40lid 200 in 789ms
+ GET /api/conversas 200 in 17ms
+ GET /api/conversas/246449887547455%40lid 200 in 601ms
+ GET /api/conversas 200 in 11ms
+ GET /api/conversas/246449887547455%40lid 200 in 647ms
+ GET /api/conversas 200 in 16ms
+ GET /api/conversas/246449887547455%40lid 200 in 1336ms
+ GET /api/conversas 200 in 12ms
+ GET /api/conversas/246449887547455%40lid 200 in 1089ms
+ GET /api/conversas 200 in 37ms
+ GET /api/conversas/246449887547455%40lid 200 in 26950ms
+ GET /api/conversas 200 in 17ms
+ GET /api/conversas/246449887547455%40lid 200 in 907ms
+ GET /api/conversas 200 in 14ms
+ GET /api/conversas/246449887547455%40lid 200 in 639ms
+ GET /api/conversas 200 in 18ms
+ GET /api/conversas/246449887547455%40lid 200 in 622ms
+ GET /api/conversas 200 in 10ms
+ GET /api/conversas/246449887547455%40lid 200 in 590ms
+ GET /api/conversas 200 in 58ms
+ GET /api/conversas/246449887547455%40lid 200 in 654ms
+ GET /api/conversas 200 in 9ms
+ GET /api/conversas/246449887547455%40lid 200 in 699ms
+ GET /api/conversas 200 in 15ms
+ GET /api/conversas/246449887547455%40lid 200 in 746ms
+ GET /api/conversas 200 in 15ms
+ GET /api/conversas/246449887547455%40lid 200 in 613ms
+ GET /api/conversas 200 in 10ms
+ GET /api/conversas/246449887547455%40lid 200 in 688ms
+ GET /api/conversas 200 in 11ms
+ GET /api/conversas/246449887547455%40lid 200 in 614ms
+ GET /api/conversas 200 in 11ms
+ GET /api/conversas/246449887547455%40lid 200 in 677ms
+ GET /api/conversas/246449887547455%40lid 200 in 694ms
+ GET /api/conversas 200 in 11ms
+ GET /api/conversas/246449887547455%40lid 200 in 593ms
+ GET /api/conversas/246449887547455%40lid 200 in 601ms
+ GET /api/conversas 200 in 10ms
+ GET /api/conversas/246449887547455%40lid 200 in 716ms
+ GET /api/conversas/246449887547455%40lid 200 in 770ms
+ GET /api/conversas 200 in 10ms
+ GET /api/conversas/246449887547455%40lid 200 in 592ms
+ GET /api/conversas 200 in 11ms
+ GET /api/conversas/246449887547455%40lid 200 in 687ms
+ GET /api/conversas/246449887547455%40lid 200 in 691ms
+ GET /api/conversas 200 in 10ms
+ GET /api/conversas/246449887547455%40lid 200 in 662ms

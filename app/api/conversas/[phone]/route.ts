@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminClient } from '@/lib/supabase/admin'
-import { findChats } from '@/lib/evolution'
-import { syncContactsSnapshot } from '@/lib/contacts'
 import { requireApiUser } from '@/lib/api-auth'
+import { syncContactsSnapshot } from '@/lib/contacts'
+import { notifyConversationClients } from '@/lib/conversation-sse'
+import { adminClient } from '@/lib/supabase/admin'
 
 export async function GET(
   _request: NextRequest,
@@ -13,7 +13,7 @@ export async function GET(
 
   const phone = decodeURIComponent(params.phone)
 
-  const [conversationResult, messagesResult, chatsResult] = await Promise.all([
+  const [conversationResult, messagesResult] = await Promise.all([
     adminClient
       .from('conversations')
       .select('*, students(full_name, email, courses, role, username, phone, phone2, cpf, moodle_id)')
@@ -25,27 +25,11 @@ export async function GET(
       .eq('session_id', phone)
       .order('created_at', { ascending: true })
       .limit(200),
-    findChats().catch((err) => {
-      console.warn('[conversas/phone] findChats falhou — abrindo conversa sem dados WhatsApp:', err?.message)
-      return []
-    }),
   ])
 
-  const conversation = conversationResult.data
-  const messages = messagesResult.data ?? []
-  const chats = chatsResult
-  const chat = chats.find((item) => item.phone === phone)
-
   return NextResponse.json({
-    conversation: conversation
-      ? {
-          ...conversation,
-          whatsapp_name: chat?.pushName ?? null,
-          whatsapp_profile_pic_url: chat?.profilePicUrl ?? null,
-          whatsapp_updated_at: chat?.updatedAt ?? null,
-        }
-      : null,
-    messages,
+    conversation: conversationResult.data,
+    messages: messagesResult.data ?? [],
   })
 }
 
@@ -72,8 +56,6 @@ export async function PATCH(
   if ('contact_name' in body) {
     updatePayload.contact_name_confirmed =
       typeof body.contact_name === 'string' && body.contact_name.trim().length > 0
-        ? true
-        : false
   }
 
   if ('assigned_to' in body || 'assigned_name' in body) {
@@ -100,6 +82,8 @@ export async function PATCH(
     .eq('phone', phone)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
   await syncContactsSnapshot()
+  notifyConversationClients(phone)
   return NextResponse.json({ ok: true })
 }

@@ -124,7 +124,13 @@
       "Bash(python3)",
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(echo \"EXIT:$?\")",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "mcp__plugin_supabase_supabase__list_projects",
+      "mcp__plugin_supabase_supabase__apply_migration",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(npx tsx *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\joaom\\\\OneDrive\\\\Área de Trabalho\\\\SISTEMAMARA\" -Recurse -Include \"tailwind.config.*\", \"*.css\", \"layout.tsx\", \"sidebar.tsx\")",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   },
   "mcpServers": {

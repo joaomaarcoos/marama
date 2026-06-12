@@ -6,6 +6,8 @@ import { getConversationPhoneCandidates, getMaraPauseState } from '@/lib/mara-pa
 import { adminClient } from '@/lib/supabase/admin'
 import { normalizeConversationId, toWhatsAppJid } from '@/lib/utils'
 import { logWebhookEvent } from '@/lib/webhook-logger'
+import { syncContactsSnapshot } from '@/lib/contacts'
+import { notifyConversationClients } from '@/lib/conversation-sse'
 
 // Cache @lid JID → real phone (e.g. "242777958944931@lid" → "5598987654321")
 // Populated whenever a payload contains both the @lid and the real JID.
@@ -33,6 +35,55 @@ interface PendingEntry {
 
 const pending = new Map<string, PendingEntry>()
 const DEBOUNCE_MS = 3000
+
+function getStoredMessageContent(message: PendingMessage): string {
+  const content = message.text?.trim() || message.caption?.trim()
+  if (content) return content
+
+  if (message.type === 'audio') return '[Audio recebido]'
+  if (message.type === 'image') return '[Imagem recebida]'
+  if (message.type === 'document') return '[Documento recebido]'
+  return '[Mensagem recebida]'
+}
+
+async function persistInboundMessages(
+  phone: string,
+  messages: PendingMessage[],
+  pushName: string | null
+) {
+  const contents = messages.map(getStoredMessageContent)
+  const now = new Date().toISOString()
+
+  const { error: conversationError } = await adminClient
+    .from('conversations')
+    .upsert(
+      {
+        phone,
+        last_message: contents.join(' ').slice(0, 200),
+        last_message_at: now,
+        status: 'active',
+        followup_stage: null,
+        followup_sent_at: null,
+        ...(pushName ? { whatsapp_name: pushName } : {}),
+      },
+      { onConflict: 'phone' }
+    )
+
+  if (conversationError) throw conversationError
+
+  const { error: historyError } = await adminClient
+    .from('chatmemory')
+    .insert(contents.map((content) => ({
+      session_id: phone,
+      role: 'user',
+      content,
+    })))
+
+  if (historyError) throw historyError
+
+  notifyConversationClients(phone)
+  await syncContactsSnapshot()
+}
 
 function getCandidateStrings(values: Array<unknown>): string[] {
   return values
@@ -179,7 +230,8 @@ function enqueue(sessionId: string, replyTarget: string, message: PendingMessage
     try {
       const pauseState = await getMaraPauseState(sessionId)
       if (pauseState.pausedUntil || pauseState.manualPaused) {
-        console.log(`[Webhook] Conversa bloqueada para MARA (candidatos: ${pauseState.candidates.join(',')}) — descartando lote`)
+        await persistInboundMessages(sessionId, messages, resolvedPushName)
+        console.log(`[Webhook] Conversa bloqueada para MARA (candidatos: ${pauseState.candidates.join(',')}) - lote salvo sem resposta automatica`)
         void logWebhookEvent({ phone: sessionId, message_type: msgType, message_preview: msgPreview, status: 'blocked' })
         return
       }
@@ -392,7 +444,8 @@ async function handleWebhookEvent(body: Record<string, unknown>) {
   // que o mismatch de formato não impeça a detecção da pausa.
   const preQueuePauseState = await getMaraPauseState(routing.sessionId)
   if (preQueuePauseState.pausedUntil || preQueuePauseState.manualPaused) {
-    console.log(`[Webhook] Conversa bloqueada para MARA (candidatos: ${preQueuePauseState.candidates.join(',')}) — não enfileirado`)
+    await persistInboundMessages(routing.sessionId, [msg], pushName)
+    console.log(`[Webhook] Conversa bloqueada para MARA (candidatos: ${preQueuePauseState.candidates.join(',')}) - mensagem salva sem resposta automatica`)
     return
   }
 

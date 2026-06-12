@@ -4,6 +4,7 @@ import { getConversationPhoneCandidates } from '@/lib/mara-pause'
 import { adminClient } from '@/lib/supabase/admin'
 import { sendMedia, sendText } from '@/lib/evolution'
 import { syncContactsSnapshot } from '@/lib/contacts'
+import { notifyConversationClients } from '@/lib/conversation-sse'
 
 type MediaKind = 'image' | 'audio' | 'document'
 
@@ -160,6 +161,7 @@ export async function POST(
     }
 
     await syncContactsSnapshot()
+    notifyConversationClients(phone)
 
     return NextResponse.json({ ok: true, message })
   } catch (error) {

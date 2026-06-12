@@ -79,6 +79,11 @@ Esta diretiva descreve a primeira versao da camada 1 para um fluxo que hoje aind
   - antes de enfileirar a mensagem
   - depois do debounce e antes de chamar o agente
   - imediatamente antes de qualquer envio outbound da MARA, porque o humano pode assumir enquanto a resposta ainda esta sendo gerada
+- Uma mensagem inbound nunca deve ser descartada por causa da pausa:
+  - grave a entrada em `chatmemory` com `role = user`
+  - atualize `conversations.last_message` e `last_message_at`
+  - notifique o SSE do painel
+  - apenas suprima a resposta automatica da MARA
 - A mesma pausa tambem deve bloquear follow-up e encerramento automatico por inatividade enquanto estiver ativa.
 - Eventos `fromMe=true` nao podem ser ignorados cegamente:
   - primeiro diferencie saidas automaticas do backend por fingerprint recente (telefone + conteudo)
