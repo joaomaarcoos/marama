@@ -51,6 +51,20 @@ Sincronizar alunos do Moodle para a tabela `students` no Supabase de forma deter
 - O objetivo e preservar dados enriquecidos manualmente no Supabase.
 - O conflito deve ocorrer em `moodle_id`.
 
+## Enriquecimento Manual por Planilha
+- Para atualizar `cpf`, `phone` ou `phone2` a partir de planilha externa, nao alterar o fluxo de sync do Moodle.
+- Usar `execution/update_students_from_enrollment_sheet.py` em modo dry-run primeiro:
+  `py execution/update_students_from_enrollment_sheet.py`
+- Revisar o CSV gerado em `.tmp/student_enrollment_update_report.csv`.
+- Aplicar somente registros com `status=ready`:
+  `py execution/update_students_from_enrollment_sheet.py --apply`
+- Se a linha da planilha tiver email, o match deve ser por email exato e unico. Nome sozinho so pode ser fallback quando a planilha nao trouxer email.
+- Para emails ausentes em `students`, o script consulta o Moodle por email e prepara `status=ready_create` com upsert por `moodle_id`.
+- Nao casar por nome quando a planilha tiver email e o email nao for encontrado; nomes repetidos podem representar alunos diferentes.
+- Celular e opcional: se a planilha nao tiver coluna de telefone/celular, atualizar apenas CPF.
+- Cursos vindos da planilha devem ser mesclados no JSON `courses`, deduplicando por nome/id e preservando `processo_seletivo`, `status_inscricao`, `requisitos_curso`, `cota` e `status_cota`.
+- Nao sobrescrever CPF divergente automaticamente; divergencias ficam como conflito para revisao humana.
+
 ## Edge Cases
 - Se um curso falhar na API do Moodle, registrar o erro e continuar nos demais.
 - Se o mesmo aluno aparecer em varios cursos, deduplicar por `moodle_id` e agregar `courses`.

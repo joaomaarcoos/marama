@@ -42,7 +42,7 @@ export function SystemNotifications({ notifications }: { notifications: SystemNo
   }
 
   return (
-    <div className="fixed left-3 top-3 z-50">
+    <div className="fixed right-3 top-3 z-50">
       <button
         onClick={() => setOpen((value) => !value)}
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border shadow-lg transition-colors hover:bg-gray-100"
@@ -66,7 +66,7 @@ export function SystemNotifications({ notifications }: { notifications: SystemNo
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
           <div
-            className="fixed left-3 top-16 z-40 w-[min(400px,calc(100vw-24px))] overflow-hidden rounded-xl border shadow-2xl"
+            className="fixed right-3 top-16 z-40 w-[min(400px,calc(100vw-24px))] overflow-hidden rounded-xl border shadow-2xl"
             style={{
               background: 'hsl(var(--card))',
               borderColor: 'hsl(var(--border))',
