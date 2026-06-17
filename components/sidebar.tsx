@@ -26,6 +26,7 @@ import {
   Settings,
   TicketCheck,
   Coins,
+  ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/theme-provider'
@@ -86,6 +87,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Equipe & Alunos',
     items: [
       { href: '/contatos', label: 'Contatos',              icon: User,          roles: ['admin','gerente','atendente'] },
+      { href: '/tarefas',  label: 'Tarefas',               icon: ClipboardList, roles: ['admin','gerente','atendente'] },
       { href: '/alunos',   label: 'Alunos',                icon: GraduationCap, roles: ['admin','gerente','atendente'] },
       { href: '/tutores',  label: 'Tutores / Professores', icon: GraduationCap, roles: ['admin','gerente','atendente'] },
       { href: '/usuarios', label: 'Usuários',              icon: ShieldCheck,   roles: ['admin','gerente'] },

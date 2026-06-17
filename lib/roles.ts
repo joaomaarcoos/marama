@@ -23,6 +23,7 @@ const ROLE_RESTRICTED: { path: string; allowed: UserRole[] }[] = [
   { path: '/documentos', allowed: ['admin', 'gerente'] },
   { path: '/disparos',   allowed: ['admin', 'gerente'] },
   { path: '/relatorios', allowed: ['admin', 'gerente'] },
+  { path: '/tarefas',    allowed: ['admin', 'gerente', 'atendente'] },
 ]
 
 export function canAccess(role: UserRole, pathname: string): boolean {
