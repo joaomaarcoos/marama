@@ -62,7 +62,8 @@ Sincronizar alunos do Moodle para a tabela `students` no Supabase de forma deter
 - Para emails ausentes em `students`, o script consulta o Moodle por email e prepara `status=ready_create` com upsert por `moodle_id`.
 - Nao casar por nome quando a planilha tiver email e o email nao for encontrado; nomes repetidos podem representar alunos diferentes.
 - Celular e opcional: se a planilha nao tiver coluna de telefone/celular, atualizar apenas CPF.
-- Cursos vindos da planilha devem ser mesclados no JSON `courses`, deduplicando por nome/id e preservando `processo_seletivo`, `status_inscricao`, `requisitos_curso`, `cota` e `status_cota`.
+- Cursos vindos da planilha devem ser mesclados no JSON `courses`, deduplicando por nome/id e preservando apenas informacoes que a Mara pode usar, como `fullname`, `shortname`, `source` e `processo_seletivo`.
+- Nao persistir `cota`, `status_cota`, `status_inscricao` ou `requisitos_curso` dentro de `students.courses`; essas informacoes nao devem aparecer no contexto da Mara.
 - Nao sobrescrever CPF divergente automaticamente; divergencias ficam como conflito para revisao humana.
 
 ## Edge Cases

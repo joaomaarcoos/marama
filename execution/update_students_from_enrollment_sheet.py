@@ -19,6 +19,7 @@ from supabase_client import SupabaseRestClient
 DEFAULT_INPUT = r"C:\Users\joaom\Downloads\inscricoes-16-06-26_11-37-14.xlsx"
 DEFAULT_REPORT = ".tmp/student_enrollment_update_report.csv"
 PAGE_SIZE = 1000
+WRITE_BATCH_SIZE = 100
 
 
 def load_dotenv(path: Path) -> None:
@@ -155,10 +156,6 @@ def read_source(path: Path, sheet_name: str | None) -> tuple[list[dict[str, Any]
                 "shortname": course_name,
                 "source": "selection_sheet",
                 "processo_seletivo": clean_text(raw.get(mapping["selection_process"])) if mapping["selection_process"] else None,
-                "status_inscricao": clean_text(raw.get(mapping["enrollment_status"])) if mapping["enrollment_status"] else None,
-                "requisitos_curso": requirement_status,
-                "cota": clean_text(raw.get(mapping["quota"])) if mapping["quota"] else None,
-                "status_cota": clean_text(raw.get(mapping["quota_status"])) if mapping["quota_status"] else None,
             }
             course_entry = {key: value for key, value in course_entry.items() if value not in (None, "")}
         if not name and not email:
@@ -177,7 +174,9 @@ def read_source(path: Path, sheet_name: str | None) -> tuple[list[dict[str, Any]
 def collapse_source_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
     groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        if row.get("email"):
+        if row.get("cpf"):
+            groups[("cpf", row["cpf"])].append(row)
+        elif row.get("email"):
             groups[("email", row["email"])].append(row)
         else:
             groups[("name", row.get("name") or "")].append(row)
@@ -190,8 +189,10 @@ def collapse_source_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any
         cpfs = sorted({item["cpf"] for item in items if item.get("cpf")})
         phones = sorted({item["phone"] for item in items if item.get("phone")})
         courses = merge_courses([], [item["course"] for item in items if item.get("course")])
-        email = emails[0] if len(emails) == 1 else None
+        email = emails[0] if emails else None
         name = names[0] if len(names) == 1 else None
+        if len(emails) > 1:
+            warnings.append(f"Email variants for {cpfs[0] if cpfs else _group_value}: {', '.join(emails[:5])}")
         if len(names) > 1:
             warnings.append(f"Name variants for {email or _group_value}: {', '.join(names[:5])}")
         if len(cpfs) > 1:
@@ -249,7 +250,7 @@ def fetch_all_students(client: SupabaseRestClient) -> list[dict[str, Any]]:
     while True:
         page = client.select(
             "students",
-            columns="id,moodle_id,full_name,email,phone,phone2,cpf,role,username",
+            columns="id,moodle_id,full_name,email,phone,phone2,cpf,role,username,courses",
             filters={"offset": str(offset)},
             order="email.asc",
             limit=PAGE_SIZE,
@@ -359,6 +360,19 @@ def build_new_student_payload(source: dict[str, Any], moodle_user: dict[str, Any
         "username": moodle_user.get("username") or None,
         "cpf": source.get("cpf"),
         "phone": source.get("phone"),
+        "role": "aluno",
+        "courses": merge_courses([], source.get("courses") or []),
+        "last_synced_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def build_sheet_student_payload(source: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "full_name": display_name_from_normalized(source.get("name")) or source.get("email"),
+        "email": source.get("email"),
+        "cpf": source.get("cpf"),
+        "phone": source.get("phone"),
+        "role": "aluno",
         "courses": merge_courses([], source.get("courses") or []),
         "last_synced_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -396,6 +410,7 @@ def build_plan_with_moodle(
             match_mode = "moodle_email"
         elif source.get("email"):
             match_mode = "email_not_found"
+            new_payload = build_sheet_student_payload(source)
         elif source.get("name") and name_counts[source["name"]] == 1:
             match = by_name.get(source["name"])
             match_mode = "name"
@@ -403,7 +418,8 @@ def build_plan_with_moodle(
             match_mode = "ambiguous_name"
 
         if new_payload:
-            status, updates, notes = "ready_create", new_payload, ""
+            status = "ready_create" if new_payload.get("moodle_id") else "ready_insert"
+            updates, notes = new_payload, ""
         else:
             status, updates, notes = status_for(source, match)
         if match_mode.startswith("ambiguous"):
@@ -455,23 +471,57 @@ def write_report(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def chunked(items: list[Any], size: int) -> list[list[Any]]:
+    return [items[index:index + size] for index in range(0, len(items), size)]
+
+
 def apply_updates(client: SupabaseRestClient, report: list[dict[str, Any]]) -> tuple[int, list[str]]:
     applied = 0
     errors: list[str] = []
+    update_rows: list[dict[str, Any]] = []
+    create_rows: list[dict[str, Any]] = []
+    insert_rows: list[dict[str, Any]] = []
+
     for row in report:
-        if row["status"] not in ("ready", "ready_create"):
+        if row["status"] not in ("ready", "ready_create", "ready_insert"):
             continue
         updates = json.loads(row["updates"])
         if not updates:
             continue
+        if row["status"] == "ready_create":
+            create_rows.append(updates)
+            continue
+        if row["status"] == "ready_insert":
+            insert_rows.append(updates)
+            continue
+        update_rows.append({
+            "id": row["student_id"],
+            "full_name": row.get("student_name") or display_name_from_normalized(row.get("source_name")) or row.get("source_email"),
+            "email": row.get("student_email") or row.get("source_email"),
+            **updates,
+        })
+
+    for batch in chunked(update_rows, WRITE_BATCH_SIZE):
         try:
-            if row["status"] == "ready_create":
-                client.upsert("students", updates, on_conflict="moodle_id")
-            else:
-                client.update("students", updates, filters={"id": f"eq.{row['student_id']}"})
-            applied += 1
+            client.upsert("students", batch, on_conflict="id")
+            applied += len(batch)
         except Exception as exc:
-            errors.append(f"{row.get('student_id') or row.get('source_email')}: {exc}")
+            errors.append(f"ready update batch: {exc}")
+
+    for batch in chunked(create_rows, WRITE_BATCH_SIZE):
+        try:
+            client.upsert("students", batch, on_conflict="moodle_id")
+            applied += len(batch)
+        except Exception as exc:
+            errors.append(f"ready_create batch: {exc}")
+
+    for batch in chunked(insert_rows, WRITE_BATCH_SIZE):
+        try:
+            client.insert("students", batch)
+            applied += len(batch)
+        except Exception as exc:
+            errors.append(f"ready_insert batch: {exc}")
+
     return applied, errors
 
 
@@ -495,7 +545,7 @@ def main() -> int:
     missing_emails = [
         row["source_email"]
         for row in preliminary
-        if row["status"] == "not_found" and row["match_mode"] == "email_not_found" and row.get("source_email")
+        if row["match_mode"] == "email_not_found" and row.get("source_email")
     ]
     moodle_by_email: dict[str, dict[str, Any]] = {}
     moodle_warnings: list[str] = []
