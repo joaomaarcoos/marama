@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileUp, FolderKanban, Loader2, Plus, Users, X } from 'lucide-react'
-import { createTaskProject, importTasksCsv } from '@/app/(dashboard)/tarefas/actions'
+import { FileUp, FolderKanban, Loader2, Plus, Trash2, Users, X } from 'lucide-react'
+import { createTaskProject, deleteTaskProject, importTasksCsv } from '@/app/(dashboard)/tarefas/actions'
 import { cn } from '@/lib/utils'
 import type { TasksSnapshot } from '@/lib/tasks'
 import { UserMultiSelect } from '@/components/user-multi-select'
@@ -50,6 +50,20 @@ export default function TasksProjectsHome({ initialSnapshot }: { initialSnapshot
       else {
         flash('success', result.success ?? 'Importacao concluida.')
         setModal(null)
+        router.refresh()
+      }
+    })
+  }
+
+  function submitDeleteProject(projectId: string, projectName: string) {
+    const confirmed = confirm(`Apagar o projeto "${projectName}"? Isso tambem apaga secoes, tarefas, comentarios e lembretes desse projeto.`)
+    if (!confirmed) return
+
+    startTransition(async () => {
+      const result = await deleteTaskProject(projectId)
+      if (result.error) flash('error', result.error)
+      else {
+        flash('success', result.success ?? 'Projeto apagado.')
         router.refresh()
       }
     })
@@ -105,34 +119,47 @@ export default function TasksProjectsHome({ initialSnapshot }: { initialSnapshot
             const tasks = initialSnapshot.tasks.filter((task) => task.project_id === project.id)
             const openTasks = tasks.filter((task) => task.status !== 'done' && task.status !== 'canceled').length
             const overdue = tasks.filter((task) => task.due_at && new Date(task.due_at).getTime() < Date.now() && task.status !== 'done').length
+
             return (
-              <Link
+              <div
                 key={project.id}
-                href={`/tarefas/${project.id}`}
                 className="group rounded-xl border p-5 transition-transform hover:-translate-y-0.5"
                 style={{ background: 'hsl(220 40% 8%)', borderColor: 'hsl(216 32% 15%)', borderTop: `3px solid ${project.color}` }}
               >
                 <div className="mb-5 flex items-start justify-between gap-4">
-                  <div className="min-w-0">
+                  <Link href={`/tarefas/${project.id}`} className="min-w-0 flex-1">
                     <h2 className="truncate text-base font-bold text-gray-900">{project.name}</h2>
                     <p className="mt-2 line-clamp-2 text-sm text-gray-500">{project.description || 'Sem descricao'}</p>
-                  </div>
+                  </Link>
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ color: project.color, background: project.color.replace(')', ' / 0.12)') }}>
                     <FolderKanban className="h-5 w-5" />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <Link href={`/tarefas/${project.id}`} className="grid grid-cols-3 gap-2">
                   <Metric label="Abertas" value={openTasks} />
                   <Metric label="Atrasadas" value={overdue} tone={overdue > 0 ? 'hsl(0 72% 60%)' : undefined} />
                   <Metric label="Membros" value={project.members.length} icon="users" />
-                </div>
+                </Link>
 
                 <div className="mt-5 flex items-center justify-between text-xs text-gray-500">
-                  <span>Entrar no projeto</span>
-                  <span className="transition-transform group-hover:translate-x-1">→</span>
+                  <Link href={`/tarefas/${project.id}`} className="inline-flex items-center gap-1 font-medium text-gray-400 hover:text-gray-100">
+                    Entrar no projeto
+                    <span className="transition-transform group-hover:translate-x-1">-&gt;</span>
+                  </Link>
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={() => submitDeleteProject(project.id, project.name)}
+                      disabled={isPending}
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Apagar
+                    </button>
+                  )}
                 </div>
-              </Link>
+              </div>
             )
           })}
         </div>
@@ -183,6 +210,7 @@ function ProjectModal(props: {
   const [description, setDescription] = useState('')
   const [color, setColor] = useState(projectColors[0])
   const [memberIds, setMemberIds] = useState<string[]>([props.currentUserId])
+
   return (
     <ModalShell title="Novo projeto" onClose={props.onClose}>
       <div className="space-y-4">
@@ -199,6 +227,7 @@ function ProjectModal(props: {
 function ImportModal(props: { fileInputRef: React.RefObject<HTMLInputElement>; pending: boolean; onClose: () => void; onSubmit: (formData: FormData) => void }) {
   const [file, setFile] = useState<File | null>(null)
   const template = 'projeto,secao,tarefa,descricao,prazo,prioridade,responsaveis,subtarefa_de,lembrete\r\nOperacao,A fazer,Conferir documentos,,2026-06-30 17:00,p2,usuario@email.com,,2026-06-29 09:00'
+
   function downloadTemplate() {
     const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -208,6 +237,7 @@ function ImportModal(props: { fileInputRef: React.RefObject<HTMLInputElement>; p
     a.click()
     URL.revokeObjectURL(url)
   }
+
   return (
     <ModalShell title="Importar tarefas" onClose={props.onClose}>
       <div className="space-y-4">

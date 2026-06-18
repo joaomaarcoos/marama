@@ -156,6 +156,10 @@ def read_source(path: Path, sheet_name: str | None) -> tuple[list[dict[str, Any]
                 "shortname": course_name,
                 "source": "selection_sheet",
                 "processo_seletivo": clean_text(raw.get(mapping["selection_process"])) if mapping["selection_process"] else None,
+                "status_inscricao": clean_text(raw.get(mapping["enrollment_status"])) if mapping["enrollment_status"] else None,
+                "requisitos_curso": requirement_status,
+                "cota": clean_text(raw.get(mapping["quota"])) if mapping["quota"] else None,
+                "status_cota": clean_text(raw.get(mapping["quota_status"])) if mapping["quota_status"] else None,
             }
             course_entry = {key: value for key, value in course_entry.items() if value not in (None, "")}
         if not name and not email:

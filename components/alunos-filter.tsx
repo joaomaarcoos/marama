@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Filter, X, ChevronDown, Search } from 'lucide-react'
 
 interface Course {
-  id: number
+  id: string
   fullname: string
   shortname: string
 }

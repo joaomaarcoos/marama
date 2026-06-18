@@ -188,6 +188,35 @@ export async function createTaskProject(input: z.infer<typeof ProjectSchema>): P
   return { success: 'Projeto criado.' }
 }
 
+export async function deleteTaskProject(projectId: string): Promise<ActionResult> {
+  const session = await currentSession()
+  if (!session) return { error: 'Nao autorizado' }
+  if (!canManageTasks(session.role)) return { error: 'Apenas admin e gerente podem apagar projetos.' }
+
+  const { data: project, error: projectError } = await adminClient
+    .from('task_projects')
+    .select('id, name, created_by')
+    .eq('id', projectId)
+    .maybeSingle()
+
+  if (projectError) return { error: taskDbError(projectError) }
+  if (!project) return { error: 'Projeto nao encontrado.' }
+
+  if (session.role !== 'admin' && project.created_by !== session.user.id) {
+    return { error: 'Apenas o criador do projeto ou um admin pode apagar este projeto.' }
+  }
+
+  const { error } = await adminClient
+    .from('task_projects')
+    .delete()
+    .eq('id', projectId)
+
+  if (error) return { error: taskDbError(error) }
+
+  revalidatePath('/tarefas')
+  return { success: `Projeto "${project.name}" apagado.` }
+}
+
 export async function createTaskSection(input: z.infer<typeof SectionSchema>): Promise<ActionResult> {
   const session = await currentSession()
   if (!session) return { error: 'Nao autorizado' }

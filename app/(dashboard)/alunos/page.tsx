@@ -14,6 +14,25 @@ export const revalidate = 0
 
 const PAGE_SIZE = 50
 
+type StudentCourse = {
+  id?: number | string | null
+  fullname?: string | null
+  shortname?: string | null
+  processo_seletivo?: string | null
+  status_inscricao?: string | null
+  requisitos_curso?: string | null
+  cota?: string | null
+  status_cota?: string | null
+}
+
+function courseFilterId(course: StudentCourse) {
+  return course.id ? String(course.id) : `name:${course.fullname || course.shortname || ''}`
+}
+
+function courseMatchesFilter(course: StudentCourse, selected: string) {
+  return courseFilterId(course) === selected
+}
+
 interface PageProps {
   searchParams: { q?: string; curso?: string; tipo?: string; cpf?: string; tel?: string; page?: string }
 }
@@ -21,7 +40,8 @@ interface PageProps {
 export default async function AlunosPage({ searchParams }: PageProps) {
   const supabase = await createClient()
   const q = searchParams.q?.trim() ?? ''
-  const selectedCursoId = searchParams.curso ? parseInt(searchParams.curso) : null
+  const selectedCurso = searchParams.curso ?? ''
+  const selectedCursoId = selectedCurso && /^\d+$/.test(selectedCurso) ? parseInt(selectedCurso) : null
   const tipo = searchParams.tipo ?? ''
   const cpfFilter = searchParams.cpf ?? ''
   const telFilter = searchParams.tel ?? ''
@@ -30,11 +50,19 @@ export default async function AlunosPage({ searchParams }: PageProps) {
   const to = from + PAGE_SIZE - 1
 
   const { data: allStudents } = await supabase.from('students').select('courses')
-  const courseMap = new Map<number, { id: number; fullname: string; shortname: string }>()
+  const courseMap = new Map<string, { id: string; fullname: string; shortname: string }>()
   for (const s of allStudents ?? []) {
     const courses = Array.isArray(s.courses) ? s.courses : []
-    for (const c of courses as { id: number; fullname: string; shortname: string }[]) {
-      if (c.id && !courseMap.has(c.id)) courseMap.set(c.id, c)
+    for (const c of courses as StudentCourse[]) {
+      const id = courseFilterId(c)
+      const fullname = c.fullname || c.shortname || ''
+      if (fullname && !courseMap.has(id)) {
+        courseMap.set(id, {
+          id,
+          fullname,
+          shortname: c.shortname || c.fullname || '',
+        })
+      }
     }
   }
   const availableCourses = Array.from(courseMap.values()).sort((a, b) => a.fullname.localeCompare(b.fullname))
@@ -55,6 +83,12 @@ export default async function AlunosPage({ searchParams }: PageProps) {
   if (telFilter === 'sem') query = query.is('phone', null)
 
   const { data: students, count } = await query
+  const filteredStudents = selectedCurso.startsWith('name:')
+    ? (students ?? []).filter((s) => {
+        const courses = Array.isArray(s.courses) ? s.courses : []
+        return (courses as StudentCourse[]).some((course) => courseMatchesFilter(course, selectedCurso))
+      })
+    : students
   const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE)
 
   const { data: lastSync } = await supabase
@@ -69,7 +103,7 @@ export default async function AlunosPage({ searchParams }: PageProps) {
   function pageUrl(p: number) {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
-    if (selectedCursoId) params.set('curso', String(selectedCursoId))
+    if (selectedCurso) params.set('curso', selectedCurso)
     if (tipo) params.set('tipo', tipo)
     if (cpfFilter) params.set('cpf', cpfFilter)
     if (telFilter) params.set('tel', telFilter)
@@ -138,15 +172,15 @@ export default async function AlunosPage({ searchParams }: PageProps) {
               Tel. {telFilter === 'com' ? 'cadastrado' : 'pendente'}
             </span>
           )}
-          {selectedCursoId && (
+          {selectedCurso && (
             <span className="ds-badge ds-badge--course">
-              {availableCourses.find(c => c.id === selectedCursoId)?.shortname ?? `Curso ${selectedCursoId}`}
+              {availableCourses.find(c => c.id === selectedCurso)?.shortname ?? selectedCurso}
             </span>
           )}
         </div>
 
         {/* Table / empty state */}
-        {(!students || students.length === 0) ? (
+        {(!filteredStudents || filteredStudents.length === 0) ? (
           <div
             className="flex flex-col items-center justify-center py-20 rounded-xl"
             style={{ background: 'hsl(var(--card))', border: '1px dashed hsl(var(--border))' }}
@@ -172,7 +206,7 @@ export default async function AlunosPage({ searchParams }: PageProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map((s) => {
+                  {filteredStudents.map((s) => {
                     const courses = Array.isArray(s.courses) ? s.courses : []
                     const isGestor = s.role === 'gestor'
                     return (
@@ -203,9 +237,27 @@ export default async function AlunosPage({ searchParams }: PageProps) {
                         <td style={{ minWidth: '120px' }}>
                           {courses.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
-                              {(courses as { shortname: string }[]).map((c, i) => (
-                                <span key={i} className="ds-badge ds-badge--course">{c.shortname}</span>
-                              ))}
+                              {(courses as StudentCourse[]).map((c, i) => {
+                                const label = c.shortname || c.fullname || 'Curso'
+                                const details = [
+                                  c.processo_seletivo,
+                                  c.status_inscricao ? `Inscrição: ${c.status_inscricao}` : null,
+                                  c.requisitos_curso ? `Requisitos: ${c.requisitos_curso}` : null,
+                                  c.cota ? `Cota: ${c.cota}` : null,
+                                  c.status_cota ? `Status cota: ${c.status_cota}` : null,
+                                ].filter(Boolean)
+
+                                return (
+                                  <span key={i} className="ds-badge ds-badge--course" title={details.join(' · ') || label}>
+                                    {label}
+                                    {details.length > 0 && (
+                                      <span style={{ marginLeft: 4, opacity: 0.65 }}>
+                                        · {details.join(' · ')}
+                                      </span>
+                                    )}
+                                  </span>
+                                )
+                              })}
                             </div>
                           ) : (
                             <span className="ds-mono">—</span>
