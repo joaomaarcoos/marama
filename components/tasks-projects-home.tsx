@@ -218,7 +218,7 @@ function ProjectModal(props: {
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Descricao" className="w-full rounded-lg border px-3 py-2 text-sm" style={inputStyle} />
         <div className="flex flex-wrap gap-2">{projectColors.map((item) => <button key={item} onClick={() => setColor(item)} className={cn('h-7 w-7 rounded-md border-2', color === item ? 'border-white' : 'border-transparent')} style={{ background: item }} />)}</div>
         <UserMultiSelect users={props.users} selected={memberIds} onChange={setMemberIds} label="Participantes do projeto" />
-        <ModalActions pending={props.pending} onClose={props.onClose} onSubmit={() => props.onSubmit({ name, description, color, memberIds })} submitLabel="Criar projeto" />
+        <ModalActions pending={props.pending} disabled={!name.trim()} onClose={props.onClose} onSubmit={() => props.onSubmit({ name, description, color, memberIds })} submitLabel="Criar projeto" />
       </div>
     </ModalShell>
   )
@@ -244,7 +244,7 @@ function ImportModal(props: { fileInputRef: React.RefObject<HTMLInputElement>; p
         <p className="text-sm text-gray-500">A importacao pode criar projetos e secoes automaticamente.</p>
         <input ref={props.fileInputRef} type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} className="w-full rounded-lg border px-3 py-2 text-sm" style={inputStyle} />
         <button onClick={downloadTemplate} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" style={buttonSecondaryStyle}><FileUp className="h-4 w-4" />Baixar modelo MARA</button>
-        <ModalActions pending={props.pending} onClose={props.onClose} onSubmit={() => { if (file) { const fd = new FormData(); fd.append('file', file); props.onSubmit(fd) } }} submitLabel="Importar CSV" />
+        <ModalActions pending={props.pending} disabled={!file} onClose={props.onClose} onSubmit={() => { if (file) { const fd = new FormData(); fd.append('file', file); props.onSubmit(fd) } }} submitLabel="Importar CSV" />
       </div>
     </ModalShell>
   )
@@ -264,11 +264,11 @@ function ModalShell({ title, children, onClose }: { title: string; children: Rea
   )
 }
 
-function ModalActions({ pending, onClose, onSubmit, submitLabel }: { pending: boolean; onClose: () => void; onSubmit: () => void; submitLabel: string }) {
+function ModalActions({ pending, disabled = false, onClose, onSubmit, submitLabel }: { pending: boolean; disabled?: boolean; onClose: () => void; onSubmit: () => void; submitLabel: string }) {
   return (
     <div className="flex justify-end gap-2">
       <button onClick={onClose} className="rounded-lg border px-4 py-2 text-sm" style={buttonSecondaryStyle}>Cancelar</button>
-      <button onClick={onSubmit} disabled={pending} className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold disabled:opacity-50" style={buttonPrimaryStyle}>
+      <button onClick={onSubmit} disabled={pending || disabled} className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold disabled:opacity-50" style={buttonPrimaryStyle}>
         {pending && <Loader2 className="h-4 w-4 animate-spin" />}
         {submitLabel}
       </button>

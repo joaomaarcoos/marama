@@ -384,6 +384,30 @@ export async function updateTask(input: z.infer<typeof UpdateTaskSchema>): Promi
   return { success: 'Tarefa atualizada.' }
 }
 
+export async function deleteTask(taskId: string): Promise<ActionResult> {
+  const session = await currentSession()
+  if (!session) return { error: 'Nao autorizado' }
+
+  const task = await getVisibleTask(taskId, session.user.id, session.role)
+  if (!task) return { error: 'Tarefa nao encontrada.' }
+
+  const canManageProject = await ensureCanManageProject(task.project_id, session.user.id, session.role)
+  if (!canManageProject && task.created_by !== session.user.id) {
+    return { error: 'Apenas gestores, admins ou o criador podem apagar esta tarefa.' }
+  }
+
+  const { error } = await adminClient
+    .from('tasks')
+    .delete()
+    .eq('id', task.id)
+
+  if (error) return { error: taskDbError(error) }
+
+  await addTaskActivity(session.user.id, 'task_deleted', { title: task.title }, null, task.project_id)
+  revalidatePath('/tarefas')
+  return { success: task.parent_task_id ? 'Subtarefa apagada.' : 'Tarefa apagada.' }
+}
+
 export async function moveTask(taskId: string, sectionId: string | null, position: number): Promise<ActionResult> {
   const session = await currentSession()
   if (!session) return { error: 'Nao autorizado' }

@@ -28,38 +28,19 @@ export default async function DashboardLayout({
   let notifications: SystemNotification[] = []
 
   try {
-    const [systemResult, taskResult] = await Promise.all([
-      adminClient
-        .from('system_notifications')
-        .select('id, module, type, title, message, href, is_read, created_at')
-        .eq('recipient_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(30),
-      adminClient
-      .from('task_notifications')
-      .select('id, task_id, project_id, type, title, message, is_read, created_at')
+    const systemResult = await adminClient
+      .from('system_notifications')
+      .select('id, module, type, title, message, href, is_read, created_at')
       .eq('recipient_id', user.id)
+      .order('is_read', { ascending: true })
       .order('created_at', { ascending: false })
-        .limit(30),
-    ])
+      .limit(40)
 
-    const systemNotifications = (systemResult.data ?? []).map((item) => ({
+    notifications = (systemResult.data ?? []).map((item) => ({
       ...(item as SystemNotification),
       task_id: null,
       project_id: null,
     }))
-
-    const taskNotifications = (taskResult.data ?? []).map((item) => ({
-      ...(item as SystemNotification),
-      module: 'tarefas',
-      href: (item as SystemNotification).task_id
-        ? `/tarefas/${(item as SystemNotification).project_id}?task=${(item as SystemNotification).task_id}`
-        : '/tarefas',
-    }))
-
-    notifications = [...systemNotifications, ...taskNotifications]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 30)
   } catch {
     notifications = []
   }

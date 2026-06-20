@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Bell, Check, ExternalLink } from 'lucide-react'
 import { markSystemNotification } from '@/app/(dashboard)/notifications/actions'
@@ -24,6 +24,12 @@ export function SystemNotifications({ notifications }: { notifications: SystemNo
   const [localNotifications, setLocalNotifications] = useState(notifications)
   const [isPending, startTransition] = useTransition()
   const unread = localNotifications.filter((item) => !item.is_read).length
+  const unreadNotifications = useMemo(() => localNotifications.filter((item) => !item.is_read), [localNotifications])
+  const readNotifications = useMemo(() => localNotifications.filter((item) => item.is_read), [localNotifications])
+
+  useEffect(() => {
+    setLocalNotifications(notifications)
+  }, [notifications])
 
   function toggleRead(id: string, isRead: boolean) {
     setLocalNotifications((items) =>
@@ -83,56 +89,112 @@ export function SystemNotifications({ notifications }: { notifications: SystemNo
               {localNotifications.length === 0 ? (
                 <p className="px-3 py-8 text-center text-sm text-gray-500">Nenhuma notificacao.</p>
               ) : (
-                localNotifications.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-lg border p-3"
-                    style={{
-                      borderColor: item.is_read ? 'hsl(var(--border))' : 'hsl(var(--primary) / 0.45)',
-                      background: item.is_read ? 'transparent' : 'hsl(var(--primary) / 0.08)',
+                <div className="space-y-3">
+                  <NotificationGroup
+                    title="Nao lidas"
+                    emptyText="Nenhuma notificacao nao lida."
+                    items={unreadNotifications}
+                    isPending={isPending}
+                    onOpen={(href) => {
+                      setOpen(false)
+                      router.push(href)
                     }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <button
-                        onClick={() => {
-                          if (item.href) {
-                            setOpen(false)
-                            router.push(item.href)
-                          }
-                        }}
-                        className="min-w-0 text-left"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                          {item.module && (
-                            <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.12)' }}>
-                              {item.module}
-                            </span>
-                          )}
-                        </div>
-                        {item.message && <p className="mt-1 text-xs text-gray-500">{item.message}</p>}
-                        <p className="mt-2 text-xs text-gray-500">{formatDate(item.created_at)}</p>
-                      </button>
-
-                      <div className="flex shrink-0 items-center gap-1">
-                        {item.href && <ExternalLink className="h-3.5 w-3.5 text-gray-500" />}
-                        <button
-                          disabled={isPending}
-                          onClick={() => toggleRead(item.id, !item.is_read)}
-                          className="rounded-md p-1 text-gray-500 hover:bg-gray-100"
-                          title={item.is_read ? 'Marcar como nao lida' : 'Marcar como lida'}
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
+                    onToggleRead={toggleRead}
+                  />
+                  <NotificationGroup
+                    title="Lidas"
+                    emptyText="Nenhuma notificacao lida."
+                    items={readNotifications}
+                    isPending={isPending}
+                    onOpen={(href) => {
+                      setOpen(false)
+                      router.push(href)
+                    }}
+                    onToggleRead={toggleRead}
+                  />
+                </div>
               )}
             </div>
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+function NotificationGroup(props: {
+  title: string
+  emptyText: string
+  items: SystemNotification[]
+  isPending: boolean
+  onOpen: (href: string) => void
+  onToggleRead: (id: string, isRead: boolean) => void
+}) {
+  return (
+    <section>
+      <div className="mb-1 flex items-center justify-between px-1">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500">{props.title}</p>
+        <span className="rounded-full px-2 py-0.5 text-[10px] text-gray-500" style={{ background: 'hsl(var(--muted) / 0.5)' }}>{props.items.length}</span>
+      </div>
+      {props.items.length === 0 ? (
+        <p className="rounded-lg px-3 py-4 text-center text-xs text-gray-500" style={{ background: 'hsl(var(--muted) / 0.28)' }}>{props.emptyText}</p>
+      ) : (
+        <div className="space-y-2">
+          {props.items.map((item) => (
+            <NotificationItem key={item.id} item={item} isPending={props.isPending} onOpen={props.onOpen} onToggleRead={props.onToggleRead} />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function NotificationItem(props: {
+  item: SystemNotification
+  isPending: boolean
+  onOpen: (href: string) => void
+  onToggleRead: (id: string, isRead: boolean) => void
+}) {
+  const item = props.item
+  return (
+    <div
+      className="rounded-lg border p-3"
+      style={{
+        borderColor: item.is_read ? 'hsl(var(--border))' : 'hsl(var(--primary) / 0.55)',
+        background: item.is_read ? 'transparent' : 'hsl(var(--primary) / 0.1)',
+      }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <button
+          onClick={() => {
+            if (item.href) props.onOpen(item.href)
+          }}
+          className="min-w-0 text-left"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <p className={item.is_read ? 'text-sm font-medium text-gray-500' : 'text-sm font-extrabold text-gray-900'}>{item.title}</p>
+            {item.module && (
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.12)' }}>
+                {item.module}
+              </span>
+            )}
+          </div>
+          {item.message && <p className={item.is_read ? 'mt-1 text-xs text-gray-500' : 'mt-1 text-xs font-semibold text-gray-300'}>{item.message}</p>}
+          <p className="mt-2 text-xs text-gray-500">{formatDate(item.created_at)}</p>
+        </button>
+
+        <div className="flex shrink-0 items-center gap-1">
+          {item.href && <ExternalLink className="h-3.5 w-3.5 text-gray-500" />}
+          <button
+            disabled={props.isPending}
+            onClick={() => props.onToggleRead(item.id, !item.is_read)}
+            className="rounded-md p-1 text-gray-500 hover:bg-gray-100"
+            title={item.is_read ? 'Marcar como nao lida' : 'Marcar como lida'}
+          >
+            <Check className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
