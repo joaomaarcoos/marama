@@ -4,6 +4,7 @@ import { consumeRecentSystemOutbound, createOutboundFingerprint, resolveJidByLid
 import { startInactivityScheduler } from '@/lib/inactivity-scheduler'
 import { getConversationPhoneCandidates, getMaraPauseState } from '@/lib/mara-pause'
 import { adminClient } from '@/lib/supabase/admin'
+import { verifyWebhookSecret } from '@/lib/webhook-auth'
 import { normalizeConversationId, toWhatsAppJid } from '@/lib/utils'
 import { logWebhookEvent } from '@/lib/webhook-logger'
 import { syncContactsSnapshot } from '@/lib/contacts'
@@ -289,10 +290,8 @@ function enqueue(sessionId: string, replyTarget: string, message: PendingMessage
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  const secret = request.headers.get('x-webhook-secret') ?? request.nextUrl.searchParams.get('secret')
-  if (process.env.WEBHOOK_SECRET && secret !== process.env.WEBHOOK_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const authError = verifyWebhookSecret(request)
+  if (authError) return authError
 
   const body = await request.json()
 

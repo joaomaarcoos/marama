@@ -1,4 +1,9 @@
 @echo off
+if "%EVOLUTION_API_KEY%"=="" (
+  echo Defina EVOLUTION_API_KEY no ambiente antes de iniciar o tunnel.
+  exit /b 1
+)
+
 echo Iniciando tunnel Cloudflare para porta 3000...
 start "" cloudflared tunnel --url http://localhost:3000 --logfile cloudflared.log
 
@@ -22,8 +27,7 @@ if "%TUNNEL_URL%"=="" (
   echo.
   echo Nao consegui extrair a URL automaticamente.
   echo Abra o arquivo cloudflared.log e procure por "trycloudflare.com"
-  echo Copie a URL e rode manualmente:
-  echo   curl -X PUT "https://apima.joaodantasia.com.br/webhook/set/mara-teste" -H "apikey: 6208717f318c23042e127b1721f51eb6" -H "Content-Type: application/json" -d "{\"url\":\"SUA_URL/api/webhook/evolution\",\"enabled\":true,\"events\":[\"MESSAGES_UPSERT\"],\"webhookByEvents\":false,\"webhookBase64\":true}"
+  echo Copie a URL e rode manualmente usando EVOLUTION_API_KEY no header apikey.
   pause
   exit /b 1
 )
@@ -34,7 +38,7 @@ echo Webhook: %TUNNEL_URL%/api/webhook/evolution
 
 echo Atualizando webhook no Evolution API...
 curl -s -X PUT "https://apima.joaodantasia.com.br/webhook/set/mara-teste" ^
-  -H "apikey: 6208717f318c23042e127b1721f51eb6" ^
+  -H "apikey: %EVOLUTION_API_KEY%" ^
   -H "Content-Type: application/json" ^
   -d "{\"url\":\"%TUNNEL_URL%/api/webhook/evolution\",\"enabled\":true,\"events\":[\"MESSAGES_UPSERT\"],\"webhookByEvents\":false,\"webhookBase64\":true}"
 

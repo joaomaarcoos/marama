@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { Inter } from 'next/font/google'
 import { Loader2 } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
@@ -743,6 +744,13 @@ export default function LoginPage() {
                       )}
                     </button>
                   </form>
+
+                  <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #e5e7eb', textAlign: 'center' }}>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>Quer participar de um processo seletivo?</p>
+                    <Link href="/cadastro-candidato" style={{ display: 'inline-block', marginTop: 7, color: '#047857', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                      Criar cadastro de candidato
+                    </Link>
+                  </div>
                 </div>
 
                 <div className="mp-login-security">

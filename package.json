@@ -6,7 +6,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "sigec:test:scoring": "py execution/test_sigec_scoring.py",
+    "sigec:test:remote-access": "py execution/test_sigec_remote_access.py",
+    "sigec:test:remote-ranking": "py execution/test_sigec_ranking_remote.py",
+    "sigec:db:dry-run": "py execution/sigec_supabase_gate.py dry-run",
+    "sigec:db:isolated-dry-run": "py execution/sigec_supabase_gate.py isolated-dry-run",
+    "sigec:db:isolated-validate": "py execution/sigec_supabase_gate.py isolated-validate",
+    "sigec:db:apply-foundation": "py execution/sigec_supabase_gate.py isolated-apply",
+    "sigec:db:history": "py execution/sigec_supabase_gate.py history",
+    "sigec:db:fetch-history": "py execution/sigec_supabase_gate.py fetch-history",
+    "sigec:db:verify": "py execution/sigec_supabase_gate.py verify",
+    "sigec:db:advisors": "py execution/sigec_supabase_gate.py advisors",
+    "sigec:db:advisors:sigec": "py execution/sigec_supabase_gate.py advisors-sigec"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -46,6 +58,7 @@
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "postcss": "^8",
+    "supabase": "2.116.0",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }

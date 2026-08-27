@@ -1,5 +1,5 @@
 import { adminClient } from '@/lib/supabase/admin'
-import { extractRole, type UserRole } from '@/lib/roles'
+import { extractRole, isInternalRole, type InternalUserRole } from '@/lib/roles'
 import { createSystemNotifications } from '@/lib/system-notifications'
 
 export type TaskPriority = 'p1' | 'p2' | 'p3' | 'p4'
@@ -8,7 +8,7 @@ export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'canceled'
 export interface TaskUser {
   id: string
   email: string
-  role: UserRole
+  role: InternalUserRole
 }
 
 export interface TaskProject {
@@ -92,7 +92,7 @@ export interface TaskItem {
 
 export interface TasksSnapshot {
   currentUserId: string
-  currentRole: UserRole
+  currentRole: InternalUserRole
   users: TaskUser[]
   projects: TaskProject[]
   sections: TaskSection[]
@@ -103,11 +103,11 @@ export interface TasksSnapshot {
 type DbProject = Omit<TaskProject, 'members'>
 type DbTask = Omit<TaskItem, 'assignees' | 'comments' | 'reminders' | 'subtasks'>
 
-export function canManageTasks(role: UserRole) {
+export function canManageTasks(role: InternalUserRole) {
   return role === 'admin' || role === 'gerente'
 }
 
-export function canSeeProject(project: TaskProject, userId: string, role: UserRole) {
+export function canSeeProject(project: TaskProject, userId: string, role: InternalUserRole) {
   if (role === 'admin') return true
   if (role === 'gerente') return project.created_by === userId || project.members.includes(userId)
   return project.members.includes(userId)
@@ -117,15 +117,16 @@ export async function listTaskUsers(): Promise<TaskUser[]> {
   const { data } = await adminClient.auth.admin.listUsers()
   return (data?.users ?? [])
     .filter((user) => Boolean(user.email))
-    .map((user) => ({
-      id: user.id,
-      email: user.email ?? user.id,
-      role: extractRole(user),
-    }))
+    .flatMap((user) => {
+      const role = extractRole(user)
+      return isInternalRole(role)
+        ? [{ id: user.id, email: user.email ?? user.id, role }]
+        : []
+    })
     .sort((a, b) => a.email.localeCompare(b.email))
 }
 
-export async function getTasksSnapshot(currentUserId: string, currentRole: UserRole): Promise<TasksSnapshot> {
+export async function getTasksSnapshot(currentUserId: string, currentRole: InternalUserRole): Promise<TasksSnapshot> {
   await deliverDueTaskReminders()
 
   const [
@@ -219,13 +220,13 @@ export async function getTasksSnapshot(currentUserId: string, currentRole: UserR
   }
 }
 
-export async function getVisibleTask(taskId: string, userId: string, role: UserRole) {
+export async function getVisibleTask(taskId: string, userId: string, role: InternalUserRole) {
   const snapshot = await getTasksSnapshot(userId, role)
   const allTasks = flattenTasks(snapshot.tasks)
   return allTasks.find((task) => task.id === taskId) ?? null
 }
 
-export async function ensureCanManageProject(projectId: string, userId: string, role: UserRole) {
+export async function ensureCanManageProject(projectId: string, userId: string, role: InternalUserRole) {
   if (!canManageTasks(role)) return false
   if (role === 'admin') return true
 

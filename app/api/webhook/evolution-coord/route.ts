@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminClient } from '@/lib/supabase/admin'
 import { notifyCoordSseClients, notifyCoordPhoneSseClients } from '@/lib/coord-sse'
+import { verifyWebhookSecret } from '@/lib/webhook-auth'
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
@@ -9,6 +10,9 @@ function normalizePhone(raw: string): string {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const authError = verifyWebhookSecret(req)
+  if (authError) return authError
+
   try {
     const body = await req.json() as Record<string, unknown>
 

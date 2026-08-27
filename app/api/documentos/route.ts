@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { embedAndStoreDocument } from '@/lib/rag'
+import { requireApiUser } from '@/lib/api-auth'
 
 async function parsePdf(buffer: Buffer): Promise<string> {
   // Importa diretamente o arquivo da lib, evitando o index.js do pdf-parse v1
@@ -17,9 +17,8 @@ export const maxDuration = 60 // Allow up to 60s for large documents
 
 // GET /api/documentos — list all documents
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const auth = await requireApiUser(['admin', 'gerente'])
+  if (!auth.ok) return auth.response
 
   const { data, error } = await adminClient
     .from('documents')
@@ -32,9 +31,8 @@ export async function GET() {
 
 // POST /api/documentos — upload a document
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const auth = await requireApiUser(['admin', 'gerente'])
+  if (!auth.ok) return auth.response
 
   const formData = await request.formData()
   const file = formData.get('file') as File | null
@@ -76,7 +74,7 @@ export async function POST(request: Request) {
         name: file.name,
         size_bytes: file.size,
         mime_type: file.type || 'text/plain',
-        created_by: user.id,
+        created_by: auth.user.id,
       })
       .select('id')
       .single()
