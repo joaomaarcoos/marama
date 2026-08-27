@@ -360,6 +360,7 @@ Ao concluir uma tarefa:
 | 27/08/2026 | SIGEC-P0-04 e SIGEC-P0-05 | `execution/test_sigec_remote_access.py` | 36 cenários remotos aprovados; recursão de política encontrada e corrigida; usuários, processos e objetos sintéticos confirmados em zero após limpeza |
 | 27/08/2026 | SIGEC-P0-06 | migrações `sigec_ranking_audit_foundation` e `sigec_ranking_evidence_integrity`; `execution/test_sigec_ranking_remote.py`; verificação remota e Advisors | 33/33 tabelas com RLS; 19 cenários remotos aprovados; decisões, cotas e snapshots versionados; evidência antiga invalidada por retificação; dupla aprovação obrigatória; zero fixtures e zero achados acionáveis |
 | 27/08/2026 | SIGEC-P0-01 e fechamento da Fase 0 | auditoria do diff e preparação da branch `codex/sigec-fase-0-fundacao` | pacote SIGEC separado; temporários, caches, credenciais e CSV do usuário mantidos fora do commit; estratégia de promoção registrada |
+| 27/08/2026 | Promoção da Fase 0 para `master` | merge local `3066548`; auditorias de plano, SQL e aplicação; pontuação; TypeScript; build; smoke HTTP | promoção autorizada pelo responsável; 46 páginas geradas; `/api/health`, `/login`, `/processos` e `/cadastro-candidato` retornaram 200; `/minha-area` redirecionou para `/login`; rotação das credenciais históricas permanece obrigatória |
 
 ## 9. Próxima ação recomendada
 
