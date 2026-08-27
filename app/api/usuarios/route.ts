@@ -1,24 +1,25 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireApiUser } from '@/lib/api-auth'
 import { getAdminClient } from '@/lib/supabase/admin'
+import { extractRole } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  // Verifica sessão
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const auth = await requireApiUser(['admin', 'gerente'])
+  if (!auth.ok) return auth.response
 
   const { data, error } = await getAdminClient().auth.admin.listUsers({ perPage: 200 })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Nao foi possivel listar usuarios.' }, { status: 500 })
 
-  const users = (data?.users ?? []).map(u => ({
-    id: u.id,
-    email: u.email ?? '',
-    name: (u.user_metadata?.full_name as string | undefined)?.trim() || (u.email ?? ''),
-    role: (u.user_metadata?.role as string | undefined) ?? 'atendente',
-  }))
+  const users = (data?.users ?? [])
+    .filter((user) => user.app_metadata?.role !== 'candidato')
+    .map((user) => ({
+      id: user.id,
+      email: user.email ?? '',
+      name: (user.user_metadata?.full_name as string | undefined)?.trim() || (user.email ?? ''),
+      role: extractRole(user),
+    }))
 
   return NextResponse.json(users)
 }

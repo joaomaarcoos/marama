@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
-import { extractRole, type UserRole } from '@/lib/roles'
+import { extractRole, isInternalRole } from '@/lib/roles'
 import {
   addTaskActivity,
   canManageTasks,
@@ -68,7 +68,9 @@ async function currentSession() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  return { user, role: extractRole(user) }
+  const role = extractRole(user)
+  if (!isInternalRole(role)) return null
+  return { user, role }
 }
 
 function normalizeDateInput(value?: string | null) {

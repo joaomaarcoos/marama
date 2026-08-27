@@ -89,8 +89,8 @@ export default function UserForm() {
                     type={showPassword ? 'text' : 'password'}
                     name="password"
                     required
-                    minLength={6}
-                    placeholder="Mínimo 6 caracteres"
+                    minLength={8}
+                    placeholder="Mínimo 8 caracteres"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <button

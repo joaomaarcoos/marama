@@ -1,0 +1,61 @@
+{
+  "version": "provisional-2026-08-27",
+  "status": "provisional_product_approved",
+  "officialPublicationAllowed": false,
+  "groupCode": "producao_academica_desenvolvimento",
+  "groupLabel": "Produção acadêmica e desenvolvimento profissional",
+  "maxPoints": 30,
+  "validityYears": null,
+  "validityYearsSuggestion": 5,
+  "categories": [
+    {
+      "code": "artigo_cientifico",
+      "label": "Artigo científico relacionado à vaga, com ISSN ou DOI",
+      "unit": "item",
+      "unitSize": 1,
+      "pointsPerUnit": 5,
+      "maxPoints": 10
+    },
+    {
+      "code": "livro_ou_capitulo",
+      "label": "Livro ou capítulo relacionado à área, com ISBN",
+      "unit": "item",
+      "unitSize": 1,
+      "pointsPerUnit": 5,
+      "maxPoints": 5
+    },
+    {
+      "code": "producao_tecnica_didatica",
+      "label": "Produção técnica ou material didático comprovado",
+      "unit": "item",
+      "unitSize": 1,
+      "pointsPerUnit": 3,
+      "maxPoints": 6
+    },
+    {
+      "code": "apresentacao_evento",
+      "label": "Apresentação de trabalho em evento científico",
+      "unit": "item",
+      "unitSize": 1,
+      "pointsPerUnit": 2,
+      "maxPoints": 4
+    },
+    {
+      "code": "formacao_continuada",
+      "label": "Formação continuada relacionada à vaga",
+      "unit": "hours",
+      "unitSize": 20,
+      "pointsPerUnit": 1,
+      "maxPoints": 5
+    }
+  ],
+  "rules": {
+    "validatedEvidenceOnly": true,
+    "pendingEvidenceBlocksReview": true,
+    "rejectedEvidenceScoresZero": true,
+    "sameEvidenceCannotScoreTwice": true,
+    "mandatoryRequirementCannotScoreAgain": true,
+    "vacancyRelevanceRequired": true,
+    "manualChangesRequireAudit": true
+  }
+}

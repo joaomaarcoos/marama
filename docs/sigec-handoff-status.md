@@ -1,0 +1,366 @@
+# SIGEC Processos — Handoff, status e plano de execução
+
+**Última atualização:** 27/08/2026
+**Estado geral:** fundação e trilha auditável de classificação ativadas no Supabase; rubrica provisória implementada; produto operacional ainda não liberado
+**Fase atual:** cadastro e autenticação do candidato + configuração administrativa local
+**Progresso auditado:** 14 de 88 tarefas concluídas; 74 pendentes
+**Última auditoria automática:** aprovada em 27/08/2026, sem achados locais
+**Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
+
+## 1. Objetivo deste arquivo
+
+Este é o registro operacional único do SIGEC Processos. Ele reúne regras confirmadas, decisões pendentes, estado real do código, plano priorizado, critérios de aceite e gates de segurança. Deve ser atualizado no mesmo conjunto de mudanças que concluir qualquer tarefa SIGEC.
+
+Fontes funcionais, em ordem de precedência:
+
+- `SIGDOC.docx`, fonte principal do SIGEC para vagas, documentos, fluxo e regras do processo.
+- Decisões do responsável pelo produto registradas nesta conversa.
+- `EDITAL Nº 01/2026 — SEDUC`, arquivo `C:\Users\joaom\Downloads\EDITAL-No-01_2026-PROCESSO-SELETIVO-EPT (1).docx`, documento mais antigo e usado somente como referência histórica.
+
+**Observação pendente:** as regras extraídas do edital antigo nas seções 3 e 4 não devem ser implementadas como regra definitiva. Pontuação, desempates, classificação, ordenação, inscrição única e cotas aguardam reconfirmação. Até lá, o SIGEC deve manter essas regras configuráveis e não publicar classificação automática.
+
+Regra de precedência atual: SIGDOC prevalece; o edital antigo serve para apontar perguntas e riscos, não para substituir o SIGDOC.
+
+## 2. Resumo executivo
+
+### Já concluído e verificado localmente
+
+- [x] SIGEC-FND-01 — Separar os papéis `admin`, `gerente`, `atendente`, `candidato` e `sem_acesso`.
+- [x] SIGEC-FND-02 — Bloquear candidato em telas/APIs internas e bloquear equipe em APIs exclusivas do candidato.
+- [x] SIGEC-FND-03 — Criar redirecionamento de login por papel e falha fechada para papel desconhecido.
+- [x] SIGEC-FND-04 — Criar migração local com 27 tabelas SIGEC, RLS e bucket privado de documentos.
+- [x] SIGEC-FND-05 — Criar validações-base de CPF, WhatsApp, documentos e preferências.
+- [x] SIGEC-FND-06 — Criar páginas-base pública, administrativa e do candidato.
+- [x] SIGEC-FND-07 — Proteger os webhooks da Evolution API com segredo obrigatório.
+- [x] SIGEC-FND-08 — Criar e executar auditorias estáticas de banco e aplicação.
+
+### Ainda não operacional
+
+- A fundação está aplicada no Supabase configurado desde 27/08/2026, mas ainda não há processo real configurado ou publicado.
+- O cadastro público é apenas informativo e não cria candidato.
+- As páginas são estruturas iniciais; não existe ainda fluxo completo de perfil, inscrição, análise, pontuação, classificação, recurso, convocação ou WhatsApp transacional.
+- As alterações SIGEC estão no working tree e ainda não foram consolidadas em commit próprio.
+
+## 3. Regras extraídas do Edital Nº 01/2026
+
+### 3.1 Pontuação expressamente definida
+
+**Pós-graduação — máximo de 30 pontos, não cumulativo:**
+
+- Doutorado: 30 pontos.
+- Mestrado: 25 pontos.
+- Especialização: 20 pontos.
+- Deve valer somente o título de maior pontuação.
+
+**Experiência profissional docente — máximo de 40 pontos:**
+
+- Sem experiência: 0 ponto.
+- 1 a 12 meses: 5 pontos.
+- 13 a 24 meses: 10 pontos.
+- 25 a 36 meses: 20 pontos.
+- 37 a 48 meses: 30 pontos.
+- 49 a 60 meses: 40 pontos.
+- O edital não atribui pontuação adicional acima de 60 meses.
+
+**Inconsistência documental:** o Anexo IV declara total máximo de 100 pontos, mas apresenta critérios que somam no máximo 70. A rubrica dos 30 pontos restantes não aparece na página nem em outra parte pesquisável do arquivo. O critério “produção acadêmica” aparece somente como terceiro desempate, sem forma de comprovação ou pontuação.
+
+### 3.2 Fórmula e ordenação confirmadas
+
+- A nota final corresponde ao total de pontos obtidos na avaliação curricular.
+- A lista preliminar e a final devem ser ordenadas por nota final decrescente.
+- O resultado final deve refletir eventuais mudanças de situação, pontuação ou ordem decorrentes de recurso deferido.
+- A convocação deve respeitar rigorosamente a ordem de classificação, condicionada à necessidade, oportunidade, orçamento e prazo de validade do certame.
+
+Fórmula implementável apenas parcialmente:
+
+```text
+nota_final = maior_pontuacao_de_pos_graduacao + pontuacao_de_experiencia + criterio_oficial_ainda_ausente
+```
+
+Não configurar total máximo de 100 nem homologar classificação automática até resolver `SIGEC-DEC-01`.
+
+### 3.3 Desempate — ordem obrigatória
+
+Em igualdade de pontuação e habilitação, aplicar sequencialmente:
+
+1. maior nota na titulação;
+2. maior nota na experiência profissional;
+3. maior nota na produção acadêmica;
+4. equivalência de licenciatura, formação ou complementação pedagógica concluída;
+5. ter 60 anos de idade no ato da inscrição;
+6. maior idade.
+
+O motor deve persistir os valores usados no desempate e produzir uma explicação auditável da posição final.
+
+### 3.4 Habilitação, classificação e desclassificação
+
+- A avaliação curricular ocorre em etapa única, de natureza classificatória e eliminatória.
+- O edital condiciona a classificação ao cumprimento das exigências obrigatórias de inscrição e à documentação exigida.
+- Não foi localizada nota mínima, quantidade máxima de classificados nem uma fórmula explícita de conversão de “habilitado” em “classificado”. A leitura mais direta é: candidato que cumpre os requisitos e não é desclassificado integra o cadastro de reserva, ordenado pela nota. Isso precisa de validação oficial antes de automatizar.
+- O resultado preliminar publica somente classificados; o candidato desclassificado consulta privadamente o motivo na plataforma.
+- Ausência, falsidade, ilegibilidade, corrupção ou formato incorreto de documento pode causar desclassificação.
+
+### 3.5 Recursos
+
+- Prazo: 24 horas a partir de 00h00 do dia seguinte à publicação do resultado preliminar.
+- Objeto: desclassificação, ordem de classificação ou pontuação do próprio candidato.
+- Não podem ser anexados, alterados ou substituídos documentos na fase de recurso.
+- Não há revisão da decisão do recurso.
+- O resultado da avaliação deve ser comunicado ao interessado por e-mail.
+
+Solicitações administrativas de esclarecimento devem ser modeladas separadamente do recurso e nunca servir para burlar a proibição de novos documentos na fase recursal.
+
+### 3.6 Escopo da lista, cotas e convocação
+
+- A inscrição identifica município, curso técnico e modalidade de oferta.
+- O edital permite apenas uma inscrição por candidato; se houver mais de uma, vale a última dentro do prazo.
+- PCD: 5% das vagas; primeiro classificado PCD na 5ª vaga aberta, depois 21ª, 41ª, 61ª e assim sucessivamente.
+- PPP: 20% das vagas de cada especialidade.
+- Candidato PCD deve constar na lista específica e na lista geral quando aprovado/classificado.
+- Insuficiência de candidatos da reserva reverte vagas para ampla concorrência, respeitando a lista geral.
+- Elegibilidade simultânea PCD/PPP exige opção; sem manifestação, o edital determina a vaga PPP.
+- Desistência, ausência no prazo ou reprovação documental na convocação chama o candidato subsequente.
+- A Comissão pode designar profissional habilitado de área afim quando não houver preenchimento da área técnica específica.
+
+## 4. Decisões normativas pendentes
+
+- [ ] SIGEC-DEC-01 — Obter retificação/orientação oficial com a rubrica dos 30 pontos ausentes. Em 27/08/2026 foi aprovada uma rubrica provisória de produto para implementação configurável e testes, descrita na seção 4.1. **A confirmação oficial ainda bloqueia homologação automática da nota e classificação.**
+- [ ] SIGEC-DEC-02 — Confirmar oficialmente se “produção acadêmica” é exatamente o critério ausente de 30 pontos. A decisão provisória do produto considera que sim. **A confirmação oficial ainda bloqueia o terceiro desempate na classificação publicada.**
+- [ ] SIGEC-DEC-03 — Confirmar formalmente se todo candidato elegível e não desclassificado será classificado no cadastro de reserva ou se haverá nota/corte mínimo. **Bloqueia transição automática `habilitado → classificado`.**
+- [ ] SIGEC-DEC-04 — Resolver conflito entre o edital, que permite uma inscrição com uma opção de município/curso/modalidade, e a decisão de produto de até cinco preferências. Definir por processo: `uma_opcao` ou `ate_cinco_preferencias`. **Bloqueia publicação do formulário deste edital.**
+- [ ] SIGEC-DEC-05 — Confirmar a chave exata de ranqueamento: processo + modalidade + município + curso/especialidade + tipo de concorrência. **Bloqueia geração da lista oficial.**
+- [ ] SIGEC-DEC-06 — Definir a sequência operacional das vagas PPP dentro da lista e validar a combinação com a sequência PCD e ampla concorrência. **Bloqueia convocação automática por cotas.**
+
+As decisões devem registrar fonte, responsável, data, versão do edital e impacto. Não remover o histórico quando uma decisão for substituída por retificação.
+
+### 4.1 Rubrica provisória aprovada pelo produto — 30 pontos
+
+Esta rubrica foi aprovada em 27/08/2026 para implementação configurável, testes e homologação interna. Ela não foi extraída do SIGDOC nem do edital antigo e não pode sustentar publicação oficial até a resolução de `SIGEC-DEC-01` e `SIGEC-DEC-02`.
+
+| Critério | Pontos por item | Limite |
+|---|---:|---:|
+| Artigo científico relacionado à vaga, com ISSN ou DOI | 5 | 10 |
+| Livro ou capítulo relacionado à área, com ISBN | 5 | 5 |
+| Produção técnica ou material didático comprovado | 3 | 6 |
+| Apresentação de trabalho em evento científico | 2 | 4 |
+| Formação continuada relacionada à vaga | 1 ponto a cada 20 horas | 5 |
+| **Total de produção acadêmica e desenvolvimento profissional** |  | **30** |
+
+Regras provisórias de cálculo e auditoria:
+
+- somente comprovantes validados geram pontos;
+- pendência documental impede a conclusão da análise e documento rejeitado vale zero;
+- um comprovante não pode pontuar em mais de um critério;
+- cursos usados como requisito obrigatório não pontuam novamente;
+- cada categoria respeita seu próprio teto e o total do grupo é limitado a 30 pontos;
+- a pertinência com a vaga deve ser confirmada pelo avaliador;
+- cada lançamento preserva comprovante, avaliador, data, regra aplicada, pontos e justificativa;
+- alterações manuais preservam valor anterior, novo valor e autoria;
+- o período de validade sugerido é de cinco anos, ainda pendente de confirmação;
+- o valor do grupo será usado como terceiro desempate quando a regra normativa for homologada.
+
+Fórmula provisória para testes internos: `nota_final = titulacao (máx. 30) + experiencia (máx. 40) + producao (máx. 30)`. Nota máxima: 100 pontos.
+
+## 5. Plano priorizado de execução
+
+### Fase 0 — Consolidar e proteger a fundação
+
+- [x] SIGEC-P0-01 — Separar as alterações SIGEC das mudanças não relacionadas e revisar o diff antes de commit. Concluído em 27/08/2026: pacote funcional e de segurança identificado; temporários, caches, credenciais e `modelo_tarefas_exemplo.csv` excluídos do commit da fase.
+- [x] SIGEC-P0-02 — Confirmar o projeto Supabase de homologação e documentar o `project_ref`, sem registrar segredos. Projeto do `.env`: `hvvgyiafelqylbzkzjbi`, confirmado em 20/08/2026.
+- [x] SIGEC-P0-03 — Aplicar a migração em homologação, executar Advisors e corrigir alertas. Fundação e três correções complementares aplicadas em 27/08/2026; 27 tabelas, 27 com RLS, bucket privado, nenhum índice FK ausente, nenhuma migração pendente e zero achados SIGEC acionáveis nos Advisors.
+- [x] SIGEC-P0-04 — Testar RLS com candidato A, candidato B, gerente, atendente, conta sem papel e usuário anônimo. Teste remoto com usuários sintéticos aprovado em 27/08/2026.
+- [x] SIGEC-P0-05 — Testar Storage com caminho legítimo e forjado, antes/depois do prazo e com diligência aberta. Teste remoto aprovado, incluindo imutabilidade e isolamento de leitura; fixtures removidas e contagens confirmadas em zero.
+- [x] SIGEC-P0-06 — Criar migração complementar para decisões, cotas, snapshots de classificação e explicação do desempate. Concluído em 27/08/2026 com registros versionados e append-only, congelamento imutável, explicação ordenada do desempate, bloqueio por decisão/regra de cota desatualizada e duas aprovações independentes antes da publicação.
+
+**Gate P0:** aprovado em 27/08/2026 para a fundação técnica. Nenhuma rota de cadastro deve ser publicada antes dos gates de autenticação e abuso da Fase 1.
+
+### Fase 1 — Cadastro e autenticação do candidato
+
+- [ ] SIGEC-P1-01 — Implementar cadastro com e-mail, senha forte e papel `candidato` atribuído somente pelo backend.
+- [ ] SIGEC-P1-02 — Implementar confirmação de e-mail, recuperação de senha e revogação de sessões quando necessário.
+- [ ] SIGEC-P1-03 — Implementar CAPTCHA e rate limit por IP, e-mail e telefone.
+- [ ] SIGEC-P1-04 — Implementar verificação do WhatsApp com código expirável, limite de tentativas e armazenamento protegido.
+- [ ] SIGEC-P1-05 — Registrar aceite versionado do edital, veracidade, requisitos e LGPD.
+- [ ] SIGEC-P1-06 — Testar enumeração de contas, força bruta, replay de código e redirecionamentos por papel.
+
+**Gate P1:** candidato confirmado acessa somente sua área e seus próprios dados; tentativas abusivas são limitadas e auditadas.
+
+### Fase 2 — Configuração administrativa do processo
+
+- [ ] SIGEC-P2-01 — Criar CRUD de processo, cronograma, versão do edital e publicação.
+- [ ] SIGEC-P2-02 — Configurar modalidade, município, curso/especialidade, requisitos e vagas.
+- [ ] SIGEC-P2-03 — Importar vagas dos anexos, normalizar nomes e gerar relatório de duplicidades antes da confirmação.
+- [ ] SIGEC-P2-04 — Configurar perguntas, documentos obrigatórios, condições PCD/PPP e modelos de declaração.
+- [ ] SIGEC-P2-05 — Configurar etapas, transições permitidas e mensagens públicas/WhatsApp.
+- [ ] SIGEC-P2-06 — Configurar critérios de pontuação e desempate com versionamento e bloqueio de alteração após publicação.
+- [ ] SIGEC-P2-07 — Configurar por processo o número de opções permitido, conforme `SIGEC-DEC-04`.
+
+**Gate P2:** processo só pode ser publicado após validação de datas, vagas, requisitos, total de pontos, desempates e documentos.
+
+### Fase 3 — Perfil profissional e documentos
+
+- [ ] SIGEC-P3-01 — Implementar dados pessoais, endereço, contatos e disponibilidade.
+- [ ] SIGEC-P3-02 — Implementar formação acadêmica e equivalência/complementação pedagógica.
+- [ ] SIGEC-P3-03 — Implementar experiências docentes com períodos, empregador, vínculo e cálculo de meses sem dupla contagem.
+- [ ] SIGEC-P3-04 — Implementar upload versionado com tamanho/tipo, hash, validação de conteúdo e remoção de metadados de imagem.
+- [ ] SIGEC-P3-05 — Adicionar varredura antimalware e quarentena antes de disponibilizar documento à comissão.
+- [ ] SIGEC-P3-06 — Exibir completude do perfil sem permitir que o candidato marque a própria verificação.
+
+**Gate P3:** nenhum arquivo fica disponível para análise antes de passar por validação técnica e antimalware.
+
+### Fase 4 — Inscrição
+
+- [ ] SIGEC-P4-01 — Criar inscrição em rascunho vinculada ao processo e ao candidato.
+- [ ] SIGEC-P4-02 — Implementar opção única ou preferências ordenadas conforme configuração do processo.
+- [ ] SIGEC-P4-03 — Implementar perguntas e anexos condicionais.
+- [ ] SIGEC-P4-04 — Validar requisitos obrigatórios no servidor e no banco antes do envio.
+- [ ] SIGEC-P4-05 — Gerar protocolo imutável com data, versão do edital, respostas, opções, consentimentos e hashes dos documentos.
+- [ ] SIGEC-P4-06 — Permitir correção até o encerramento com histórico; para edital de inscrição única, manter apenas a última versão válida.
+- [ ] SIGEC-P4-07 — Impedir alterações após o prazo, exceto diligência administrativa explicitamente aberta.
+
+**Gate P4:** envio concorrente/repetido é idempotente e não cria inscrições duplicadas.
+
+### Fase 5 — Triagem e análise administrativa
+
+- [ ] SIGEC-P5-01 — Criar lista paginada com filtros por processo, município, curso, modalidade, concorrência, status e pendência.
+- [ ] SIGEC-P5-02 — Criar tela de candidatura com documentos, respostas, versões, consentimentos e histórico.
+- [ ] SIGEC-P5-03 — Validar/rejeitar documentos com motivo público obrigatório e nota interna separada.
+- [ ] SIGEC-P5-04 — Implementar diligência com campos autorizados, prazo e trilha de auditoria.
+- [ ] SIGEC-P5-05 — Bloquear avanço enquanto houver documento obrigatório pendente/rejeitado ou diligência aberta.
+- [ ] SIGEC-P5-06 — Implementar motivos de desclassificação conforme itens 6.1.1 a 6.1.9 do edital.
+- [ ] SIGEC-P5-07 — Garantir que atendente não altere análise, nota, classificação ou convocação sem autorização expressa.
+
+**Gate P5:** toda decisão identifica ator, instante, motivo, versão analisada e dados alterados.
+
+### Fase 6 — Pontuação, classificação, cotas e resultados
+
+- [ ] SIGEC-P6-01 — Implementar pós-graduação não cumulativa: 30/25/20, máximo 30.
+- [ ] SIGEC-P6-02 — Implementar experiência por faixas, máximo 40, com regra explícita para sobreposição de vínculos.
+- [ ] SIGEC-P6-03 — Implementar o critério oficial restante somente após `SIGEC-DEC-01` e `SIGEC-DEC-02`.
+- [ ] SIGEC-P6-04 — Calcular nota total no servidor/banco e impedir pontos acima do máximo por critério.
+- [ ] SIGEC-P6-05 — Implementar desempates na ordem oficial, incluindo idade calculada na data da inscrição.
+- [ ] SIGEC-P6-06 — Gerar snapshots imutáveis da classificação preliminar e final, com versão do algoritmo.
+- [ ] SIGEC-P6-07 — Gerar listas geral, PCD e PPP sem expor CPF, telefone ou motivo privado de desclassificação.
+- [ ] SIGEC-P6-08 — Implementar reserva/reversão de vagas e regras de dupla elegibilidade.
+- [ ] SIGEC-P6-09 — Exigir revisão humana e dupla confirmação antes de publicar ou substituir resultado oficial.
+
+**Gate P6:** amostras conhecidas cobrem todos os empates, limites de pontuação, cotas, reversões e mudanças após recurso.
+
+### Fase 7 — Recursos
+
+- [ ] SIGEC-P7-01 — Abrir janela de 24 horas a partir de 00h00 do dia seguinte à publicação preliminar.
+- [ ] SIGEC-P7-02 — Restringir recurso à própria candidatura e aos objetos permitidos.
+- [ ] SIGEC-P7-03 — Bloquear novos anexos, substituição de documentos e alteração da inscrição durante recurso.
+- [ ] SIGEC-P7-04 — Implementar análise, decisão fundamentada e comunicação por e-mail/portal.
+- [ ] SIGEC-P7-05 — Recalcular somente os casos deferidos e gerar novo snapshot final completo e auditável.
+- [ ] SIGEC-P7-06 — Impedir segundo recurso/revisão quando o processo estiver configurado conforme este edital.
+
+**Gate P7:** relógio, timezone `America/Sao_Paulo`, abertura e encerramento são testados nos limites exatos.
+
+### Fase 8 — Convocação e desistência
+
+- [ ] SIGEC-P8-01 — Criar lotes de convocação por necessidade e vaga/especialidade.
+- [ ] SIGEC-P8-02 — Selecionar candidato elegível seguindo snapshot final, cotas e ordem rigorosa.
+- [ ] SIGEC-P8-03 — Registrar convocação, prazo, aceite, ausência, desistência e desclassificação documental.
+- [ ] SIGEC-P8-04 — Convocar subsequente sem pular posição e registrar justificativa de qualquer exceção.
+- [ ] SIGEC-P8-05 — Implementar remanejamento para área afim somente com decisão autorizada e auditável.
+- [ ] SIGEC-P8-06 — Gerar documentos/relatórios da convocação sem expor dados além do necessário.
+
+**Gate P8:** simulações de PCD, PPP, ampla, dupla elegibilidade, desistência e falta de candidato passam sem quebra da ordem.
+
+### Fase 9 — Notificações MARA/WhatsApp e e-mail
+
+- [ ] SIGEC-P9-01 — Criar consumidor seguro da outbox com chave idempotente, retentativas e dead-letter.
+- [ ] SIGEC-P9-02 — Disparar comunicação somente após a transação que registra o evento de negócio.
+- [ ] SIGEC-P9-03 — Versionar templates por processo e separar mensagens públicas de notas internas.
+- [ ] SIGEC-P9-04 — Registrar envio, entrega, falha e nova tentativa com telefone mascarado.
+- [ ] SIGEC-P9-05 — Cobrir pendência, análise, habilitação, classificação, desclassificação, recurso e convocação.
+- [ ] SIGEC-P9-06 — Configurar `WEBHOOK_SECRET` no ambiente e na Evolution API; testar assinatura e rejeição sem segredo.
+
+**Gate P9:** reprocessar a mesma mensagem não gera envio duplicado.
+
+### Fase 10 — Segurança, LGPD, qualidade e lançamento
+
+- [ ] SIGEC-P10-01 — Ativar MFA para administradores e gerentes.
+- [ ] SIGEC-P10-02 — Definir retenção, descarte, backup, restauração e tratamento de arquivos órfãos.
+- [ ] SIGEC-P10-03 — Revisar criptografia/tokenização do CPF e mascaramento de dados em logs/exportações.
+- [ ] SIGEC-P10-04 — Criar testes unitários, integração, RLS, autorização negativa, E2E e concorrência.
+- [ ] SIGEC-P10-05 — Executar Advisors, auditorias locais, typecheck, build e teste de recuperação.
+- [ ] SIGEC-P10-06 — Homologar com comissão julgadora usando dados sintéticos e roteiro assinado.
+- [ ] SIGEC-P10-07 — Preparar monitoramento, alertas, resposta a incidente e rollback.
+- [ ] SIGEC-P10-08 — Liberar cadastro gradualmente e acompanhar erros, abuso e entregas de WhatsApp.
+
+**Gate P10:** lançamento exige aceite funcional, segurança, LGPD, operação e plano de retorno.
+
+**Dívida de segurança registrada em 27/08/2026:** após atualização segura das dependências transitivas, `npm audit` ainda reporta cinco vulnerabilidades altas ligadas principalmente ao Next.js 14 e ao conjunto de lint/PostCSS. A correção disponível exige migração de versão principal e não deve ser executada com `--force`; precisa de tarefa própria, testes de regressão e novo build antes de qualquer lançamento.
+
+## 6. Auditoria do plano — 20/08/2026
+
+### Resultado
+
+**Aprovado com bloqueios normativos explícitos.** O plano cobre as nove frentes já listadas — banco, cadastro, configuração, perfil, inscrição, análise, pontuação/classificação, convocação e WhatsApp — e adiciona recursos, cotas, LGPD, homologação e operação.
+
+### Fios soltos encontrados e tratados no plano
+
+1. Total de 100 pontos versus apenas 70 detalhados: bloqueado por `SIGEC-DEC-01`.
+2. Produção acadêmica usada no desempate sem rubrica: bloqueado por `SIGEC-DEC-02`.
+3. Ausência de corte entre habilitado e classificado: bloqueado por `SIGEC-DEC-03`.
+4. Uma inscrição no edital versus cinco preferências no produto: bloqueado por `SIGEC-DEC-04` e configurável por processo.
+5. Escopo exato da lista de classificação: bloqueado por `SIGEC-DEC-05`.
+6. Combinação operacional PCD/PPP/ampla: bloqueada por `SIGEC-DEC-06` e coberta por simulações.
+7. Recurso não pode aceitar documento novo: separado de diligência e coberto por gate próprio.
+8. Publicação de resultados precisa de snapshot e dupla confirmação: incluída em P6.
+9. WhatsApp pode duplicar ou perder mensagem: outbox idempotente e transação lógica incluídas em P9.
+10. Documento malicioso/forjado: validação de conteúdo, hash, quarentena e antimalware incluídos em P3.
+11. Risco de IDOR/BOLA entre candidatos: testes negativos de RLS incluídos em P0 e P10.
+12. Alteração retroativa de critérios: versionamento e bloqueio após publicação incluídos em P2/P6.
+
+### Limite desta auditoria
+
+A auditoria confirma a completude e a ordem do plano; não confirma como concluídas tarefas futuras. Cada conclusão exige evidência objetiva no histórico abaixo e execução do gate da fase.
+
+## 7. Protocolo obrigatório de atualização
+
+Ao concluir uma tarefa:
+
+1. trocar `[ ]` por `[x]` somente após cumprir o critério de aceite;
+2. atualizar data, estado geral, fase atual e próxima ação no topo;
+3. registrar evidência verificável no histórico: arquivos, migração, testes ou resultado do ambiente;
+4. executar `py execution\audit_sigec_plan.py`;
+5. executar os gates técnicos aplicáveis antes de concluir a fase;
+6. nunca apagar bloqueios ou decisões anteriores; marcar como resolvidos e registrar a fonte.
+
+### Estratégia de branches e promoção
+
+- Cada fase deve ser desenvolvida, testada e enviada em branch própria no padrão `codex/sigec-fase-N-descricao`.
+- O push da branch só ocorre depois que o gate técnico da fase estiver aprovado e este handoff estiver atualizado.
+- A integração na branch principal ocorre somente após concluir todas as fases da etapa planejada.
+- Após a integração na principal, executar smoke tests, regressão, auditorias de segurança e validação do banco antes de promover o ambiente.
+- Nunca incluir no commit arquivos de `.tmp/`, caches, credenciais locais ou artefatos do usuário sem relação com a fase.
+
+## 8. Histórico de execução
+
+| Data | Tarefas | Evidência | Resultado |
+|---|---|---|---|
+| 21/07/2026 | SIGEC-FND-01 a SIGEC-FND-08 | migração local, rotas, guardas e scripts de auditoria | Fundação aprovada localmente; banco remoto não alterado |
+| 20/08/2026 | Análise do Edital Nº 01/2026 | páginas 2, 3, 7–11, 16 e 33 renderizadas e confrontadas com extração textual | Regras parciais confirmadas; seis decisões normativas abertas |
+| 20/08/2026 | Auditoria deste plano | seções 5 e 6 deste arquivo + `execution/audit_sigec_plan.py` | Plano aprovado com bloqueios explícitos |
+| 20/08/2026 | SIGEC-P0-02 | OpenAPI do projeto indicado pelo `.env`; comparação com o MCP conectado | Projeto `hvvgyiafelqylbzkzjbi` confirmado; zero tabelas SIGEC; MCP divergente não utilizado |
+| 20/08/2026 | SIGEC-P2-01 (parcial) | `app/(dashboard)/sigec-processos/actions.ts`, rota `[id]` e componentes de formulário/arquivamento | CRUD local de rascunho iniciado; criação, leitura, edição de rascunho e arquivamento não destrutivo implementados; publicação permanece bloqueada |
+| 27/08/2026 | Rubrica provisória dos 30 pontos | decisão do produto registrada na seção 4.1 | Aprovada para configuração e testes; publicação oficial permanece bloqueada até confirmação normativa |
+| 27/08/2026 | Credencial PostgreSQL local | variável `POSTGRES` presente e não vazia no `.env.local`, sem exposição do valor | Presença confirmada; validade ainda dependia do teste de conexão registrado na linha seguinte |
+| 27/08/2026 | Dry-run remoto de P0-03 | `execution/sigec_supabase_gate.py` e CLI Supabase 2.116.0 fixada no lockfile | Projeto correto confirmado; autenticação PostgreSQL recusada (`SQLSTATE 28P01`); zero alterações remotas |
+| 27/08/2026 | Rubrica provisória implementada (P2-06 parcial) | `config/sigec-provisional-scoring.json`, `lib/sigec-scoring.ts`, tela administrativa e `execution/test_sigec_scoring.py` | 5 testes aprovados; máximo de 30 pontos e publicação oficial bloqueada no contrato |
+| 27/08/2026 | Endurecimento do Storage | migração de fundação + `execution/audit_sigec_security.py` | Arquivos de candidatos tornados append-only; caminho preso a candidato/candidatura; diligência expirada não reabre upload; auditoria aprovada |
+| 27/08/2026 | Auditoria de dependências | `npm audit fix` sem alterações principais | vulnerabilidades altas reduzidas de 12 para 5; migração de Next.js registrada como bloqueio de lançamento |
+| 27/08/2026 | Gate técnico da rodada | teste da rubrica, auditoria do plano, auditoria SQL, auditoria da aplicação, TypeScript e `npm run build` | todos aprovados; 46 páginas geradas; permanecem apenas bloqueios remotos/normativos e a dívida de versão principal |
+| 27/08/2026 | Nova tentativa PostgreSQL | duas execuções de `npm run sigec:db:dry-run`, resolução DNS e teste TCP | host direto resolveu somente como `AAAA`; TCP 5432 indisponível; conexão encerrada antes do dry-run; zero alterações remotas |
+| 27/08/2026 | Acesso via Session pooler | `npm run sigec:db:history`, fetch temporário do histórico e `npm run sigec:db:isolated-dry-run` | conexão aprovada; 11 migrações remotas reconciliadas em diretório temporário; somente a fundação SIGEC ficou pendente; zero alterações remotas |
+| 27/08/2026 | SIGEC-P0-03 | fundação + migrações `sigec_foundation_advisor_fixes`, `sigec_consolidate_rls_policies` e `sigec_fix_application_policy_recursion`; `npm run sigec:db:verify` e Advisors | 27/27 tabelas com RLS, bucket privado, 46 políticas públicas, nenhum FK sem índice, zero achados acionáveis e banco sem migração pendente |
+| 27/08/2026 | SIGEC-P0-04 e SIGEC-P0-05 | `execution/test_sigec_remote_access.py` | 36 cenários remotos aprovados; recursão de política encontrada e corrigida; usuários, processos e objetos sintéticos confirmados em zero após limpeza |
+| 27/08/2026 | SIGEC-P0-06 | migrações `sigec_ranking_audit_foundation` e `sigec_ranking_evidence_integrity`; `execution/test_sigec_ranking_remote.py`; verificação remota e Advisors | 33/33 tabelas com RLS; 19 cenários remotos aprovados; decisões, cotas e snapshots versionados; evidência antiga invalidada por retificação; dupla aprovação obrigatória; zero fixtures e zero achados acionáveis |
+| 27/08/2026 | SIGEC-P0-01 e fechamento da Fase 0 | auditoria do diff e preparação da branch `codex/sigec-fase-0-fundacao` | pacote SIGEC separado; temporários, caches, credenciais e CSV do usuário mantidos fora do commit; estratégia de promoção registrada |
+
+## 9. Próxima ação recomendada
+
+Executar P1-01 para cadastro com e-mail, senha forte e papel `candidato` atribuído exclusivamente pelo backend; depois P1-02 para confirmação de e-mail, recuperação de senha e revogação de sessões. Em paralelo, concluir P2-01 e a configuração de vagas, requisitos, documentos e da rubrica provisória. A publicação de classificação permanece tecnicamente bloqueada enquanto as decisões normativas estiverem abertas, e o cadastro público permanece bloqueado até os gates P1.

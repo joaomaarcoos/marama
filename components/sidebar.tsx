@@ -27,19 +27,20 @@ import {
   TicketCheck,
   Coins,
   ClipboardList,
+  BriefcaseBusiness,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/theme-provider'
 import Image from 'next/image'
 import React, { useState, useEffect } from 'react'
-import type { UserRole } from '@/lib/roles'
+import type { InternalUserRole } from '@/lib/roles'
 
 interface NavItem {
   href: string
   label: string
   sublabel?: string
   icon: React.ElementType
-  roles: UserRole[]
+  roles: InternalUserRole[]
   accent?: string
 }
 
@@ -94,6 +95,18 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'SIGEC',
+    items: [
+      {
+        href: '/sigec-processos',
+        label: 'Processos seletivos',
+        sublabel: 'candidaturas e análise',
+        icon: BriefcaseBusiness,
+        roles: ['admin', 'gerente'],
+      },
+    ],
+  },
+  {
     title: 'Sistema',
     items: [
       { href: '/relatorios',    label: 'Relatórios',       icon: BarChart2,  roles: ['admin','gerente'] },
@@ -107,7 +120,7 @@ const NAV_SECTIONS: NavSection[] = [
 
 const OWNER_EMAIL = 'joaomaarcoos@gmail.com'
 
-export function Sidebar({ role, email }: { role: UserRole; email?: string | null }) {
+export function Sidebar({ role, email }: { role: InternalUserRole; email?: string | null }) {
   const pathname = usePathname()
   const { theme, toggle } = useTheme()
   const [collapsed, setCollapsed] = useState(false)

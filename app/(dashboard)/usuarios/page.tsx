@@ -4,18 +4,21 @@ import { ShieldCheck } from 'lucide-react'
 import UserTable from '@/components/user-table'
 import UserForm from '@/components/user-form'
 import { extractRole } from '@/lib/roles'
+import { redirect } from 'next/navigation'
 
 export const revalidate = 0
 
 export default async function UsuariosPage() {
   const supabase = await createClient()
   const { data: { user: currentUser } } = await supabase.auth.getUser()
+  if (!currentUser) redirect('/login')
 
   const currentRole = extractRole(currentUser)
+  if (currentRole !== 'admin' && currentRole !== 'gerente') redirect('/dashboard')
   const isAdmin = currentRole === 'admin'
 
   const { data } = await adminClient.auth.admin.listUsers()
-  const users = data?.users ?? []
+  const users = (data?.users ?? []).filter((user) => user.app_metadata?.role !== 'candidato')
 
   return (
     <div className="app-content">
@@ -34,7 +37,7 @@ export default async function UsuariosPage() {
 
       <UserTable
         users={users}
-        currentUserId={currentUser?.id ?? ''}
+        currentUserId={currentUser.id}
         isAdmin={isAdmin}
       />
     </div>

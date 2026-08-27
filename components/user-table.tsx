@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Trash2, Loader2, User, BadgeCheck, ChevronDown } from 'lucide-react'
 import { deleteUser, setUserRole } from '@/app/(dashboard)/usuarios/actions'
-import { ROLE_LABELS, ROLE_COLORS, type UserRole } from '@/lib/roles'
+import { ROLE_LABELS, ROLE_COLORS, type InternalUserRole, type ResolvedUserRole } from '@/lib/roles'
 
 interface SupabaseUser {
   id: string
@@ -31,13 +31,13 @@ function formatDate(dateStr?: string): string {
   })
 }
 
-function getUserRole(user: SupabaseUser): UserRole {
+function getUserRole(user: SupabaseUser): ResolvedUserRole {
   const r = user.app_metadata?.role
-  if (r === 'admin' || r === 'gerente' || r === 'atendente') return r
-  return 'atendente'
+  if (r === 'admin' || r === 'gerente' || r === 'atendente' || r === 'candidato') return r
+  return 'sem_acesso'
 }
 
-function RoleBadge({ role }: { role: UserRole }) {
+function RoleBadge({ role }: { role: ResolvedUserRole }) {
   return (
     <span
       className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
@@ -58,13 +58,13 @@ function RoleSelector({
   onRoleChanged,
 }: {
   userId: string
-  currentRole: UserRole
-  onRoleChanged: (newRole: UserRole) => void
+  currentRole: ResolvedUserRole
+  onRoleChanged: (newRole: InternalUserRole) => void
 }) {
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
 
-  const handleSelect = async (role: UserRole) => {
+  const handleSelect = async (role: InternalUserRole) => {
     if (role === currentRole) { setOpen(false); return }
     setLoading(true)
     setOpen(false)
@@ -73,7 +73,7 @@ function RoleSelector({
     if (!result.error) onRoleChanged(role)
   }
 
-  const roles: UserRole[] = ['admin', 'gerente', 'atendente']
+  const roles: InternalUserRole[] = ['admin', 'gerente', 'atendente']
 
   return (
     <div className="relative inline-block">
@@ -149,7 +149,7 @@ export default function UserTable({ users, currentUserId, isAdmin }: UserTablePr
     }
   }
 
-  const handleRoleChanged = (userId: string, newRole: UserRole) => {
+  const handleRoleChanged = (userId: string, newRole: InternalUserRole) => {
     setLocalUsers(prev =>
       prev.map(u => u.id === userId
         ? { ...u, app_metadata: { ...u.app_metadata, role: newRole } }

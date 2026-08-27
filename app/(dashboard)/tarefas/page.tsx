@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { FolderKanban } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { extractRole } from '@/lib/roles'
+import { extractRole, isInternalRole, roleHome } from '@/lib/roles'
 import { getTasksSnapshot } from '@/lib/tasks'
 import TasksProjectsHome from '@/components/tasks-projects-home'
 
@@ -13,6 +13,7 @@ export default async function TarefasPage() {
   if (!user) redirect('/login')
 
   const role = extractRole(user)
+  if (!isInternalRole(role)) redirect(roleHome(role))
   const snapshot = await getTasksSnapshot(user.id, role)
 
   return (

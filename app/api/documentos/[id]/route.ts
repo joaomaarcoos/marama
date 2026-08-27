@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
+import { requireApiUser } from '@/lib/api-auth'
 
 // PATCH /api/documentos/[id] — rename a document
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const auth = await requireApiUser(['admin', 'gerente'])
+  if (!auth.ok) return auth.response
 
   const body = await request.json().catch(() => null)
   const name = body?.name?.trim()
@@ -30,9 +29,8 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const auth = await requireApiUser(['admin', 'gerente'])
+  if (!auth.ok) return auth.response
 
   const { error } = await adminClient
     .from('documents')

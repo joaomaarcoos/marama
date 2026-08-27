@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Settings } from 'lucide-react'
 import ProfileSettings from '@/components/profile-settings'
-import { extractRole } from '@/lib/roles'
+import { extractRole, isInternalRole, roleHome } from '@/lib/roles'
 
 export const revalidate = 0
 
@@ -12,6 +12,7 @@ export default async function ConfiguracoesPage() {
   if (!user) redirect('/login')
 
   const role = extractRole(user)
+  if (!isInternalRole(role)) redirect(roleHome(role))
   const meta = user.user_metadata ?? {}
 
   return (

@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { Camera, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, User } from 'lucide-react'
 import { updateProfile, updateEmail, updatePassword, uploadAvatar } from '@/app/(dashboard)/configuracoes/actions'
-import { ROLE_LABELS, ROLE_COLORS, type UserRole } from '@/lib/roles'
+import { ROLE_LABELS, ROLE_COLORS, type InternalUserRole } from '@/lib/roles'
 
 interface ProfileUser {
   id: string
@@ -11,7 +11,7 @@ interface ProfileUser {
   fullName: string
   phone: string
   avatarUrl: string | null
-  role: UserRole
+  role: InternalUserRole
 }
 
 function Toast({ type, text }: { type: 'success' | 'error'; text: string }) {

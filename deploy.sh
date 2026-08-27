@@ -3,6 +3,8 @@
 
 set -e
 
+: "${EVOLUTION_API_KEY:?Defina EVOLUTION_API_KEY no ambiente antes do deploy}"
+
 echo "=== Deploy SISTEMAMARA ==="
 
 # Atualizar código (se usar git)
@@ -28,7 +30,7 @@ fi
 echo ""
 echo "Atualizando webhook no Evolution API..."
 curl -s -X PUT "https://apima.joaodantasia.com.br/webhook/set/marav2" \
-  -H "apikey: 6208717f318c23042e127b1721f51eb6" \
+  -H "apikey: ${EVOLUTION_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://mara.joaodantasia.com.br/api/webhook/evolution","enabled":true,"events":["MESSAGES_UPSERT"],"webhookByEvents":false,"webhookBase64":true}'
 

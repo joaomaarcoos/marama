@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { hasSupabasePublicEnv } from '@/lib/supabase/env'
 import { Sidebar } from '@/components/sidebar'
-import { extractRole } from '@/lib/roles'
+import { extractRole, isInternalRole, roleHome } from '@/lib/roles'
 import { adminClient } from '@/lib/supabase/admin'
 import { SystemNotifications, type SystemNotification } from '@/components/system-notifications'
 
@@ -25,6 +25,7 @@ export default async function DashboardLayout({
   if (!user) redirect('/login')
 
   const role = extractRole(user)
+  if (!isInternalRole(role)) redirect(roleHome(role))
   let notifications: SystemNotification[] = []
 
   try {

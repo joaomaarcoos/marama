@@ -1,0 +1,103 @@
+with expected(table_name) as (
+  values
+    ('sigec_candidate_profiles'), ('sigec_candidate_education'),
+    ('sigec_candidate_experience'), ('sigec_processes'), ('sigec_modalities'),
+    ('sigec_courses'), ('sigec_process_course_requirements'), ('sigec_vacancies'),
+    ('sigec_process_questions'), ('sigec_document_requirements'),
+    ('sigec_process_stages'), ('sigec_scoring_criteria'), ('sigec_applications'),
+    ('sigec_application_preferences'), ('sigec_application_answers'),
+    ('sigec_application_documents'), ('sigec_application_status_history'),
+    ('sigec_internal_notes'), ('sigec_information_requests'), ('sigec_appeals'),
+    ('sigec_application_scores'), ('sigec_convocation_batches'),
+    ('sigec_convocations'), ('sigec_consents'), ('sigec_notification_outbox'),
+    ('sigec_whatsapp_verifications'), ('sigec_audit_events'),
+    ('sigec_process_decisions'), ('sigec_quota_rule_versions'),
+    ('sigec_ranking_snapshots'), ('sigec_ranking_snapshot_entries'),
+    ('sigec_ranking_snapshot_approvals'), ('sigec_ranking_snapshot_publications')
+), actual as (
+  select c.relname as table_name, c.relrowsecurity as rls_enabled
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public'
+    and c.relkind = 'r'
+    and c.relname like 'sigec\_%' escape '\'
+), missing_fk_indexes as (
+  select distinct c.conrelid::regclass::text as table_name, a.attname as column_name
+  from pg_constraint c
+  join pg_namespace n on n.oid = c.connamespace
+  join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+  where c.contype = 'f'
+    and n.nspname = 'public'
+    and c.conrelid::regclass::text like 'sigec\_%' escape '\'
+    and not exists (
+      select 1 from pg_index i
+      where i.indrelid = c.conrelid and i.indkey[0] = a.attnum
+    )
+)
+select json_build_object(
+  'expected_tables', (select count(*) from expected),
+  'actual_tables', (select count(*) from actual),
+  'missing_tables', coalesce((
+    select json_agg(e.table_name order by e.table_name)
+    from expected e left join actual a using (table_name)
+    where a.table_name is null
+  ), '[]'::json),
+  'rls_enabled_tables', (select count(*) from actual where rls_enabled),
+  'rls_missing', coalesce((
+    select json_agg(table_name order by table_name) from actual where not rls_enabled
+  ), '[]'::json),
+  'public_policy_count', (
+    select count(*) from pg_policies
+    where schemaname = 'public' and tablename like 'sigec\_%' escape '\'
+  ),
+  'private_bucket_ok', exists (
+    select 1 from storage.buckets
+    where id = 'sigec-candidate-documents'
+      and public is false
+      and file_size_limit = 10485760
+  ),
+  'storage_policy_count', (
+    select count(*) from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname like 'sigec\_%' escape '\'
+  ),
+  'candidate_storage_mutation_policy_absent', not exists (
+    select 1 from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname in ('sigec_storage_candidate_update', 'sigec_storage_candidate_delete')
+  ),
+  'missing_fk_indexes', coalesce((
+    select json_agg(json_build_object('table', table_name, 'column', column_name)
+      order by table_name, column_name)
+    from missing_fk_indexes
+  ), '[]'::json),
+  'migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260722022016'
+  ),
+  'ranking_migrations_applied', (
+    select count(*) = 2 from supabase_migrations.schema_migrations
+    where version in ('20260827145229', '20260827150004')
+  ),
+  'ranking_immutability_triggers', (
+    select count(*) from pg_trigger trigger
+    join pg_class relation on relation.oid = trigger.tgrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'public'
+      and relation.relname like 'sigec\_ranking%' escape '\'
+      and not trigger.tgisinternal
+  ),
+  'synthetic_auth_users', (
+    select count(*) from auth.users where email like 'sigec-test-%@example.invalid'
+  ),
+  'synthetic_processes', (
+    select count(*) from public.sigec_processes
+    where slug like 'processo-sintetico-%' or slug like 'ranking-sintetico-%'
+  ),
+  'synthetic_storage_objects', (
+    select count(*) from storage.objects
+    where bucket_id = 'sigec-candidate-documents' and name like '%/proof-%'
+  )
+) as sigec_remote_verification;

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { extractRole } from '@/lib/roles'
+import { extractRole, isInternalRole, roleHome } from '@/lib/roles'
 import { getTasksSnapshot } from '@/lib/tasks'
 import TasksWorkspace from '@/components/tasks-workspace'
 
@@ -18,6 +18,7 @@ export default async function TarefasProjetoPage({
   if (!user) redirect('/login')
 
   const role = extractRole(user)
+  if (!isInternalRole(role)) redirect(roleHome(role))
   const snapshot = await getTasksSnapshot(user.id, role)
   const project = snapshot.projects.find((item) => item.id === params.projectId)
   if (!project) notFound()
