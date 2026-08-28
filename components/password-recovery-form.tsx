@@ -29,16 +29,16 @@ export function PasswordRecoveryForm({ turnstileSiteKey }: { turnstileSiteKey: s
   return (
     <form onSubmit={submit} className="mt-7 space-y-5">
       <div>
-        <label htmlFor="recovery-email" className="text-sm font-bold text-slate-800">E-mail</label>
+        <label htmlFor="recovery-email" className="text-sm font-bold text-slate-200">E-mail</label>
         <div className="relative mt-2">
           <Mail className="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
-          <input id="recovery-email" name="email" type="email" autoComplete="email" required maxLength={320} className="h-12 w-full rounded-xl border border-slate-300 bg-white pl-12 pr-4 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+          <input id="recovery-email" name="email" type="email" autoComplete="email" required maxLength={320} className="h-12 w-full rounded-xl border border-slate-600 bg-[#111c2f] pl-12 pr-4 text-slate-50 caret-blue-300 outline-none transition placeholder:text-slate-500 focus:border-blue-400 focus:ring-4 focus:ring-blue-400/20" />
         </div>
       </div>
       <TurnstileWidget siteKey={turnstileSiteKey} action="sigec_password_recovery" resetKey={captchaResetKey} onToken={setCaptchaToken} />
       <input type="hidden" name="captchaToken" value={captchaToken} />
-      {message ? <p aria-live="polite" className={`rounded-xl px-4 py-3 text-sm ${isError ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-800'}`}>{message}</p> : null}
-      <button disabled={loading || !captchaToken} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 font-bold text-white transition hover:bg-blue-800 disabled:opacity-60">
+      {message ? <p aria-live="polite" className={`rounded-xl border px-4 py-3 text-sm leading-6 ${isError ? 'border-red-300/30 bg-red-400/10 text-red-100' : 'border-emerald-300/30 bg-emerald-400/10 text-emerald-100'}`}>{message}</p> : null}
+      <button disabled={loading || !captchaToken} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-500 font-bold text-slate-50 shadow-lg shadow-blue-950/30 transition hover:bg-blue-400 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-300/40 disabled:cursor-not-allowed disabled:opacity-50">
         {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null} Enviar instruções
       </button>
     </form>

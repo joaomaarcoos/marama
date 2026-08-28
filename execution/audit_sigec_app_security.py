@@ -104,6 +104,22 @@ def main() -> int:
             "app/(auth)/recuperar-senha/actions.ts",
             "return { status: 'success' as const, message: GENERIC_RESPONSE }",
         ),
+        "password_recovery_has_explicit_contrast": (
+            "app/(auth)/recuperar-senha/page.tsx",
+            "bg-[#0b1322] p-7 text-slate-50",
+        ),
+        "password_recovery_form_has_readable_labels": (
+            "components/password-recovery-form.tsx",
+            "text-sm font-bold text-slate-200",
+        ),
+        "password_update_has_explicit_contrast": (
+            "app/(auth)/redefinir-senha/page.tsx",
+            "bg-[#0b1322] p-7 text-slate-50",
+        ),
+        "password_update_form_has_readable_labels": (
+            "components/password-update-form.tsx",
+            "text-sm font-bold text-slate-200",
+        ),
         "password_update_revalidates_user": (
             "app/(auth)/redefinir-senha/actions.ts",
             "supabase.auth.getUser()",
