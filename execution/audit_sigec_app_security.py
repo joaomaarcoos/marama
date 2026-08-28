@@ -120,6 +120,22 @@ def main() -> int:
             "app/(dashboard)/sigec-processos/[id]/page.tsx",
             "role !== 'admin' && role !== 'gerente'",
         ),
+        "stage_configuration_server_revalidates_input": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "StageInputSchema.safeParse",
+        ),
+        "stage_configuration_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_stage_configuration'",
+        ),
+        "stage_transition_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_stage_transition'",
+        ),
+        "stage_ui_is_draft_only": (
+            "components/sigec-stage-configuration.tsx",
+            "O processo já saiu do rascunho",
+        ),
         "candidate_registration_feature_flag": (
             "app/(public)/cadastro-candidato/actions.ts",
             "candidateRegistrationEnabled()",

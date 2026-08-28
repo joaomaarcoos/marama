@@ -6,6 +6,7 @@ with expected(table_name) as (
     ('sigec_courses'), ('sigec_process_course_requirements'), ('sigec_vacancies'),
     ('sigec_process_questions'), ('sigec_document_requirements'),
     ('sigec_declaration_templates'),
+    ('sigec_process_stage_transitions'),
     ('sigec_process_stages'), ('sigec_scoring_criteria'), ('sigec_applications'),
     ('sigec_application_preferences'), ('sigec_application_answers'),
     ('sigec_application_documents'), ('sigec_application_status_history'),
@@ -173,6 +174,30 @@ select json_build_object(
     select 1 from information_schema.role_table_grants
     where table_schema = 'public'
       and table_name = 'sigec_declaration_templates'
+      and grantee in ('anon', 'authenticated')
+  ),
+  'stage_configuration_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828225319'
+  ),
+  'stage_transition_indexes_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828230158'
+  ),
+  'stage_configuration_functions_server_only', (
+    not has_function_privilege('anon', 'public.sigec_upsert_stage_configuration(uuid,uuid,text,text,text,text,integer,boolean,boolean,boolean,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_stage_configuration(uuid,uuid,text,text,text,text,integer,boolean,boolean,boolean,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_stage_transition(uuid,uuid,uuid,uuid,boolean,boolean,boolean,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_delete_stage_transition(uuid,uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_stage_configuration(uuid,uuid,text,text,text,text,integer,boolean,boolean,boolean,text,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_delete_stage_configuration(uuid,uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_stage_transition(uuid,uuid,uuid,uuid,boolean,boolean,boolean,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_delete_stage_transition(uuid,uuid,uuid)', 'EXECUTE')
+  ),
+  'stage_transitions_service_only', not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public'
+      and table_name = 'sigec_process_stage_transitions'
       and grantee in ('anon', 'authenticated')
   ),
   'consent_migrations_applied', (

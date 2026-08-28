@@ -100,6 +100,14 @@ def audit(sql: str) -> dict[str, object]:
         "declaration_templates_service_only": r"revoke all on public\.sigec_declaration_templates from public, anon, authenticated",
         "form_audience_allowlist": r"v_audience not in \('all', 'pcd', 'ppp', 'pcd_or_ppp'\)",
         "document_mime_allowlist": r"mime_types.*?<@ array\['application/pdf', 'image/jpeg', 'image/png'\]",
+        "stage_configuration_draft_lock": r"sigec_upsert_stage_configuration[\s\S]*?sigec_assert_draft_process_manager",
+        "stage_configuration_rpc_service_only": r"revoke all on function public\.sigec_upsert_stage_configuration.*from public, anon, authenticated",
+        "stage_transition_rpc_service_only": r"revoke all on function public\.sigec_upsert_stage_transition.*from public, anon, authenticated",
+        "stage_transition_table_service_only": r"revoke all on public\.sigec_process_stage_transitions from public, anon, authenticated",
+        "stage_transition_process_scope": r"foreign key \(process_id, from_stage_id\)[\s\S]*?sigec_process_stages\(process_id, id\)",
+        "stage_template_placeholder_allowlist": r"nome\|processo\|status\|link\|prazo",
+        "terminal_stage_has_no_outgoing_transition": r"SIGEC_TERMINAL_STAGE_HAS_OUTGOING_TRANSITION",
+        "stage_publication_reachability_gate": r"reachable_stages[\s\S]*?reachability_ready",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

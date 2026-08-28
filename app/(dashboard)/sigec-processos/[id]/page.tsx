@@ -20,6 +20,11 @@ import {
   type SigecDocumentRow,
   type SigecQuestionRow,
 } from '@/components/sigec-form-configuration'
+import {
+  SigecStageConfiguration,
+  type SigecStageRow,
+  type SigecStageTransitionRow,
+} from '@/components/sigec-stage-configuration'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,7 +63,7 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
   if (processResult.error || !processResult.data) notFound()
 
   // Papel e RLS são confirmados antes de qualquer leitura com o cliente service-only.
-  const [readinessResult, modalitiesResult, vacanciesResult, requirementsResult, questionsResult, documentsResult, declarationsResult] = await Promise.all([
+  const [readinessResult, modalitiesResult, vacanciesResult, requirementsResult, questionsResult, documentsResult, declarationsResult, stagesResult, transitionsResult] = await Promise.all([
     adminClient.rpc('sigec_get_process_publication_readiness', { p_process_id: params.id }),
     supabase.from('sigec_modalities').select('id, name, slug, description').eq('process_id', params.id).order('position'),
     supabase.from('sigec_vacancies').select('id, modality_id, course_id, municipality, vacancy_kind, vacancy_count, active, course:sigec_courses(canonical_name)').eq('process_id', params.id).order('municipality'),
@@ -66,6 +71,8 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
     adminClient.from('sigec_process_questions').select('id, code, label, help_text, question_type, required, config, position').eq('process_id', params.id).order('position'),
     adminClient.from('sigec_document_requirements').select('id, code, label, instructions, required, accepted_mime_types, max_file_size_bytes, condition_config, position').eq('process_id', params.id).order('position'),
     adminClient.from('sigec_declaration_templates').select('id, code, label, content, version, audience, required, position').eq('process_id', params.id).eq('active', true).order('position'),
+    adminClient.from('sigec_process_stages').select('id, code, label, public_description, color, position, is_initial, is_terminal, allows_appeal, whatsapp_template').eq('process_id', params.id).order('position'),
+    adminClient.from('sigec_process_stage_transitions').select('id, from_stage_id, to_stage_id, requires_reason, blocks_on_pending, active').eq('process_id', params.id).order('created_at'),
   ])
 
   const process = processResult.data as ProcessDetail
@@ -88,6 +95,8 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
   const questions = (questionsResult.data ?? []) as SigecQuestionRow[]
   const documents = (documentsResult.data ?? []) as SigecDocumentRow[]
   const declarations = (declarationsResult.data ?? []) as SigecDeclarationRow[]
+  const stages = (stagesResult.data ?? []) as SigecStageRow[]
+  const transitions = (transitionsResult.data ?? []) as SigecStageTransitionRow[]
 
   return (
     <>
@@ -201,6 +210,12 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
           questions={questions}
           documents={documents}
           declarations={declarations}
+        />
+        <SigecStageConfiguration
+          processId={process.id}
+          editable={editable}
+          stages={stages}
+          transitions={transitions}
         />
       </div>
     </>

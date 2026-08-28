@@ -96,6 +96,16 @@ def main() -> int:
             raise AssertionError("form_configuration_rpc_privileges_invalid")
         checks.append("form_configuration_rpc_is_service_only")
 
+        cursor.execute("""select
+          not has_function_privilege('anon','public.sigec_upsert_stage_configuration(uuid,uuid,text,text,text,text,integer,boolean,boolean,boolean,text,uuid)','EXECUTE'),
+          not has_function_privilege('authenticated','public.sigec_upsert_stage_configuration(uuid,uuid,text,text,text,text,integer,boolean,boolean,boolean,text,uuid)','EXECUTE'),
+          not has_function_privilege('authenticated','public.sigec_upsert_stage_transition(uuid,uuid,uuid,uuid,boolean,boolean,boolean,uuid)','EXECUTE'),
+          has_function_privilege('service_role','public.sigec_upsert_stage_configuration(uuid,uuid,text,text,text,text,integer,boolean,boolean,boolean,text,uuid)','EXECUTE'),
+          has_function_privilege('service_role','public.sigec_upsert_stage_transition(uuid,uuid,uuid,uuid,boolean,boolean,boolean,uuid)','EXECUTE')""")
+        if cursor.fetchone() != (True, True, True, True, True):
+            raise AssertionError("stage_configuration_rpc_privileges_invalid")
+        checks.append("stage_configuration_rpcs_are_service_only")
+
         cursor.execute("set local role authenticated")
         expect_error(cursor, "authenticated_role_cannot_publish",
                      "select * from public.sigec_publish_process(%s,%s)",
@@ -171,9 +181,41 @@ def main() -> int:
         cursor.execute("select public.sigec_delete_form_configuration(%s,%s,%s,%s)",
                        (process_id, manager_id, "question", disposable_question_id))
         checks.append("form_configuration_crud_is_scoped_and_audited")
-        cursor.execute("""insert into public.sigec_process_stages
-          (process_id,code,label,position,is_terminal) values
-          (%s,'em_analise','Em análise',1,false),(%s,'encerrado','Encerrado',2,true)""", (process_id, process_id))
+        stage_rpc = "select public.sigec_upsert_stage_configuration(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        cursor.execute(stage_rpc, (process_id, manager_id, "em_analise", "Em análise",
+                                   "A candidatura está em análise.", "#2563eb", 10, True, False, False,
+                                   "Olá, {{nome}}. Sua candidatura em {{processo}} está em análise: {{link}}", None))
+        initial_stage_id = cursor.fetchone()[0]
+        cursor.execute(stage_rpc, (process_id, manager_id, "encerrado", "Encerrado",
+                                   "A análise da candidatura foi encerrada.", "#64748b", 20, False, True, True,
+                                   "Olá, {{nome}}. Consulte o resultado em {{processo}}: {{link}}", None))
+        terminal_stage_id = cursor.fetchone()[0]
+        expect_error(cursor, "stage_template_rejects_unknown_placeholder", stage_rpc,
+                     (process_id, manager_id, "invalida", "Etapa inválida", "Mensagem pública válida.",
+                      "#64748b", 30, False, False, False,
+                      "Olá, {{segredo}}. Consulte {{link}} para detalhes.", None),
+                     "SIGEC_STAGE_CONFIGURATION_INVALID")
+        cursor.execute(stage_rpc, (process_id, manager_id, "temporaria_fluxo", "Temporária",
+                                   "Etapa temporária para testar exclusão.", "#64748b", 30, False, False, False,
+                                   "Olá, {{nome}}. Etapa temporária em {{processo}}: {{link}}", None))
+        disposable_stage_id = cursor.fetchone()[0]
+        transition_rpc = "select public.sigec_upsert_stage_transition(%s,%s,%s,%s,%s,%s,%s,%s)"
+        cursor.execute(transition_rpc, (process_id, manager_id, initial_stage_id, terminal_stage_id,
+                                        True, True, True, None))
+        main_transition_id = cursor.fetchone()[0]
+        cursor.execute(transition_rpc, (process_id, manager_id, initial_stage_id, terminal_stage_id,
+                                        False, True, True, main_transition_id))
+        cursor.execute(transition_rpc, (process_id, manager_id, initial_stage_id, disposable_stage_id,
+                                        False, True, True, None))
+        disposable_transition_id = cursor.fetchone()[0]
+        cursor.execute("select public.sigec_delete_stage_transition(%s,%s,%s)",
+                       (process_id, manager_id, disposable_transition_id))
+        cursor.execute("select public.sigec_delete_stage_configuration(%s,%s,%s)",
+                       (process_id, manager_id, disposable_stage_id))
+        expect_error(cursor, "terminal_stage_cannot_have_outgoing_transition", transition_rpc,
+                     (process_id, manager_id, terminal_stage_id, initial_stage_id, False, True, True, None),
+                     "SIGEC_TERMINAL_STAGE_HAS_OUTGOING_TRANSITION")
+        checks.append("stage_and_transition_crud_is_scoped_and_audited")
         cursor.execute("insert into public.sigec_scoring_criteria (process_id,code,label,max_points) values (%s,'titulacao','Titulação',30)", (process_id,))
         cursor.executemany("""insert into public.sigec_process_decisions
           (process_id,code,revision,title,status,resolution,source_type,source_reference,impact,recorded_by)
@@ -200,6 +242,11 @@ def main() -> int:
         expect_error(cursor, "published_form_configuration_is_locked", form_rpc,
                      (process_id, manager_id, "question", "bloqueada", "Pergunta bloqueada", None,
                       False, 100, Json({"audience": "all", "questionType": "short_text"}), None),
+                     "SIGEC_PROCESS_CONFIGURATION_LOCKED")
+        expect_error(cursor, "published_stage_configuration_is_locked", stage_rpc,
+                     (process_id, manager_id, "bloqueada_fluxo", "Etapa bloqueada", "Mensagem pública.",
+                      "#64748b", 100, False, False, False,
+                      "Olá, {{nome}}. Consulte {{processo}} em {{link}}", None),
                      "SIGEC_PROCESS_CONFIGURATION_LOCKED")
 
         cursor.execute("set local role anon")

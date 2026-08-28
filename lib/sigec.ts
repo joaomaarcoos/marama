@@ -5,74 +5,9 @@ export const SIGEC_DOCUMENT_BUCKET = 'sigec-candidate-documents'
 export const SIGEC_ALLOWED_DOCUMENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png'] as const
 export const SIGEC_MAX_DOCUMENT_SIZE = 10 * 1024 * 1024
 
-export const SIGEC_DEFAULT_STAGES = [
-  {
-    code: 'documentacao_pendente',
-    label: 'Documentação pendente',
-    color: '#d97706',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Sua candidatura em {{processo}} possui pendências. Acesse {{link}} para verificar os itens solicitados.',
-  },
-  {
-    code: 'em_analise',
-    label: 'Em análise',
-    color: '#2563eb',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Sua candidatura em {{processo}} está em análise. Acompanhe pelo SIGEC Processos: {{link}}.',
-  },
-  {
-    code: 'habilitado',
-    label: 'Habilitado',
-    color: '#059669',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Sua documentação foi validada e você está habilitado em {{processo}}. Acompanhe: {{link}}.',
-  },
-  {
-    code: 'classificado',
-    label: 'Classificado',
-    color: '#15803d',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Você foi classificado em {{processo}}. Consulte os detalhes no SIGEC Processos: {{link}}.',
-  },
-  {
-    code: 'convocado',
-    label: 'Convocado',
-    color: '#7c3aed',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Você foi convocado em {{processo}}. Acesse {{link}} para consultar a vaga e o prazo de resposta.',
-  },
-  {
-    code: 'desclassificado',
-    label: 'Desclassificado',
-    color: '#dc2626',
-    allowsAppeal: true,
-    terminal: true,
-    whatsappTemplate: 'Olá, {{nome}}. Houve uma atualização na sua candidatura em {{processo}}. Consulte o resultado e o prazo de recurso: {{link}}.',
-  },
-  {
-    code: 'recurso',
-    label: 'Recurso',
-    color: '#0891b2',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Seu recurso em {{processo}} foi registrado. Acompanhe a análise em {{link}}.',
-  },
-  {
-    code: 'desistente',
-    label: 'Desistente',
-    color: '#64748b',
-    allowsAppeal: false,
-    terminal: true,
-    whatsappTemplate: 'Olá, {{nome}}. Sua desistência em {{processo}} foi registrada. Consulte o comprovante em {{link}}.',
-  },
-] as const
-
-export type SigecStageCode = (typeof SIGEC_DEFAULT_STAGES)[number]['code']
+/* Stage presets live in a dependency-free module so client configuration UI
+ * does not bundle the Zod schemas from this file. */
+export { SIGEC_DEFAULT_STAGES, type SigecStageCode } from './sigec-stages'
 
 export function normalizeCpf(value: string) {
   return value.replace(/\D/g, '')

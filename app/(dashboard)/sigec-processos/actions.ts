@@ -103,6 +103,40 @@ const FormConfigurationInputSchema = z.object({
   }
 })
 
+const StageInputSchema = z.object({
+  processId: z.string().uuid(),
+  stageId: OptionalIdSchema,
+  code: z.string().trim().regex(/^[a-z][a-z0-9_]*$/, 'Use letras minúsculas, números e sublinhado no código.'),
+  label: z.string().trim().min(3).max(200),
+  publicDescription: z.string().trim().min(3).max(2000),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor inválida.'),
+  position: z.coerce.number().int().min(0).max(10_000),
+  isInitial: z.boolean(),
+  isTerminal: z.boolean(),
+  allowsAppeal: z.boolean(),
+  whatsappTemplate: z.string().trim().min(10).max(2000),
+}).superRefine((input, context) => {
+  if (input.isInitial && input.isTerminal) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['isTerminal'], message: 'A etapa inicial não pode ser terminal.' })
+  }
+  const withoutAllowedPlaceholders = input.whatsappTemplate.replace(/\{\{(nome|processo|status|link|prazo)\}\}/g, '')
+  if (/\{\{|\}\}/.test(withoutAllowedPlaceholders)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['whatsappTemplate'], message: 'O template contém uma variável não permitida.' })
+  }
+})
+
+const StageTransitionInputSchema = z.object({
+  processId: z.string().uuid(),
+  transitionId: OptionalIdSchema,
+  fromStageId: z.string().uuid(),
+  toStageId: z.string().uuid(),
+  requiresReason: z.boolean(),
+  blocksOnPending: z.boolean(),
+  active: z.boolean(),
+}).refine((input) => input.fromStageId !== input.toStageId, {
+  message: 'A origem e o destino precisam ser diferentes.', path: ['toStageId'],
+})
+
 async function requireSigecManager() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -537,4 +571,100 @@ export async function deleteSigecFormConfiguration(
 
   revalidatePath(`/sigec-processos/${parsed.data.processId}`)
   return { success: 'Configuração removida.', processId: parsed.data.processId }
+}
+
+export async function upsertSigecStage(formData: FormData): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem configurar etapas.' }
+  const parsed = StageInputSchema.safeParse({
+    processId: formData.get('processId'), stageId: formData.get('stageId'),
+    code: formData.get('code'), label: formData.get('label'),
+    publicDescription: formData.get('publicDescription'), color: formData.get('color'),
+    position: formData.get('position'), isInitial: formData.getAll('isInitial').includes('true'),
+    isTerminal: formData.getAll('isTerminal').includes('true'),
+    allowsAppeal: formData.getAll('allowsAppeal').includes('true'),
+    whatsappTemplate: formData.get('whatsappTemplate'),
+  })
+  if (!parsed.success) return { error: firstValidationError(parsed.error) }
+  const input = parsed.data
+  const { error } = await adminClient.rpc('sigec_upsert_stage_configuration', {
+    p_process_id: input.processId, p_actor_id: user.id, p_code: input.code,
+    p_label: input.label, p_public_description: input.publicDescription,
+    p_color: input.color, p_position: input.position, p_is_initial: input.isInitial,
+    p_is_terminal: input.isTerminal, p_allows_appeal: input.allowsAppeal,
+    p_whatsapp_template: input.whatsappTemplate, p_stage_id: input.stageId || null,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao salvar etapa:', error.code, error.message)
+    if (error.code === '23505') return { error: 'Já existe uma etapa com esse código ou uma etapa inicial.' }
+    if (error.message.includes('SIGEC_TERMINAL_STAGE_HAS_OUTGOING_TRANSITION')) return { error: 'Remova as transições de saída antes de tornar esta etapa terminal.' }
+    if (error.message.includes('SIGEC_PROCESS_CONFIGURATION_LOCKED')) return { error: 'As etapas estão bloqueadas porque o processo não está em rascunho.' }
+    return { error: 'Não foi possível salvar a etapa.' }
+  }
+  revalidatePath(`/sigec-processos/${input.processId}`)
+  return { success: input.stageId ? 'Etapa atualizada.' : 'Etapa adicionada.', processId: input.processId }
+}
+
+export async function deleteSigecStage(processId: string, stageId: string): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem remover etapas.' }
+  const parsed = z.object({ processId: z.string().uuid(), stageId: z.string().uuid() }).safeParse({ processId, stageId })
+  if (!parsed.success) return { error: 'Etapa inválida.' }
+  const { error } = await adminClient.rpc('sigec_delete_stage_configuration', {
+    p_process_id: parsed.data.processId, p_actor_id: user.id, p_stage_id: parsed.data.stageId,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao remover etapa:', error.code, error.message)
+    if (error.message.includes('SIGEC_STAGE_IN_USE')) return { error: 'A etapa já está vinculada a candidaturas e não pode ser removida.' }
+    if (error.message.includes('SIGEC_PROCESS_CONFIGURATION_LOCKED')) return { error: 'A configuração deste processo está bloqueada.' }
+    return { error: 'Não foi possível remover a etapa.' }
+  }
+  revalidatePath(`/sigec-processos/${parsed.data.processId}`)
+  return { success: 'Etapa removida com suas transições.', processId: parsed.data.processId }
+}
+
+export async function upsertSigecStageTransition(formData: FormData): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem configurar transições.' }
+  const parsed = StageTransitionInputSchema.safeParse({
+    processId: formData.get('processId'), transitionId: formData.get('transitionId'),
+    fromStageId: formData.get('fromStageId'), toStageId: formData.get('toStageId'),
+    requiresReason: formData.getAll('requiresReason').includes('true'),
+    blocksOnPending: formData.getAll('blocksOnPending').includes('true'),
+    active: formData.getAll('active').includes('true'),
+  })
+  if (!parsed.success) return { error: firstValidationError(parsed.error) }
+  const input = parsed.data
+  const { error } = await adminClient.rpc('sigec_upsert_stage_transition', {
+    p_process_id: input.processId, p_actor_id: user.id,
+    p_from_stage_id: input.fromStageId, p_to_stage_id: input.toStageId,
+    p_requires_reason: input.requiresReason, p_blocks_on_pending: input.blocksOnPending,
+    p_active: input.active, p_transition_id: input.transitionId || null,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao salvar transição:', error.code, error.message)
+    if (error.code === '23505') return { error: 'Esta transição já existe.' }
+    if (error.message.includes('SIGEC_TERMINAL_STAGE_HAS_OUTGOING_TRANSITION')) return { error: 'Etapas terminais não podem possuir transições de saída.' }
+    if (error.message.includes('SIGEC_PROCESS_CONFIGURATION_LOCKED')) return { error: 'As transições estão bloqueadas porque o processo não está em rascunho.' }
+    return { error: 'Não foi possível salvar a transição.' }
+  }
+  revalidatePath(`/sigec-processos/${input.processId}`)
+  return { success: input.transitionId ? 'Transição atualizada.' : 'Transição adicionada.', processId: input.processId }
+}
+
+export async function deleteSigecStageTransition(processId: string, transitionId: string): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem remover transições.' }
+  const parsed = z.object({ processId: z.string().uuid(), transitionId: z.string().uuid() }).safeParse({ processId, transitionId })
+  if (!parsed.success) return { error: 'Transição inválida.' }
+  const { error } = await adminClient.rpc('sigec_delete_stage_transition', {
+    p_process_id: parsed.data.processId, p_actor_id: user.id, p_transition_id: parsed.data.transitionId,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao remover transição:', error.code, error.message)
+    if (error.message.includes('SIGEC_PROCESS_CONFIGURATION_LOCKED')) return { error: 'A configuração deste processo está bloqueada.' }
+    return { error: 'Não foi possível remover a transição.' }
+  }
+  revalidatePath(`/sigec-processos/${parsed.data.processId}`)
+  return { success: 'Transição removida.', processId: parsed.data.processId }
 }
