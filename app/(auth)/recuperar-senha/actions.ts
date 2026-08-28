@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { consumeRecoveryLimits } from '@/lib/sigec-abuse-server'
+import { getSigecAppUrl } from '@/lib/sigec-app-url'
 import { registrationSecurityConfigured } from '@/lib/sigec-registration'
 
 const emailSchema = z.string().trim().toLowerCase().email().max(320)
@@ -21,7 +22,7 @@ export async function requestPasswordReset(formData: FormData) {
   const parsed = emailSchema.safeParse(formData.get('email'))
   if (!parsed.success) return { status: 'error' as const, message: 'Informe um e-mail valido.' }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
+  const appUrl = getSigecAppUrl()
   if (!appUrl) return unavailable('app_url')
 
   const rateLimit = await consumeRecoveryLimits(parsed.data)

@@ -6,6 +6,7 @@ import {
   candidateRegistrationSchema,
 } from '@/lib/sigec-registration'
 import { consumeSignupLimits, issueCandidateSignupNonce } from '@/lib/sigec-abuse-server'
+import { getSigecAppUrl } from '@/lib/sigec-app-url'
 
 export type CandidateRegistrationResult = {
   status: 'error' | 'success' | 'unavailable'
@@ -55,7 +56,7 @@ export async function registerCandidate(formData: FormData): Promise<CandidateRe
   const signupNonce = await issueCandidateSignupNonce()
   if (!signupNonce) return { status: 'unavailable', message: 'O cadastro esta temporariamente indisponivel.' }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
+  const appUrl = getSigecAppUrl()
   if (!appUrl) {
     return { status: 'unavailable', message: 'O cadastro esta temporariamente indisponivel.' }
   }

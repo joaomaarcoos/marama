@@ -132,6 +132,30 @@ def main() -> int:
             "app/(auth)/recuperar-senha/actions.ts",
             "unavailable('rate_limit')",
         ),
+        "server_redirect_url_is_not_next_public": (
+            "lib/sigec-app-url.ts",
+            "process.env.SIGEC_APP_URL",
+        ),
+        "server_redirect_url_has_canonical_fallback": (
+            "lib/sigec-app-url.ts",
+            "https://mara.joaodantasia.com.br",
+        ),
+        "recovery_uses_validated_server_url": (
+            "app/(auth)/recuperar-senha/actions.ts",
+            "getSigecAppUrl()",
+        ),
+        "signup_uses_validated_server_url": (
+            "app/(public)/cadastro-candidato/actions.ts",
+            "getSigecAppUrl()",
+        ),
+        "docker_runner_has_server_app_url": (
+            "Dockerfile",
+            "ENV SIGEC_APP_URL=https://mara.joaodantasia.com.br",
+        ),
+        "compose_passes_server_app_url": (
+            "docker-compose.yml",
+            "SIGEC_APP_URL: ${SIGEC_APP_URL:-https://mara.joaodantasia.com.br}",
+        ),
         "signup_requires_server_nonce": (
             "app/(public)/cadastro-candidato/actions.ts",
             "issueCandidateSignupNonce()",
@@ -227,6 +251,14 @@ def main() -> int:
             "severity": "critical",
             "check": "candidate_role_not_controlled_by_public_action",
             "detail": "Public registration must not assign app_metadata or import the service-role client.",
+        })
+
+    server_app_url = read("lib/sigec-app-url.ts")
+    if "NEXT_PUBLIC_APP_URL" in server_app_url:
+        findings.append({
+            "severity": "high",
+            "check": "server_redirect_url_must_not_use_build_time_public_env",
+            "detail": "Server redirect URL resolver must not depend on a NEXT_PUBLIC build-time value.",
         })
 
     result = {"ok": not findings, "checks": len(checks) + 4, "findings": findings}
