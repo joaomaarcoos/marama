@@ -162,3 +162,64 @@ export async function archiveSigecProcess(processId: string): Promise<SigecProce
   revalidatePath(`/sigec-processos/${id.data}`)
   return { success: 'Processo arquivado.', processId: id.data }
 }
+
+export async function publishSigecProcess(processId: string): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem publicar processos.' }
+
+  const id = ProcessIdSchema.safeParse(processId)
+  if (!id.success) return { error: id.error.errors[0].message }
+
+  const { data, error } = await adminClient.rpc('sigec_publish_process', {
+    p_process_id: id.data,
+    p_actor_id: user.id,
+  })
+
+  if (error) {
+    console.error('[sigec] Falha ao publicar processo:', error.code, error.message)
+    if (error.message.includes('SIGEC_PROCESS_NOT_READY')) {
+      return { error: 'O processo ainda possui pendências de configuração.' }
+    }
+    if (error.message.includes('SIGEC_PROCESS_NOT_DRAFT')) {
+      return { error: 'Somente processos em rascunho podem ser publicados.' }
+    }
+    return { error: 'Não foi possível publicar o processo.' }
+  }
+  if (!Array.isArray(data) || data.length !== 1) {
+    return { error: 'A publicação não retornou uma confirmação válida.' }
+  }
+
+  revalidatePath('/sigec-processos')
+  revalidatePath(`/sigec-processos/${id.data}`)
+  revalidatePath('/processos')
+  return { success: 'Processo publicado com sucesso.', processId: id.data }
+}
+
+export async function closeSigecProcess(processId: string): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem encerrar processos.' }
+
+  const id = ProcessIdSchema.safeParse(processId)
+  if (!id.success) return { error: id.error.errors[0].message }
+
+  const { data, error } = await adminClient.rpc('sigec_close_process', {
+    p_process_id: id.data,
+    p_actor_id: user.id,
+  })
+
+  if (error) {
+    console.error('[sigec] Falha ao encerrar processo:', error.code, error.message)
+    if (error.message.includes('SIGEC_PROCESS_NOT_OPEN')) {
+      return { error: 'Somente processos abertos podem ser encerrados.' }
+    }
+    return { error: 'Não foi possível encerrar o processo.' }
+  }
+  if (!Array.isArray(data) || data.length !== 1) {
+    return { error: 'O encerramento não retornou uma confirmação válida.' }
+  }
+
+  revalidatePath('/sigec-processos')
+  revalidatePath(`/sigec-processos/${id.data}`)
+  revalidatePath('/processos')
+  return { success: 'Processo encerrado com sucesso.', processId: id.data }
+}

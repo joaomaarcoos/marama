@@ -1,9 +1,9 @@
 # SIGEC Processos — Handoff, status e plano de execução
 
 **Última atualização:** 28/08/2026
-**Estado geral:** fundação, classificação auditável e Gate P1 de cadastro/autenticação aprovados; cadastro público permanece fechado até existir processo real pronto para publicação
-**Fase atual:** Fase 2 iniciada na branch `codex/sigec-fase-2-configuracao-processo`; primeiro alvo: SIGEC-P2-01
-**Progresso auditado:** 20 de 88 tarefas concluídas; 68 pendentes
+**Estado geral:** fundação, classificação auditável, Gate P1 e CRUD seguro do processo aprovados; cadastro público permanece fechado até existir processo real pronto para publicação
+**Fase atual:** Fase 2 em execução na branch `codex/sigec-fase-2-configuracao-processo`; próximo alvo: SIGEC-P2-02
+**Progresso auditado:** 21 de 88 tarefas concluídas; 67 pendentes
 **Última auditoria automática:** aprovada em 28/08/2026, sem achados locais
 **Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
 
@@ -188,7 +188,7 @@ Fórmula provisória para testes internos: `nota_final = titulacao (máx. 30) + 
 
 ### Fase 2 — Configuração administrativa do processo
 
-- [ ] SIGEC-P2-01 — Criar CRUD de processo, cronograma, versão do edital e publicação.
+- [x] SIGEC-P2-01 — Criar CRUD de processo, cronograma, versão do edital e publicação. Concluído em 28/08/2026 com criação, leitura, edição e arquivamento não destrutivo de rascunhos; painel de prontidão com oito controles; publicação e encerramento atômicos, restritos ao backend, com bloqueio normativo, trava de linha e auditoria.
 - [ ] SIGEC-P2-02 — Configurar modalidade, município, curso/especialidade, requisitos e vagas.
 - [ ] SIGEC-P2-03 — Importar vagas dos anexos, normalizar nomes e gerar relatório de duplicidades antes da confirmação.
 - [ ] SIGEC-P2-04 — Configurar perguntas, documentos obrigatórios, condições PCD/PPP e modelos de declaração.
@@ -377,7 +377,8 @@ Ao concluir uma tarefa:
 | 28/08/2026 | Fechamento do SIGEC-P1-03 e Gate P1 | imagem `sistemamara:79f16ee`; serviço `mara_sistemamara`; Turnstile e recuperação no domínio oficial | deploy convergiu em 1/1 tarefa; desafio humano concluído; recuperação retornou a mensagem genérica esperada sem revelar existência de conta; P1 passou para 6/6 tarefas concluídas. O alerta de build sobre `SUPABASE_ANON_KEY` é não bloqueante porque a anon key é pública por projeto; `SUPABASE_SERVICE_ROLE_KEY` permanece somente no runtime e fora da imagem |
 | 28/08/2026 | Polimento visual pós-Gate P1 | telas de recuperação e redefinição; formulários de senha; auditoria de aplicação; renderização local | removida a dependência visual de `.bg-white`, que é remapeada globalmente para o tema escuro; painel, títulos, textos, campos, mensagens e foco agora usam contraste explícito e coerente em todo o ciclo de senha; 58 controles, TypeScript, build de 50 páginas e inspeção visual aprovados; Turnstile local recusado apenas pela restrição esperada de hostname, já validado no domínio oficial; sem alteração funcional no Auth |
 | 28/08/2026 | Abertura da Fase 2 | branch `codex/sigec-fase-2-configuracao-processo` criada a partir de `master` em `02b182e` | fase isolada conforme a estratégia de branches; nenhuma tarefa P2 marcada antecipadamente; início definido pelo SIGEC-P2-01 |
+| 28/08/2026 | SIGEC-P2-01 | migração `sigec_process_publication_gate`; CRUD e painel administrativo; `execution/test_sigec_process_management.py`; verificação remota, Advisors, auditorias, TypeScript e build | publicação exige oito controles, inclusive seis decisões normativas confirmadas; RPCs somente `service_role`; transições atômicas e auditadas; 11 cenários remotos aprovados com rollback integral; 35/35 tabelas com RLS, zero fixtures, zero achados acionáveis e build de 50 páginas aprovado |
 
 ## 9. Próxima ação recomendada
 
-Executar o SIGEC-P2-01 na branch atual: revisar e concluir o CRUD administrativo de processo, cronograma, versão do edital e publicação segura. Em seguida, avançar sequencialmente por vagas, requisitos, documentos, etapas, mensagens, pontuação e desempates versionados. Antes de abrir o cadastro público, publicar e validar um processo real pelo Gate P2. A classificação oficial continua bloqueada enquanto as decisões normativas estiverem abertas.
+Executar o SIGEC-P2-02 na branch atual: configurar modalidade, município, curso/especialidade, requisitos e vagas. Em seguida, avançar sequencialmente por importação, documentos, etapas, mensagens, pontuação e desempates versionados. Antes de abrir o cadastro público, publicar e validar um processo real pelo Gate P2. A publicação do processo e a classificação oficial continuam bloqueadas enquanto as seis decisões normativas estiverem abertas.

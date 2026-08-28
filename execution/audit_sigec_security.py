@@ -78,6 +78,14 @@ def audit(sql: str) -> dict[str, object]:
         "consent_direct_insert_revoked": r"revoke insert, update, delete on public\.sigec_consents from public, anon, authenticated",
         "consent_bundle_server_versioned": r"sigec_record_required_consents.*'edital:' \|\| v_edital_version",
         "consent_rpc_service_only": r"revoke all on function public\.sigec_record_required_consents.*from public, anon, authenticated",
+        "process_publication_readiness_gate": r"sigec_get_process_publication_readiness",
+        "process_publication_requires_normative_decisions": r"normative_decisions.*count\(\*\) = 6 and bool_and\(status = 'confirmed'\)",
+        "process_publication_row_lock": r"sigec_publish_process[\s\S]*?for update",
+        "process_publication_actor_role_check": r"actor_role not in \('admin', 'gerente'\)",
+        "process_publication_audit_event": r"'sigec\.process\.published'",
+        "process_close_audit_event": r"'sigec\.process\.closed'",
+        "process_publication_rpc_service_only": r"revoke all on function public\.sigec_publish_process.*from public, anon, authenticated",
+        "process_close_rpc_service_only": r"revoke all on function public\.sigec_close_process.*from public, anon, authenticated",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

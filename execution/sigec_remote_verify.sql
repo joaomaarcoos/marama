@@ -106,6 +106,32 @@ select json_build_object(
     select 1 from supabase_migrations.schema_migrations
     where version = '20260827225813'
   ),
+  'process_publication_gate_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828175634'
+  ),
+  'process_publication_functions_present', (
+    select count(*) = 3
+    from pg_proc procedure
+    join pg_namespace namespace on namespace.oid = procedure.pronamespace
+    where namespace.nspname = 'public'
+      and procedure.proname in (
+        'sigec_get_process_publication_readiness',
+        'sigec_publish_process',
+        'sigec_close_process'
+      )
+  ),
+  'process_publication_functions_server_only', (
+    not has_function_privilege('anon', 'public.sigec_get_process_publication_readiness(uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_get_process_publication_readiness(uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_publish_process(uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_publish_process(uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_close_process(uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_close_process(uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_get_process_publication_readiness(uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_publish_process(uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_close_process(uuid,uuid)', 'EXECUTE')
+  ),
   'consent_migrations_applied', (
     select count(*) = 3 from supabase_migrations.schema_migrations
     where version in ('20260827224616', '20260827225219', '20260827225348')

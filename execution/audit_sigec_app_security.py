@@ -64,6 +64,22 @@ def main() -> int:
             "app/(dashboard)/sigec-processos/actions.ts",
             ".eq('status', 'draft')",
         ),
+        "process_publication_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_publish_process'",
+        ),
+        "process_close_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_close_process'",
+        ),
+        "process_publication_has_readiness_panel": (
+            "app/(dashboard)/sigec-processos/[id]/page.tsx",
+            "SigecProcessPublicationPanel",
+        ),
+        "process_publication_button_fails_closed": (
+            "components/sigec-process-publication-panel.tsx",
+            "disabled={!canPublish || isPending}",
+        ),
         "candidate_registration_feature_flag": (
             "app/(public)/cadastro-candidato/actions.ts",
             "candidateRegistrationEnabled()",

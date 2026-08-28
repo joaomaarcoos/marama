@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, BookOpenCheck, CalendarDays, CircleDot, FileStack, FlaskConical, ListChecks } from 'lucide-react'
+import { ArrowLeft, FlaskConical } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { adminClient } from '@/lib/supabase/admin'
 import { SigecProcessForm } from '@/components/sigec-process-form'
 import { SigecArchiveButton } from '@/components/sigec-archive-button'
+import { SigecProcessPublicationPanel, type SigecPublicationReadiness } from '@/components/sigec-process-publication-panel'
 import { SIGEC_PROVISIONAL_SCORING } from '@/lib/sigec-scoring'
 
 export const dynamic = 'force-dynamic'
@@ -18,6 +20,7 @@ type ProcessDetail = {
   edital_version: string
   applications_open_at: string | null
   applications_close_at: string | null
+  published_at: string | null
   max_preferences: number
   updated_at: string
 }
@@ -31,23 +34,21 @@ const statusLabels: Record<ProcessDetail['status'], string> = {
 
 export default async function SigecProcessDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('sigec_processes')
-    .select('id, title, slug, summary, description, status, edital_version, applications_open_at, applications_close_at, max_preferences, updated_at')
-    .eq('id', params.id)
-    .maybeSingle()
+  const [processResult, readinessResult] = await Promise.all([
+    supabase
+      .from('sigec_processes')
+      .select('id, title, slug, summary, description, status, edital_version, applications_open_at, applications_close_at, published_at, max_preferences, updated_at')
+      .eq('id', params.id)
+      .maybeSingle(),
+    adminClient.rpc('sigec_get_process_publication_readiness', { p_process_id: params.id }),
+  ])
 
-  if (error || !data) notFound()
-  const process = data as ProcessDetail
+  if (processResult.error || !processResult.data) notFound()
+  const process = processResult.data as ProcessDetail
   const editable = process.status === 'draft'
-
-  const readiness = [
-    { label: 'Cronograma', ready: Boolean(process.applications_open_at && process.applications_close_at), icon: CalendarDays },
-    { label: 'Vagas e requisitos', ready: false, icon: ListChecks },
-    { label: 'Documentos', ready: false, icon: FileStack },
-    { label: 'Avaliação e etapas', ready: false, icon: BookOpenCheck },
-  ]
-  const readyCount = readiness.filter((item) => item.ready).length
+  const readiness = readinessResult.error
+    ? [{ code: 'readiness_unavailable', label: 'Validação indisponível', ready: false, detail: 'Aplique a migração da Fase 2 antes de publicar.' }]
+    : (readinessResult.data ?? []) as SigecPublicationReadiness[]
 
   return (
     <>
@@ -57,7 +58,9 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
             <ArrowLeft className="h-3.5 w-3.5" /> Processos
           </Link>
           <h1 className="truncate">{process.title}</h1>
-          <p className="app-subtitle">Edital {process.edital_version} · atualizado em {new Date(process.updated_at).toLocaleDateString('pt-BR')}</p>
+          <p className="app-subtitle">
+            Edital {process.edital_version} · {process.published_at ? `publicado em ${new Date(process.published_at).toLocaleDateString('pt-BR')}` : `atualizado em ${new Date(process.updated_at).toLocaleDateString('pt-BR')}`}
+          </p>
         </div>
         <div className="flex items-start gap-3">
           <span className="rounded-full px-3 py-1.5 text-xs font-bold uppercase" style={{ background: 'hsl(var(--muted))', color: 'hsl(var(--fg2))' }}>
@@ -136,29 +139,12 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
           </section>
 
           <aside className="space-y-5 xl:sticky xl:top-5">
-            <section className="rounded-xl p-5" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold" style={{ color: 'hsl(var(--fg1))' }}>Prontidão</h2>
-                <span className="font-data text-sm" style={{ color: 'hsl(var(--accent-green))' }}>{readyCount}/{readiness.length}</span>
-              </div>
-              <div className="mt-4 h-1.5 overflow-hidden rounded-full" style={{ background: 'hsl(var(--muted))' }}>
-                <div className="h-full rounded-full transition-all" style={{ width: `${(readyCount / readiness.length) * 100}%`, background: 'hsl(var(--accent-green))' }} />
-              </div>
-              <div className="mt-5 space-y-3">
-                {readiness.map(({ label, ready, icon: Icon }) => (
-                  <div key={label} className="flex items-center gap-3 text-xs" style={{ color: ready ? 'hsl(var(--fg2))' : 'hsl(var(--fg3))' }}>
-                    <Icon className="h-4 w-4" style={{ color: ready ? 'hsl(var(--accent-green))' : 'hsl(var(--fg3))' }} />
-                    <span className="flex-1">{label}</span>
-                    <CircleDot className="h-3 w-3" />
-                  </div>
-                ))}
-              </div>
-            </section>
+            <SigecProcessPublicationPanel processId={process.id} status={process.status} readiness={readiness} />
 
             <section className="rounded-xl border p-5" style={{ borderColor: 'hsl(var(--accent-amber) / .35)', background: 'hsl(var(--accent-amber) / .06)' }}>
               <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'hsl(var(--accent-amber))' }}>Publicação protegida</p>
               <p className="mt-3 text-xs leading-5" style={{ color: 'hsl(var(--fg2))' }}>
-                A rubrica provisória pode ser testada, mas pontuação e classificação continuam bloqueadas para publicação até a confirmação normativa. Este módulo ainda não publica processos.
+                A transição é atômica e auditada. Enquanto as decisões normativas estiverem pendentes, o banco rejeita a publicação mesmo que a interface seja contornada.
               </p>
             </section>
           </aside>
