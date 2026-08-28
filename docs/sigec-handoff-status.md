@@ -2,7 +2,7 @@
 
 **Última atualização:** 28/08/2026
 **Estado geral:** fundação, classificação auditável e Gate P1 de cadastro/autenticação aprovados; cadastro público permanece fechado até existir processo real pronto para publicação
-**Fase atual:** Fase 1 concluída; próxima execução é a configuração administrativa do processo (Fase 2)
+**Fase atual:** Fase 2 iniciada na branch `codex/sigec-fase-2-configuracao-processo`; primeiro alvo: SIGEC-P2-01
 **Progresso auditado:** 20 de 88 tarefas concluídas; 68 pendentes
 **Última auditoria automática:** aprovada em 28/08/2026, sem achados locais
 **Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
@@ -376,7 +376,8 @@ Ao concluir uma tarefa:
 | 28/08/2026 | Causa isolada no segundo smoke de recuperação | log do serviço `mara_sistemamara`; `lib/sigec-app-url.ts`; Dockerfile e Compose | falha confirmada na etapa `app_url`: variável pública presente no runtime, mas vazia no bundle compilado do Server Action; redirecionamentos de recuperação e cadastro migrados para `SIGEC_APP_URL` server-only, com validação de HTTPS, exceção local controlada e fallback canônico `mara.joaodantasia.com.br`; 54 controles de aplicação, plano 19/88, TypeScript e build de 50 páginas aprovados; validação dinâmica do Compose não executada porque o Docker não está instalado na estação; aguardando publicação e smoke |
 | 28/08/2026 | Fechamento do SIGEC-P1-03 e Gate P1 | imagem `sistemamara:79f16ee`; serviço `mara_sistemamara`; Turnstile e recuperação no domínio oficial | deploy convergiu em 1/1 tarefa; desafio humano concluído; recuperação retornou a mensagem genérica esperada sem revelar existência de conta; P1 passou para 6/6 tarefas concluídas. O alerta de build sobre `SUPABASE_ANON_KEY` é não bloqueante porque a anon key é pública por projeto; `SUPABASE_SERVICE_ROLE_KEY` permanece somente no runtime e fora da imagem |
 | 28/08/2026 | Polimento visual pós-Gate P1 | telas de recuperação e redefinição; formulários de senha; auditoria de aplicação; renderização local | removida a dependência visual de `.bg-white`, que é remapeada globalmente para o tema escuro; painel, títulos, textos, campos, mensagens e foco agora usam contraste explícito e coerente em todo o ciclo de senha; 58 controles, TypeScript, build de 50 páginas e inspeção visual aprovados; Turnstile local recusado apenas pela restrição esperada de hostname, já validado no domínio oficial; sem alteração funcional no Auth |
+| 28/08/2026 | Abertura da Fase 2 | branch `codex/sigec-fase-2-configuracao-processo` criada a partir de `master` em `02b182e` | fase isolada conforme a estratégia de branches; nenhuma tarefa P2 marcada antecipadamente; início definido pelo SIGEC-P2-01 |
 
 ## 9. Próxima ação recomendada
 
-Iniciar a Fase 2 em branch própria: concluir o CRUD administrativo do processo e configurar vagas, requisitos, documentos, etapas, mensagens, pontuação e desempates versionados. Antes de abrir o cadastro público, publicar e validar um processo real pelo Gate P2. A classificação oficial continua bloqueada enquanto as decisões normativas estiverem abertas.
+Executar o SIGEC-P2-01 na branch atual: revisar e concluir o CRUD administrativo de processo, cronograma, versão do edital e publicação segura. Em seguida, avançar sequencialmente por vagas, requisitos, documentos, etapas, mensagens, pontuação e desempates versionados. Antes de abrir o cadastro público, publicar e validar um processo real pelo Gate P2. A classificação oficial continua bloqueada enquanto as decisões normativas estiverem abertas.
