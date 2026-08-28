@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, FlaskConical } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
+import { extractRole } from '@/lib/roles'
 import { SigecProcessForm } from '@/components/sigec-process-form'
 import { SigecArchiveButton } from '@/components/sigec-archive-button'
 import { SigecProcessPublicationPanel, type SigecPublicationReadiness } from '@/components/sigec-process-publication-panel'
@@ -13,6 +14,12 @@ import {
 } from '@/components/sigec-vacancy-configuration'
 import { SIGEC_PROVISIONAL_SCORING } from '@/lib/sigec-scoring'
 import { SigecVacancyImportReview } from '@/components/sigec-vacancy-import-review'
+import {
+  SigecFormConfiguration,
+  type SigecDeclarationRow,
+  type SigecDocumentRow,
+  type SigecQuestionRow,
+} from '@/components/sigec-form-configuration'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,19 +47,27 @@ const statusLabels: Record<ProcessDetail['status'], string> = {
 
 export default async function SigecProcessDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createClient()
-  const [processResult, readinessResult, modalitiesResult, vacanciesResult, requirementsResult] = await Promise.all([
-    supabase
-      .from('sigec_processes')
-      .select('id, title, slug, summary, description, status, edital_version, applications_open_at, applications_close_at, published_at, max_preferences, updated_at')
-      .eq('id', params.id)
-      .maybeSingle(),
+  const { data: { user } } = await supabase.auth.getUser()
+  const role = extractRole(user)
+  if (!user || (role !== 'admin' && role !== 'gerente')) notFound()
+  const processResult = await supabase
+    .from('sigec_processes')
+    .select('id, title, slug, summary, description, status, edital_version, applications_open_at, applications_close_at, published_at, max_preferences, updated_at')
+    .eq('id', params.id)
+    .maybeSingle()
+  if (processResult.error || !processResult.data) notFound()
+
+  // Papel e RLS são confirmados antes de qualquer leitura com o cliente service-only.
+  const [readinessResult, modalitiesResult, vacanciesResult, requirementsResult, questionsResult, documentsResult, declarationsResult] = await Promise.all([
     adminClient.rpc('sigec_get_process_publication_readiness', { p_process_id: params.id }),
     supabase.from('sigec_modalities').select('id, name, slug, description').eq('process_id', params.id).order('position'),
     supabase.from('sigec_vacancies').select('id, modality_id, course_id, municipality, vacancy_kind, vacancy_count, active, course:sigec_courses(canonical_name)').eq('process_id', params.id).order('municipality'),
     supabase.from('sigec_process_course_requirements').select('course_id, accepted_education, proof_instructions').eq('process_id', params.id),
+    adminClient.from('sigec_process_questions').select('id, code, label, help_text, question_type, required, config, position').eq('process_id', params.id).order('position'),
+    adminClient.from('sigec_document_requirements').select('id, code, label, instructions, required, accepted_mime_types, max_file_size_bytes, condition_config, position').eq('process_id', params.id).order('position'),
+    adminClient.from('sigec_declaration_templates').select('id, code, label, content, version, audience, required, position').eq('process_id', params.id).eq('active', true).order('position'),
   ])
 
-  if (processResult.error || !processResult.data) notFound()
   const process = processResult.data as ProcessDetail
   const editable = process.status === 'draft'
   const readiness = readinessResult.error
@@ -70,6 +85,9 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
     course: Array.isArray(item.course) ? item.course[0] ?? null : item.course,
     requirement: requirements.get(item.course_id) ?? null,
   })) as SigecVacancyRow[]
+  const questions = (questionsResult.data ?? []) as SigecQuestionRow[]
+  const documents = (documentsResult.data ?? []) as SigecDocumentRow[]
+  const declarations = (declarationsResult.data ?? []) as SigecDeclarationRow[]
 
   return (
     <>
@@ -176,6 +194,13 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
           editable={editable}
           modalities={modalities}
           vacancies={vacancies}
+        />
+        <SigecFormConfiguration
+          processId={process.id}
+          editable={editable}
+          questions={questions}
+          documents={documents}
+          declarations={declarations}
         />
       </div>
     </>

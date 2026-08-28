@@ -68,6 +68,41 @@ const VacancyImportSchema = z.object({
   rows: z.array(VacancyImportRowSchema).min(1).max(1000),
 })
 
+const FormConfigurationKindSchema = z.enum(['question', 'document', 'declaration'])
+const FormAudienceSchema = z.enum(['all', 'pcd', 'ppp', 'pcd_or_ppp'])
+const FormConfigurationInputSchema = z.object({
+  processId: z.string().uuid(),
+  itemId: OptionalIdSchema,
+  kind: FormConfigurationKindSchema,
+  code: z.string().trim().regex(/^[a-z][a-z0-9_]*$/, 'Use letras minúsculas, números e sublinhado no código.'),
+  label: z.string().trim().min(3).max(200),
+  details: z.string().trim().max(20_000).optional().default(''),
+  required: z.boolean(),
+  position: z.coerce.number().int().min(0).max(10_000),
+  audience: FormAudienceSchema,
+  questionType: z.enum(['short_text', 'long_text', 'single_choice', 'multiple_choice', 'boolean', 'number', 'date']).optional(),
+  options: z.string().trim().max(10_000).optional().default(''),
+  acceptedMimeTypes: z.array(z.enum(['application/pdf', 'image/jpeg', 'image/png'])).max(3).optional(),
+  maxFileSizeMb: z.coerce.number().int().min(1).max(50).optional(),
+  version: z.string().trim().max(50).optional(),
+}).superRefine((input, context) => {
+  if (input.kind === 'question' && !input.questionType) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['questionType'], message: 'Informe o tipo da pergunta.' })
+  }
+  if (input.kind === 'question' && ['single_choice', 'multiple_choice'].includes(input.questionType || '')) {
+    const options = input.options.split(/\r?\n/).map((option) => option.trim()).filter(Boolean)
+    if (options.length < 2 || new Set(options).size !== options.length) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['options'], message: 'Informe ao menos duas opções diferentes, uma por linha.' })
+    }
+  }
+  if (input.kind === 'document' && (!input.acceptedMimeTypes?.length || !input.maxFileSizeMb)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['acceptedMimeTypes'], message: 'Informe formatos aceitos e tamanho máximo.' })
+  }
+  if (input.kind === 'declaration' && (input.details.length < 10 || !input.version?.trim())) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['details'], message: 'Informe o texto e a versão da declaração.' })
+  }
+})
+
 async function requireSigecManager() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -412,4 +447,94 @@ export async function confirmSigecVacancyImport(processId: string, payload: stri
 
   revalidatePath(`/sigec-processos/${id.data}`)
   return { success: `${imported} vagas importadas com sucesso.`, processId: id.data }
+}
+
+export async function upsertSigecFormConfiguration(formData: FormData): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem configurar o formulário.' }
+
+  const parsed = FormConfigurationInputSchema.safeParse({
+    processId: formData.get('processId'),
+    itemId: formData.get('itemId'),
+    kind: formData.get('kind'),
+    code: formData.get('code'),
+    label: formData.get('label'),
+    details: formData.get('details') || '',
+    required: formData.getAll('required').includes('true'),
+    position: formData.get('position'),
+    audience: formData.get('audience'),
+    questionType: formData.get('questionType') || undefined,
+    options: formData.get('options') || '',
+    acceptedMimeTypes: formData.getAll('acceptedMimeTypes'),
+    maxFileSizeMb: formData.get('maxFileSizeMb') || undefined,
+    version: formData.get('version') || undefined,
+  })
+  if (!parsed.success) return { error: firstValidationError(parsed.error) }
+
+  const input = parsed.data
+  const config: Record<string, unknown> = { audience: input.audience }
+  if (input.kind === 'question') {
+    config.questionType = input.questionType
+    if (['single_choice', 'multiple_choice'].includes(input.questionType || '')) {
+      config.options = input.options.split(/\r?\n/).map((option) => option.trim()).filter(Boolean)
+    }
+  } else if (input.kind === 'document') {
+    config.acceptedMimeTypes = input.acceptedMimeTypes
+    config.maxFileSizeBytes = (input.maxFileSizeMb || 1) * 1024 * 1024
+  } else {
+    config.version = input.version
+  }
+
+  const { error } = await adminClient.rpc('sigec_upsert_form_configuration', {
+    p_process_id: input.processId,
+    p_actor_id: user.id,
+    p_kind: input.kind,
+    p_code: input.code,
+    p_label: input.label,
+    p_details: input.details || null,
+    p_required: input.required,
+    p_position: input.position,
+    p_config: config,
+    p_item_id: input.itemId || null,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao salvar configuração do formulário:', error.code, error.message)
+    if (error.code === '23505') return { error: 'Já existe um item com esse código no grupo.' }
+    if (error.message.includes('SIGEC_PROCESS_CONFIGURATION_LOCKED')) return { error: 'A configuração foi bloqueada porque o processo não está em rascunho.' }
+    return { error: 'Não foi possível salvar este item do formulário.' }
+  }
+
+  revalidatePath(`/sigec-processos/${input.processId}`)
+  return { success: input.itemId ? 'Configuração atualizada.' : 'Configuração adicionada.', processId: input.processId }
+}
+
+export async function deleteSigecFormConfiguration(
+  processId: string,
+  kind: string,
+  itemId: string
+): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem remover configurações.' }
+  const parsed = z.object({
+    processId: z.string().uuid(),
+    kind: FormConfigurationKindSchema,
+    itemId: z.string().uuid(),
+  }).safeParse({ processId, kind, itemId })
+  if (!parsed.success) return { error: 'Item de configuração inválido.' }
+
+  const { error } = await adminClient.rpc('sigec_delete_form_configuration', {
+    p_process_id: parsed.data.processId,
+    p_actor_id: user.id,
+    p_kind: parsed.data.kind,
+    p_item_id: parsed.data.itemId,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao remover configuração do formulário:', error.code, error.message)
+    if (error.message.includes('SIGEC_PROCESS_CONFIGURATION_LOCKED')) return { error: 'A configuração deste processo está bloqueada.' }
+    if (error.message.includes('SIGEC_FORM_ITEM_IN_USE')) return { error: 'Este item já está vinculado a candidaturas e não pode ser removido.' }
+    return { error: 'Não foi possível remover este item.' }
+  }
+
+  revalidatePath(`/sigec-processos/${parsed.data.processId}`)
+  return { success: 'Configuração removida.', processId: parsed.data.processId }
 }

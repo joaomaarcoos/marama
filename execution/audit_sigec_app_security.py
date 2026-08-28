@@ -104,6 +104,22 @@ def main() -> int:
             "components/sigec-vacancy-import-review.tsx",
             "disabled={isPending || analysis.flagged.length > 0}",
         ),
+        "form_configuration_server_revalidates_input": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "FormConfigurationInputSchema.safeParse",
+        ),
+        "form_configuration_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_form_configuration'",
+        ),
+        "form_configuration_is_draft_only": (
+            "supabase/migrations/20260828223251_sigec_form_configuration.sql",
+            "private.sigec_assert_draft_process_manager",
+        ),
+        "declaration_read_requires_manager_rls_first": (
+            "app/(dashboard)/sigec-processos/[id]/page.tsx",
+            "role !== 'admin' && role !== 'gerente'",
+        ),
         "candidate_registration_feature_flag": (
             "app/(public)/cadastro-candidato/actions.ts",
             "candidateRegistrationEnabled()",

@@ -88,6 +88,14 @@ def main() -> int:
             raise AssertionError("publication_rpc_privileges_invalid")
         checks.append("publication_rpc_is_service_only")
 
+        cursor.execute("""select
+          not has_function_privilege('anon','public.sigec_upsert_form_configuration(uuid,uuid,text,text,text,text,boolean,integer,jsonb,uuid)','EXECUTE'),
+          not has_function_privilege('authenticated','public.sigec_upsert_form_configuration(uuid,uuid,text,text,text,text,boolean,integer,jsonb,uuid)','EXECUTE'),
+          has_function_privilege('service_role','public.sigec_upsert_form_configuration(uuid,uuid,text,text,text,text,boolean,integer,jsonb,uuid)','EXECUTE')""")
+        if cursor.fetchone() != (True, True, True):
+            raise AssertionError("form_configuration_rpc_privileges_invalid")
+        checks.append("form_configuration_rpc_is_service_only")
+
         cursor.execute("set local role authenticated")
         expect_error(cursor, "authenticated_role_cannot_publish",
                      "select * from public.sigec_publish_process(%s,%s)",
@@ -138,7 +146,31 @@ def main() -> int:
         expect_error(cursor, "modality_with_vacancy_cannot_be_deleted",
                      "select public.sigec_delete_process_modality(%s,%s,%s)",
                      (process_id, manager_id, modality_id), "SIGEC_MODALITY_HAS_VACANCIES")
-        cursor.execute("insert into public.sigec_document_requirements (process_id,code,label,required) values (%s,'diploma','Diploma',true)", (process_id,))
+        form_rpc = "select public.sigec_upsert_form_configuration(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        cursor.execute(form_rpc, (process_id, manager_id, "question", "declaracao_pcd",
+                                  "Você concorre às vagas PCD?", "Selecione uma opção.", True, 10,
+                                  Json({"audience": "all", "questionType": "boolean"}), None))
+        question_id = cursor.fetchone()[0]
+        cursor.execute(form_rpc, (process_id, manager_id, "question", "declaracao_pcd",
+                                  "Deseja concorrer às vagas PCD?", "A comprovação será analisada.", True, 10,
+                                  Json({"audience": "all", "questionType": "boolean"}), question_id))
+        cursor.execute(form_rpc, (process_id, manager_id, "document", "diploma",
+                                  "Diploma", "Apresente arquivo legível.", True, 20,
+                                  Json({"audience": "all", "acceptedMimeTypes": ["application/pdf"],
+                                        "maxFileSizeBytes": 10 * 1024 * 1024}), None))
+        cursor.execute(form_rpc, (process_id, manager_id, "declaration", "autodeclaracao_pcd",
+                                  "Autodeclaração PCD", "Texto provisório para teste isolado do processo.", True, 30,
+                                  Json({"audience": "pcd", "version": "teste-1"}), None))
+        cursor.execute(form_rpc, (process_id, manager_id, "declaration", "autodeclaracao_ppp",
+                                  "Autodeclaração PPP", "Texto provisório para teste isolado do processo.", True, 40,
+                                  Json({"audience": "ppp", "version": "teste-1"}), None))
+        cursor.execute(form_rpc, (process_id, manager_id, "question", "temporaria",
+                                  "Pergunta temporária", None, False, 99,
+                                  Json({"audience": "all", "questionType": "short_text"}), None))
+        disposable_question_id = cursor.fetchone()[0]
+        cursor.execute("select public.sigec_delete_form_configuration(%s,%s,%s,%s)",
+                       (process_id, manager_id, "question", disposable_question_id))
+        checks.append("form_configuration_crud_is_scoped_and_audited")
         cursor.execute("""insert into public.sigec_process_stages
           (process_id,code,label,position,is_terminal) values
           (%s,'em_analise','Em análise',1,false),(%s,'encerrado','Encerrado',2,true)""", (process_id, process_id))
@@ -164,6 +196,10 @@ def main() -> int:
         expect_error(cursor, "published_configuration_is_locked",
                      "select public.sigec_upsert_process_modality(%s,%s,%s,%s,%s,%s)",
                      (process_id, manager_id, "Bloqueada", "bloqueada", None, None),
+                     "SIGEC_PROCESS_CONFIGURATION_LOCKED")
+        expect_error(cursor, "published_form_configuration_is_locked", form_rpc,
+                     (process_id, manager_id, "question", "bloqueada", "Pergunta bloqueada", None,
+                      False, 100, Json({"audience": "all", "questionType": "short_text"}), None),
                      "SIGEC_PROCESS_CONFIGURATION_LOCKED")
 
         cursor.execute("set local role anon")

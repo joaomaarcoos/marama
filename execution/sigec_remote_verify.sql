@@ -5,6 +5,7 @@ with expected(table_name) as (
     ('sigec_candidate_experience'), ('sigec_processes'), ('sigec_modalities'),
     ('sigec_courses'), ('sigec_process_course_requirements'), ('sigec_vacancies'),
     ('sigec_process_questions'), ('sigec_document_requirements'),
+    ('sigec_declaration_templates'),
     ('sigec_process_stages'), ('sigec_scoring_criteria'), ('sigec_applications'),
     ('sigec_application_preferences'), ('sigec_application_answers'),
     ('sigec_application_documents'), ('sigec_application_status_history'),
@@ -155,6 +156,24 @@ select json_build_object(
     not has_function_privilege('anon', 'public.sigec_confirm_vacancy_import(uuid,uuid,text,jsonb)', 'EXECUTE')
     and not has_function_privilege('authenticated', 'public.sigec_confirm_vacancy_import(uuid,uuid,text,jsonb)', 'EXECUTE')
     and has_function_privilege('service_role', 'public.sigec_confirm_vacancy_import(uuid,uuid,text,jsonb)', 'EXECUTE')
+  ),
+  'form_configuration_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828223251'
+  ),
+  'form_configuration_functions_server_only', (
+    not has_function_privilege('anon', 'public.sigec_upsert_form_configuration(uuid,uuid,text,text,text,text,boolean,integer,jsonb,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_form_configuration(uuid,uuid,text,text,text,text,boolean,integer,jsonb,uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_delete_form_configuration(uuid,uuid,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_delete_form_configuration(uuid,uuid,text,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_form_configuration(uuid,uuid,text,text,text,text,boolean,integer,jsonb,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_delete_form_configuration(uuid,uuid,text,uuid)', 'EXECUTE')
+  ),
+  'declaration_templates_service_only', not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public'
+      and table_name = 'sigec_declaration_templates'
+      and grantee in ('anon', 'authenticated')
   ),
   'consent_migrations_applied', (
     select count(*) = 3 from supabase_migrations.schema_migrations

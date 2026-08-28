@@ -15,7 +15,7 @@ from pathlib import Path
 
 def audit(sql: str) -> dict[str, object]:
     normalized = re.sub(r"\s+", " ", sql.lower())
-    tables = sorted(set(re.findall(r"create table public\.(sigec_[a-z0-9_]+)", normalized)))
+    tables = sorted(set(re.findall(r"create table(?: if not exists)? public\.(sigec_[a-z0-9_]+)", normalized)))
     rls_tables = sorted(
         set(re.findall(r"alter table public\.(sigec_[a-z0-9_]+) enable row level security", normalized))
     )
@@ -94,6 +94,12 @@ def audit(sql: str) -> dict[str, object]:
         "vacancy_import_existing_conflict_gate": r"SIGEC_IMPORT_CONFLICTS_EXISTING",
         "vacancy_import_draft_lock": r"sigec_confirm_vacancy_import[\s\S]*?sigec_assert_draft_process_manager",
         "vacancy_import_rpc_service_only": r"revoke all on function public\.sigec_confirm_vacancy_import.*from public, anon, authenticated",
+        "form_configuration_draft_lock": r"sigec_upsert_form_configuration[\s\S]*?sigec_assert_draft_process_manager",
+        "form_configuration_rpc_service_only": r"revoke all on function public\.sigec_upsert_form_configuration.*from public, anon, authenticated",
+        "form_configuration_delete_service_only": r"revoke all on function public\.sigec_delete_form_configuration.*from public, anon, authenticated",
+        "declaration_templates_service_only": r"revoke all on public\.sigec_declaration_templates from public, anon, authenticated",
+        "form_audience_allowlist": r"v_audience not in \('all', 'pcd', 'ppp', 'pcd_or_ppp'\)",
+        "document_mime_allowlist": r"mime_types.*?<@ array\['application/pdf', 'image/jpeg', 'image/png'\]",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

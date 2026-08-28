@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -65,6 +66,16 @@ def credential_args(values: dict[str, str]) -> tuple[list[str], str]:
 
 def sanitized(text: str, secret: str) -> str:
     return text.replace(secret, "[REDACTED]") if secret else text
+
+
+def validation_sql(contents: str) -> str:
+    """Remove migration-level transaction controls before the outer rollback.
+
+    A COMMIT inside a migration would otherwise escape the validation
+    transaction and persist objects while still reporting ``rolledBack``.
+    PL/pgSQL blocks use ``begin`` without a semicolon and are preserved.
+    """
+    return re.sub(r"(?im)^\s*(?:begin|commit|rollback)\s*;\s*$", "", contents)
 
 
 def main() -> int:
@@ -146,7 +157,8 @@ def main() -> int:
                 validation_file = workdir / "sigec_pending_validation.sql"
                 validation_parts = ["begin;"]
                 for migration_name in expected:
-                    validation_parts.append((migration_dir / migration_name).read_text(encoding="utf-8"))
+                    migration_sql = (migration_dir / migration_name).read_text(encoding="utf-8")
+                    validation_parts.append(validation_sql(migration_sql))
                 validation_parts.append("rollback;")
                 validation_file.write_text("\n\n".join(validation_parts), encoding="utf-8")
                 if not secret.startswith(("postgres://", "postgresql://")):
