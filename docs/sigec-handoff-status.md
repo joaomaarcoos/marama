@@ -1,9 +1,9 @@
 # SIGEC Processos — Handoff, status e plano de execução
 
 **Última atualização:** 28/08/2026
-**Estado geral:** fundação, classificação auditável e cadastro-base do candidato ativados no Supabase; cadastro público permanece fechado até concluir o Gate P1
-**Fase atual:** cadastro e autenticação do candidato + configuração administrativa local
-**Progresso auditado:** 19 de 88 tarefas concluídas; 69 pendentes
+**Estado geral:** fundação, classificação auditável e Gate P1 de cadastro/autenticação aprovados; cadastro público permanece fechado até existir processo real pronto para publicação
+**Fase atual:** Fase 1 concluída; próxima execução é a configuração administrativa do processo (Fase 2)
+**Progresso auditado:** 20 de 88 tarefas concluídas; 68 pendentes
 **Última auditoria automática:** aprovada em 28/08/2026, sem achados locais
 **Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
 
@@ -37,10 +37,10 @@ Regra de precedência atual: SIGDOC prevalece; o edital antigo serve para aponta
 ### Ainda não operacional
 
 - A fundação está aplicada no Supabase configurado desde 27/08/2026, mas ainda não há processo real configurado ou publicado.
-- O cadastro, a confirmação de e-mail, o rate limit persistente e a verificação protegida do WhatsApp estão implementados. A chave `SIGEC_CANDIDATE_REGISTRATION_ENABLED` permanece desativada até cadastrar os dois segredos exclusivos do SIGEC e concluir os testes externos do Gate P1.
-- **Incidente operacional preventivo (28/08/2026):** o Supabase Auth exige CAPTCHA, mas a versão atualmente publicada em `mara.joaodantasia.com.br/login` ainda não carrega o widget. Até publicar esta branch, desativar temporariamente o CAPTCHA no painel do Supabase evita bloquear o login atual. Na promoção, publicar a aplicação primeiro, reativar o CAPTCHA e executar o smoke oficial imediatamente.
+- O cadastro, a confirmação de e-mail, a recuperação de senha, o rate limit persistente e a verificação protegida do WhatsApp estão implementados e tiveram seus testes externos aprovados. A chave `SIGEC_CANDIDATE_REGISTRATION_ENABLED` permanece desativada por decisão de lançamento até existir um processo real validado e publicado.
+- **Incidente operacional encerrado (28/08/2026):** login e recuperação carregam o Turnstile no domínio oficial; o Supabase aceita o token e a recuperação retorna a resposta genérica anti-enumeração. O CAPTCHA permanece habilitado.
 - As páginas são estruturas iniciais; não existe ainda fluxo completo de perfil, inscrição, análise, pontuação, classificação, recurso, convocação ou WhatsApp transacional.
-- A Fase 0 está consolidada em `master`; a Fase 1 está em desenvolvimento na branch `codex/sigec-fase-1-cadastro-auth` e ainda não atingiu seu gate de publicação.
+- As Fases 0 e 1 estão consolidadas em `master`; a branch `codex/sigec-fase-1-cadastro-auth` preserva o histórico da fase concluída.
 
 ## 3. Regras extraídas do Edital Nº 01/2026
 
@@ -179,12 +179,12 @@ Fórmula provisória para testes internos: `nota_final = titulacao (máx. 30) + 
 
 - [x] SIGEC-P1-01 — Implementar cadastro com e-mail, senha forte e papel `candidato` atribuído somente pelo backend. Concluído em 27/08/2026 com validação duplicada em aplicação/banco, atribuição pós-inserção em `app_metadata`, perfil atômico, resposta anti-enumeração e liberação controlada por feature flag fechada.
 - [x] SIGEC-P1-02 — Implementar confirmação de e-mail, recuperação de senha e revogação de sessões quando necessário. Concluído em 27/08/2026 com callback PKCE, allowlist de redirecionamento, recuperação anti-enumeração, política de senha compartilhada e logout global após alteração.
-- [ ] SIGEC-P1-03 — Implementar CAPTCHA e rate limit por IP, e-mail e telefone. **Implementação técnica concluída em 27/08/2026:** widget Turnstile no cadastro, login e recuperação; token enviado ao Supabase Auth; buckets atômicos com identificadores em HMAC e nonce server-only contra bypass direto. Sitekey, segredo HMAC local, exigência do CAPTCHA no Supabase e gate de prontidão confirmados por teste. **Smoke oficial parcial em 28/08/2026:** widget carregado no login e token aceito pelo Supabase; saúde e guardas de rota aprovadas. O log seguro isolou a falha em `app_url`: `NEXT_PUBLIC_APP_URL` foi embutida vazia no build apesar de existir no runtime. A correção em validação usa `SIGEC_APP_URL` somente no servidor, validada e com o domínio oficial como fallback; repetir o smoke após a publicação para concluir.
+- [x] SIGEC-P1-03 — Implementar CAPTCHA e rate limit por IP, e-mail e telefone. Concluído em 28/08/2026 com Turnstile no cadastro, login e recuperação; token enviado ao Supabase Auth; buckets atômicos com identificadores em HMAC e nonce server-only contra bypass direto; URL de redirecionamento server-only validada. O smoke oficial confirmou login protegido e recuperação com resposta genérica anti-enumeração no domínio `mara.joaodantasia.com.br`.
 - [x] SIGEC-P1-04 — Implementar verificação do WhatsApp com código expirável, limite de tentativas e armazenamento protegido. Concluído em 28/08/2026 com OTP de seis dígitos em HMAC, expiração de 10 minutos, cinco tentativas, invalidação de códigos anteriores, rate limit por IP/usuário/telefone, vínculo ao próprio candidato, reset ao mudar o número e envio pela Evolution. Nove cenários remotos e entrega real para número autorizado foram aprovados; o perfil foi marcado atomicamente e toda a fixture foi removida apó a confirmação.
 - [x] SIGEC-P1-05 — Registrar aceite versionado do edital, veracidade, requisitos e LGPD. Concluído em 27/08/2026 com pacote atômico e idempotente vinculado à candidatura, versões derivadas no servidor, evidências de IP/user-agent em HMAC, bloqueio de inserção direta e preservação dos aceites anteriores após retificação.
 - [x] SIGEC-P1-06 — Testar enumeração de contas, força bruta, replay de código e redirecionamentos por papel. Concluído em 27/08/2026 com respostas anti-enumeração auditadas, rate limit atômico, nonce de uso único, rejeição explícita de replay do OTP e 10 cenários HTTP cobrindo candidato, admin, gerente, atendente, conta sem papel e anônimo.
 
-**Gate P1:** candidato confirmado acessa somente sua área e seus próprios dados; tentativas abusivas são limitadas e auditadas.
+**Gate P1:** aprovado em 28/08/2026. Candidato confirmado acessa somente sua área e seus próprios dados; tentativas abusivas são limitadas e auditadas; login, recuperação e Turnstile foram validados em produção; cadastro público continua fechado até o Gate P2.
 
 ### Fase 2 — Configuração administrativa do processo
 
@@ -374,7 +374,8 @@ Ao concluir uma tarefa:
 | 28/08/2026 | Promoção e smoke oficial do P1 (parcial) | commit `fce8d5a`; `master`; `mara.joaodantasia.com.br`; navegador e HTTP | `/login` com Turnstile e token aceito, `/api/health` 200, cadastro fechado e guardas 307/401 aprovadas; o contêiner atual confirmou todas as variáveis obrigatórias, mas `/recuperar-senha` ainda responde indisponível; P1-03 mantido pendente |
 | 28/08/2026 | Diagnóstico da recuperação em produção | `lib/sigec-abuse-server.ts`; Server Action de recuperação; auditorias; testes remotos; verificação do banco; build | o teste avulso sem espera explícita não produziu evidência conclusiva; consumo dos buckets alterado para sequência determinística e logs restritos a etapa, bucket e código técnico, sem e-mail, IP, digest ou segredo; 48 controles de aplicação, plano 19/88, TypeScript, quatro cenários remotos de abuso com fixtures removidas, oito verificações de prontidão, 35/35 tabelas RLS e build de 50 páginas aprovados; aguardando nova publicação e smoke |
 | 28/08/2026 | Causa isolada no segundo smoke de recuperação | log do serviço `mara_sistemamara`; `lib/sigec-app-url.ts`; Dockerfile e Compose | falha confirmada na etapa `app_url`: variável pública presente no runtime, mas vazia no bundle compilado do Server Action; redirecionamentos de recuperação e cadastro migrados para `SIGEC_APP_URL` server-only, com validação de HTTPS, exceção local controlada e fallback canônico `mara.joaodantasia.com.br`; 54 controles de aplicação, plano 19/88, TypeScript e build de 50 páginas aprovados; validação dinâmica do Compose não executada porque o Docker não está instalado na estação; aguardando publicação e smoke |
+| 28/08/2026 | Fechamento do SIGEC-P1-03 e Gate P1 | imagem `sistemamara:79f16ee`; serviço `mara_sistemamara`; Turnstile e recuperação no domínio oficial | deploy convergiu em 1/1 tarefa; desafio humano concluído; recuperação retornou a mensagem genérica esperada sem revelar existência de conta; P1 passou para 6/6 tarefas concluídas. O alerta de build sobre `SUPABASE_ANON_KEY` é não bloqueante porque a anon key é pública por projeto; `SUPABASE_SERVICE_ROLE_KEY` permanece somente no runtime e fora da imagem |
 
 ## 9. Próxima ação recomendada
 
-Concluir o P1 antes de iniciar o P2: validar a correção determinística do rate limit, publicar a nova revisão e repetir o smoke de recuperação no hostname oficial. As variáveis do contêiner, o CAPTCHA, o gate local de prontidão e a entrega OTP real já estão confirmados. A publicação de classificação permanece bloqueada enquanto as decisões normativas estiverem abertas, e o cadastro público permanece fechado até o Gate P1.
+Iniciar a Fase 2 em branch própria: concluir o CRUD administrativo do processo e configurar vagas, requisitos, documentos, etapas, mensagens, pontuação e desempates versionados. Antes de abrir o cadastro público, publicar e validar um processo real pelo Gate P2. A classificação oficial continua bloqueada enquanto as decisões normativas estiverem abertas.
