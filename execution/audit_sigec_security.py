@@ -86,6 +86,10 @@ def audit(sql: str) -> dict[str, object]:
         "process_close_audit_event": r"'sigec\.process\.closed'",
         "process_publication_rpc_service_only": r"revoke all on function public\.sigec_publish_process.*from public, anon, authenticated",
         "process_close_rpc_service_only": r"revoke all on function public\.sigec_close_process.*from public, anon, authenticated",
+        "process_configuration_draft_lock": r"sigec_assert_draft_process_manager[\s\S]*?process_status <> 'draft'",
+        "modality_process_scope": r"sigec_upsert_process_modality[\s\S]*?modality\.process_id = p_process_id",
+        "vacancy_configuration_atomic_requirement": r"sigec_upsert_vacancy_configuration[\s\S]*?on conflict \(process_id, course_id\) do update",
+        "vacancy_configuration_rpc_service_only": r"revoke all on function public\.sigec_upsert_vacancy_configuration.*from public, anon, authenticated",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

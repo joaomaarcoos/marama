@@ -96,17 +96,29 @@ def main() -> int:
                      "select * from public.sigec_publish_process(%s,%s)",
                      (process_id, manager_id), "SIGEC_PROCESS_NOT_READY")
 
-        cursor.execute("insert into public.sigec_courses (canonical_name,normalized_name) values (%s,%s) returning id",
-                       (f"Curso sintético P2 {run_id}", f"CURSO SINTETICO P2 {run_id.upper()}"))
-        course_id = cursor.fetchone()[0]
-        cursor.execute("insert into public.sigec_modalities (process_id,name,slug) values (%s,'Professor Formador','professor-formador') returning id", (process_id,))
+        cursor.execute("select public.sigec_upsert_process_modality(%s,%s,%s,%s,%s,%s)",
+                       (process_id, manager_id, "Professor Formador", "professor-formador", "Modalidade sintética.", None))
         modality_id = cursor.fetchone()[0]
-        cursor.execute("""insert into public.sigec_process_course_requirements
-          (process_id,course_id,accepted_education,proof_instructions)
-          values (%s,%s,'Licenciatura compatível.','Apresentar diploma legível.')""", (process_id, course_id))
-        cursor.execute("""insert into public.sigec_vacancies
-          (process_id,modality_id,course_id,municipality,vacancy_kind)
-          values (%s,%s,%s,'São Luís','cadastro_reserva')""", (process_id, modality_id, course_id))
+        cursor.execute("select public.sigec_upsert_process_modality(%s,%s,%s,%s,%s,%s)",
+                       (process_id, manager_id, "Modalidade temporária", "modalidade-temporaria", None, None))
+        disposable_modality_id = cursor.fetchone()[0]
+        cursor.execute("select public.sigec_delete_process_modality(%s,%s,%s)",
+                       (process_id, manager_id, disposable_modality_id))
+        checks.append("modality_crud_is_scoped_and_audited")
+
+        cursor.execute("select public.sigec_upsert_vacancy_configuration(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                       (process_id, manager_id, modality_id, f"Curso sintético P2 {run_id}",
+                        "São Luís", "Licenciatura compatível.", "Apresentar diploma legível.",
+                        "cadastro_reserva", None, True, None))
+        vacancy_id = cursor.fetchone()[0]
+        cursor.execute("select public.sigec_upsert_vacancy_configuration(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                       (process_id, manager_id, modality_id, f"Curso sintético P2 {run_id}",
+                        "São Luís", "Licenciatura plena compatível.", "Diploma legível e reconhecido.",
+                        "quantidade", 2, True, vacancy_id))
+        checks.append("vacancy_and_requirement_upsert_is_atomic")
+        expect_error(cursor, "modality_with_vacancy_cannot_be_deleted",
+                     "select public.sigec_delete_process_modality(%s,%s,%s)",
+                     (process_id, manager_id, modality_id), "SIGEC_MODALITY_HAS_VACANCIES")
         cursor.execute("insert into public.sigec_document_requirements (process_id,code,label,required) values (%s,'diploma','Diploma',true)", (process_id,))
         cursor.execute("""insert into public.sigec_process_stages
           (process_id,code,label,position,is_terminal) values
@@ -129,6 +141,11 @@ def main() -> int:
         if published[1] != "open" or published[2] is None:
             raise AssertionError("publication_transition_invalid")
         checks.append("complete_process_published")
+
+        expect_error(cursor, "published_configuration_is_locked",
+                     "select public.sigec_upsert_process_modality(%s,%s,%s,%s,%s,%s)",
+                     (process_id, manager_id, "Bloqueada", "bloqueada", None, None),
+                     "SIGEC_PROCESS_CONFIGURATION_LOCKED")
 
         cursor.execute("set local role anon")
         cursor.execute("select count(*) from public.sigec_processes where id=%s and status='open'", (process_id,))

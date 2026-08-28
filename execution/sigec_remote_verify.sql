@@ -132,6 +132,21 @@ select json_build_object(
     and has_function_privilege('service_role', 'public.sigec_publish_process(uuid,uuid)', 'EXECUTE')
     and has_function_privilege('service_role', 'public.sigec_close_process(uuid,uuid)', 'EXECUTE')
   ),
+  'vacancy_configuration_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828200406'
+  ),
+  'vacancy_configuration_functions_server_only', (
+    not has_function_privilege('anon', 'public.sigec_upsert_process_modality(uuid,uuid,text,text,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_process_modality(uuid,uuid,text,text,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_delete_process_modality(uuid,uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_delete_process_modality(uuid,uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_upsert_vacancy_configuration(uuid,uuid,uuid,text,text,text,text,text,integer,boolean,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_vacancy_configuration(uuid,uuid,uuid,text,text,text,text,text,integer,boolean,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_process_modality(uuid,uuid,text,text,text,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_delete_process_modality(uuid,uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_vacancy_configuration(uuid,uuid,uuid,text,text,text,text,text,integer,boolean,uuid)', 'EXECUTE')
+  ),
   'consent_migrations_applied', (
     select count(*) = 3 from supabase_migrations.schema_migrations
     where version in ('20260827224616', '20260827225219', '20260827225348')

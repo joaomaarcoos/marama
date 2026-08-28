@@ -14,6 +14,41 @@ export type SigecProcessActionState = {
 }
 
 const ProcessIdSchema = z.string().uuid('Processo inválido.')
+const OptionalIdSchema = z.preprocess(
+  (value) => typeof value === 'string' && value.trim() ? value.trim() : undefined,
+  z.string().uuid().optional()
+)
+
+const ModalityInputSchema = z.object({
+  processId: z.string().uuid(),
+  modalityId: OptionalIdSchema,
+  name: z.string().trim().min(2).max(120),
+  slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  description: z.string().trim().max(2000).optional(),
+})
+
+const VacancyInputSchema = z.object({
+  processId: z.string().uuid(),
+  vacancyId: OptionalIdSchema,
+  modalityId: z.string().uuid(),
+  courseName: z.string().trim().min(3).max(200),
+  municipality: z.string().trim().min(2).max(160),
+  acceptedEducation: z.string().trim().min(3).max(4000),
+  proofInstructions: z.string().trim().min(3).max(4000),
+  vacancyKind: z.enum(['cadastro_reserva', 'quantidade']),
+  vacancyCount: z.preprocess(
+    (value) => value === '' || value === null ? undefined : value,
+    z.coerce.number().int().positive().optional()
+  ),
+  active: z.preprocess((value) => value === 'true' || value === true, z.boolean()),
+}).superRefine((input, context) => {
+  if (input.vacancyKind === 'quantidade' && !input.vacancyCount) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['vacancyCount'], message: 'Informe a quantidade de vagas.' })
+  }
+  if (input.vacancyKind === 'cadastro_reserva' && input.vacancyCount) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['vacancyCount'], message: 'Cadastro de reserva não possui quantidade.' })
+  }
+})
 
 async function requireSigecManager() {
   const supabase = await createClient()
@@ -222,4 +257,102 @@ export async function closeSigecProcess(processId: string): Promise<SigecProcess
   revalidatePath(`/sigec-processos/${id.data}`)
   revalidatePath('/processos')
   return { success: 'Processo encerrado com sucesso.', processId: id.data }
+}
+
+export async function upsertSigecModality(formData: FormData): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem configurar modalidades.' }
+
+  const parsed = ModalityInputSchema.safeParse({
+    processId: formData.get('processId'),
+    modalityId: formData.get('modalityId'),
+    name: formData.get('name'),
+    slug: formData.get('slug'),
+    description: formData.get('description') || undefined,
+  })
+  if (!parsed.success) return { error: firstValidationError(parsed.error) }
+
+  const input = parsed.data
+  const { error } = await adminClient.rpc('sigec_upsert_process_modality', {
+    p_process_id: input.processId,
+    p_actor_id: user.id,
+    p_name: input.name,
+    p_slug: input.slug,
+    p_description: input.description || null,
+    p_modality_id: input.modalityId || null,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao salvar modalidade:', error.code, error.message)
+    if (error.code === '23505') return { error: 'Já existe uma modalidade com esse identificador.' }
+    if (error.message.includes('SIGEC_PROCESS_CONFIGURATION_LOCKED')) return { error: 'A configuração foi bloqueada porque o processo não está em rascunho.' }
+    return { error: 'Não foi possível salvar a modalidade.' }
+  }
+
+  revalidatePath(`/sigec-processos/${input.processId}`)
+  return { success: input.modalityId ? 'Modalidade atualizada.' : 'Modalidade adicionada.', processId: input.processId }
+}
+
+export async function deleteSigecModality(processId: string, modalityId: string): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem remover modalidades.' }
+  const ids = z.object({ processId: z.string().uuid(), modalityId: z.string().uuid() }).safeParse({ processId, modalityId })
+  if (!ids.success) return { error: 'Modalidade inválida.' }
+
+  const { error } = await adminClient.rpc('sigec_delete_process_modality', {
+    p_process_id: ids.data.processId,
+    p_actor_id: user.id,
+    p_modality_id: ids.data.modalityId,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao remover modalidade:', error.code, error.message)
+    if (error.message.includes('SIGEC_MODALITY_HAS_VACANCIES')) return { error: 'Remova ou altere as vagas vinculadas antes de excluir a modalidade.' }
+    if (error.message.includes('SIGEC_PROCESS_CONFIGURATION_LOCKED')) return { error: 'A configuração deste processo está bloqueada.' }
+    return { error: 'Não foi possível remover a modalidade.' }
+  }
+
+  revalidatePath(`/sigec-processos/${ids.data.processId}`)
+  return { success: 'Modalidade removida.', processId: ids.data.processId }
+}
+
+export async function upsertSigecVacancy(formData: FormData): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem configurar vagas.' }
+
+  const parsed = VacancyInputSchema.safeParse({
+    processId: formData.get('processId'),
+    vacancyId: formData.get('vacancyId'),
+    modalityId: formData.get('modalityId'),
+    courseName: formData.get('courseName'),
+    municipality: formData.get('municipality'),
+    acceptedEducation: formData.get('acceptedEducation'),
+    proofInstructions: formData.get('proofInstructions'),
+    vacancyKind: formData.get('vacancyKind'),
+    vacancyCount: formData.get('vacancyCount'),
+    active: formData.getAll('active').includes('true'),
+  })
+  if (!parsed.success) return { error: firstValidationError(parsed.error) }
+
+  const input = parsed.data
+  const { error } = await adminClient.rpc('sigec_upsert_vacancy_configuration', {
+    p_process_id: input.processId,
+    p_actor_id: user.id,
+    p_modality_id: input.modalityId,
+    p_course_name: input.courseName,
+    p_municipality: input.municipality,
+    p_accepted_education: input.acceptedEducation,
+    p_proof_instructions: input.proofInstructions,
+    p_vacancy_kind: input.vacancyKind,
+    p_vacancy_count: input.vacancyKind === 'quantidade' ? input.vacancyCount : null,
+    p_active: input.active,
+    p_vacancy_id: input.vacancyId || null,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao salvar vaga:', error.code, error.message)
+    if (error.code === '23505') return { error: 'Esta combinação de modalidade, curso e município já existe.' }
+    if (error.message.includes('SIGEC_PROCESS_CONFIGURATION_LOCKED')) return { error: 'A configuração foi bloqueada porque o processo não está em rascunho.' }
+    return { error: 'Não foi possível salvar a vaga e seus requisitos.' }
+  }
+
+  revalidatePath(`/sigec-processos/${input.processId}`)
+  return { success: input.vacancyId ? 'Vaga atualizada.' : 'Vaga adicionada.', processId: input.processId }
 }

@@ -80,6 +80,18 @@ def main() -> int:
             "components/sigec-process-publication-panel.tsx",
             "disabled={!canPublish || isPending}",
         ),
+        "vacancy_configuration_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_vacancy_configuration'",
+        ),
+        "modality_configuration_uses_scoped_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_process_modality'",
+        ),
+        "vacancy_configuration_is_draft_only": (
+            "supabase/migrations/20260828200406_sigec_vacancy_configuration.sql",
+            "SIGEC_PROCESS_CONFIGURATION_LOCKED",
+        ),
         "candidate_registration_feature_flag": (
             "app/(public)/cadastro-candidato/actions.ts",
             "candidateRegistrationEnabled()",

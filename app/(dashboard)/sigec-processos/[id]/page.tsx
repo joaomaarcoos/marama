@@ -6,6 +6,11 @@ import { adminClient } from '@/lib/supabase/admin'
 import { SigecProcessForm } from '@/components/sigec-process-form'
 import { SigecArchiveButton } from '@/components/sigec-archive-button'
 import { SigecProcessPublicationPanel, type SigecPublicationReadiness } from '@/components/sigec-process-publication-panel'
+import {
+  SigecVacancyConfiguration,
+  type SigecModalityRow,
+  type SigecVacancyRow,
+} from '@/components/sigec-vacancy-configuration'
 import { SIGEC_PROVISIONAL_SCORING } from '@/lib/sigec-scoring'
 
 export const dynamic = 'force-dynamic'
@@ -34,13 +39,16 @@ const statusLabels: Record<ProcessDetail['status'], string> = {
 
 export default async function SigecProcessDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createClient()
-  const [processResult, readinessResult] = await Promise.all([
+  const [processResult, readinessResult, modalitiesResult, vacanciesResult, requirementsResult] = await Promise.all([
     supabase
       .from('sigec_processes')
       .select('id, title, slug, summary, description, status, edital_version, applications_open_at, applications_close_at, published_at, max_preferences, updated_at')
       .eq('id', params.id)
       .maybeSingle(),
     adminClient.rpc('sigec_get_process_publication_readiness', { p_process_id: params.id }),
+    supabase.from('sigec_modalities').select('id, name, slug, description').eq('process_id', params.id).order('position'),
+    supabase.from('sigec_vacancies').select('id, modality_id, course_id, municipality, vacancy_kind, vacancy_count, active, course:sigec_courses(canonical_name)').eq('process_id', params.id).order('municipality'),
+    supabase.from('sigec_process_course_requirements').select('course_id, accepted_education, proof_instructions').eq('process_id', params.id),
   ])
 
   if (processResult.error || !processResult.data) notFound()
@@ -49,6 +57,18 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
   const readiness = readinessResult.error
     ? [{ code: 'readiness_unavailable', label: 'Validação indisponível', ready: false, detail: 'Aplique a migração da Fase 2 antes de publicar.' }]
     : (readinessResult.data ?? []) as SigecPublicationReadiness[]
+  const modalities = (modalitiesResult.data ?? []) as SigecModalityRow[]
+  const requirements = new Map((requirementsResult.data ?? []).map((item) => [item.course_id, item]))
+  const vacancies = (vacanciesResult.data ?? []).map((item) => ({
+    id: item.id,
+    modality_id: item.modality_id,
+    municipality: item.municipality,
+    vacancy_kind: item.vacancy_kind,
+    vacancy_count: item.vacancy_count,
+    active: item.active,
+    course: Array.isArray(item.course) ? item.course[0] ?? null : item.course,
+    requirement: requirements.get(item.course_id) ?? null,
+  })) as SigecVacancyRow[]
 
   return (
     <>
@@ -70,7 +90,7 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
         </div>
       </div>
 
-      <div className="app-content animate-fade-up">
+      <div className="app-content animate-fade-up space-y-5">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_330px] xl:items-start">
           <section className="rounded-xl p-5 sm:p-6" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
             <div className="mb-6 flex items-start justify-between gap-4">
@@ -149,6 +169,12 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
             </section>
           </aside>
         </div>
+        <SigecVacancyConfiguration
+          processId={process.id}
+          editable={editable}
+          modalities={modalities}
+          vacancies={vacancies}
+        />
       </div>
     </>
   )
