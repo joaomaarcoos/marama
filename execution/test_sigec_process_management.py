@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import psycopg2
+from psycopg2.extras import Json
 
 from test_sigec_remote_access import Api, load_env
 
@@ -105,6 +106,24 @@ def main() -> int:
         cursor.execute("select public.sigec_delete_process_modality(%s,%s,%s)",
                        (process_id, manager_id, disposable_modality_id))
         checks.append("modality_crud_is_scoped_and_audited")
+
+        import_row = {
+            "modalityName": "EJATEC", "modalitySlug": "ejatec",
+            "municipality": "Imperatriz", "courseName": f"Curso importado {run_id}",
+            "vacancyKind": "cadastro_reserva", "vacancyCount": None,
+            "acceptedEducation": "Licenciatura compatível.",
+            "proofInstructions": "Apresentar diploma legível.",
+            "sourceReference": "Fixture transacional de importação.",
+        }
+        expect_error(cursor, "duplicate_import_is_rejected",
+                     "select * from public.sigec_confirm_vacancy_import(%s,%s,%s,%s)",
+                     (process_id, manager_id, "a" * 64, Json([import_row, import_row])),
+                     "SIGEC_IMPORT_DUPLICATES")
+        cursor.execute("select * from public.sigec_confirm_vacancy_import(%s,%s,%s,%s)",
+                       (process_id, manager_id, "b" * 64, Json([import_row])))
+        if cursor.fetchone()[0] != 1:
+            raise AssertionError("vacancy_import_count_invalid")
+        checks.append("reviewed_import_is_atomic_and_audited")
 
         cursor.execute("select public.sigec_upsert_vacancy_configuration(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                        (process_id, manager_id, modality_id, f"Curso sintético P2 {run_id}",

@@ -50,6 +50,24 @@ const VacancyInputSchema = z.object({
   }
 })
 
+const VacancyImportRowSchema = z.object({
+  sourceRow: z.number().int().positive(),
+  modalityName: z.string().trim().min(2).max(120),
+  modalitySlug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  municipality: z.string().trim().min(2).max(160),
+  courseName: z.string().trim().min(3).max(200),
+  vacancyKind: z.enum(['cadastro_reserva', 'quantidade']),
+  vacancyCount: z.number().int().positive().nullable(),
+  acceptedEducation: z.string().trim().min(3).max(4000),
+  proofInstructions: z.string().trim().min(3).max(4000),
+  sourceReference: z.string().trim().min(3).max(500),
+})
+
+const VacancyImportSchema = z.object({
+  sourceSha256: z.string().regex(/^[0-9a-f]{64}$/),
+  rows: z.array(VacancyImportRowSchema).min(1).max(1000),
+})
+
 async function requireSigecManager() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -355,4 +373,43 @@ export async function upsertSigecVacancy(formData: FormData): Promise<SigecProce
 
   revalidatePath(`/sigec-processos/${input.processId}`)
   return { success: input.vacancyId ? 'Vaga atualizada.' : 'Vaga adicionada.', processId: input.processId }
+}
+
+export async function confirmSigecVacancyImport(processId: string, payload: string): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem confirmar importações.' }
+  const id = ProcessIdSchema.safeParse(processId)
+  if (!id.success) return { error: id.error.errors[0].message }
+  if (payload.length > 2_000_000) return { error: 'O arquivo de importação excede o limite permitido.' }
+
+  let raw: unknown
+  try { raw = JSON.parse(payload) } catch { return { error: 'O arquivo JSON está inválido.' } }
+  const parsed = VacancyImportSchema.safeParse(raw)
+  if (!parsed.success) return { error: firstValidationError(parsed.error) }
+
+  const keys = parsed.data.rows.map((row) => [
+    row.modalitySlug,
+    row.municipality.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim(),
+    row.courseName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim(),
+  ].join('|'))
+  if (new Set(keys).size !== keys.length) return { error: 'Resolva todas as duplicidades antes de confirmar.' }
+
+  const { data, error } = await adminClient.rpc('sigec_confirm_vacancy_import', {
+    p_process_id: id.data,
+    p_actor_id: user.id,
+    p_source_sha256: parsed.data.sourceSha256,
+    p_rows: parsed.data.rows,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao confirmar importação:', error.code, error.message)
+    if (error.message.includes('SIGEC_IMPORT_DUPLICATES')) return { error: 'O lote ainda contém duplicidades.' }
+    if (error.message.includes('SIGEC_IMPORT_CONFLICTS_EXISTING')) return { error: 'O lote conflita com vagas já cadastradas neste processo.' }
+    if (error.message.includes('SIGEC_PROCESS_CONFIGURATION_LOCKED')) return { error: 'A importação foi bloqueada porque o processo não está em rascunho.' }
+    return { error: 'Não foi possível confirmar a importação.' }
+  }
+  const imported = Array.isArray(data) ? Number(data[0]?.imported_count || 0) : 0
+  if (!imported) return { error: 'A importação não retornou uma confirmação válida.' }
+
+  revalidatePath(`/sigec-processos/${id.data}`)
+  return { success: `${imported} vagas importadas com sucesso.`, processId: id.data }
 }

@@ -12,6 +12,7 @@ import {
   type SigecVacancyRow,
 } from '@/components/sigec-vacancy-configuration'
 import { SIGEC_PROVISIONAL_SCORING } from '@/lib/sigec-scoring'
+import { SigecVacancyImportReview } from '@/components/sigec-vacancy-import-review'
 
 export const dynamic = 'force-dynamic'
 
@@ -169,6 +170,7 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
             </section>
           </aside>
         </div>
+        <SigecVacancyImportReview processId={process.id} editable={editable} />
         <SigecVacancyConfiguration
           processId={process.id}
           editable={editable}

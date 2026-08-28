@@ -2,8 +2,8 @@
 
 **Última atualização:** 28/08/2026
 **Estado geral:** fundação, classificação auditável, Gate P1 e CRUD seguro do processo aprovados; cadastro público permanece fechado até existir processo real pronto para publicação
-**Fase atual:** Fase 2 em execução na branch `codex/sigec-fase-2-configuracao-processo`; próximo alvo: SIGEC-P2-03
-**Progresso auditado:** 22 de 88 tarefas concluídas; 66 pendentes
+**Fase atual:** Fase 2 em execução na branch `codex/sigec-fase-2-configuracao-processo`; próximo alvo: SIGEC-P2-04
+**Progresso auditado:** 23 de 88 tarefas concluídas; 65 pendentes
 **Última auditoria automática:** aprovada em 28/08/2026, sem achados locais
 **Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
 
@@ -190,7 +190,7 @@ Fórmula provisória para testes internos: `nota_final = titulacao (máx. 30) + 
 
 - [x] SIGEC-P2-01 — Criar CRUD de processo, cronograma, versão do edital e publicação. Concluído em 28/08/2026 com criação, leitura, edição e arquivamento não destrutivo de rascunhos; painel de prontidão com oito controles; publicação e encerramento atômicos, restritos ao backend, com bloqueio normativo, trava de linha e auditoria.
 - [x] SIGEC-P2-02 — Configurar modalidade, município, curso/especialidade, requisitos e vagas. Concluído em 28/08/2026 com CRUD administrativo de modalidades, cadastro/edição de vagas ativas ou inativas, quantidade definida ou cadastro de reserva, catálogo reutilizável de cursos e requisitos de formação/comprovação atualizados atomicamente; alterações ficam bloqueadas fora do rascunho e são auditadas.
-- [ ] SIGEC-P2-03 — Importar vagas dos anexos, normalizar nomes e gerar relatório de duplicidades antes da confirmação.
+- [x] SIGEC-P2-03 — Importar vagas dos anexos, normalizar nomes e gerar relatório de duplicidades antes da confirmação. Concluído em 28/08/2026 com extrator determinístico do SIGDOC, normalização sem acentos, prévia administrativa editável, bloqueio de requisitos vazios e duplicidades, confirmação explícita e importação transacional auditada. A prévia real identificou 389 linhas, das quais 364 prontas e 25 bloqueadas para revisão; nenhuma linha real foi importada automaticamente.
 - [ ] SIGEC-P2-04 — Configurar perguntas, documentos obrigatórios, condições PCD/PPP e modelos de declaração.
 - [ ] SIGEC-P2-05 — Configurar etapas, transições permitidas e mensagens públicas/WhatsApp.
 - [ ] SIGEC-P2-06 — Configurar critérios de pontuação e desempate com versionamento e bloqueio de alteração após publicação.
@@ -380,7 +380,8 @@ Ao concluir uma tarefa:
 | 28/08/2026 | SIGEC-P2-01 | migração `sigec_process_publication_gate`; CRUD e painel administrativo; `execution/test_sigec_process_management.py`; verificação remota, Advisors, auditorias, TypeScript e build | publicação exige oito controles, inclusive seis decisões normativas confirmadas; RPCs somente `service_role`; transições atômicas e auditadas; 11 cenários remotos aprovados com rollback integral; 35/35 tabelas com RLS, zero fixtures, zero achados acionáveis e build de 50 páginas aprovado |
 | 28/08/2026 | SIGEC-P2-02 | migração `sigec_vacancy_configuration`; painel de vagas e modalidades; RPCs transacionais; teste remoto ampliado | modalidades vinculadas ao processo; vaga, curso e requisito persistidos atomicamente; exclusão com dependência rejeitada; configuração bloqueada após publicação; 15 cenários remotos aprovados com rollback integral, zero fixtures, zero Advisors acionáveis, TypeScript e build de 50 páginas aprovados |
 | 28/08/2026 | SIGEC-P2-03 (extração e auditoria inicial) | `execution/extract_sigec_vacancies.py`; SIGDOC principal; teste determinístico de normalização | 389 linhas extraídas das modalidades Centros Educa Mais e EJATEC sem gravação no banco; 23 linhas com curso/requisito divergente e 2 linhas duplicadas em São Luís foram bloqueadas para revisão; 364 linhas passaram na prévia. P2-03 permanece pendente até existir tela de revisão e confirmação transacional. |
+| 28/08/2026 | SIGEC-P2-03 | tela de revisão de importação; migração `sigec_confirm_vacancy_import`; validação duplicada no cliente, Server Action e banco; teste remoto ampliado | requisitos e duplicidades impedem confirmação; conflitos com vagas existentes são rejeitados; lote confirmado é atômico e auditado; 17 cenários remotos, 68 controles da aplicação, 35/35 tabelas RLS, zero fixtures, zero Advisors acionáveis, TypeScript e build de 50 páginas aprovados |
 
 ## 9. Próxima ação recomendada
 
-Concluir o SIGEC-P2-03 na branch atual: apresentar a prévia extraída na tela administrativa, permitir correção das 23 divergências e das 2 duplicidades e exigir confirmação explícita antes da importação transacional. Em seguida, avançar sequencialmente por documentos, etapas, mensagens, pontuação e desempates versionados. Antes de abrir o cadastro público, publicar e validar um processo real pelo Gate P2. A publicação do processo e a classificação oficial continuam bloqueadas enquanto as seis decisões normativas estiverem abertas.
+Executar o SIGEC-P2-04 na branch atual: configurar perguntas, documentos obrigatórios, condições PCD/PPP e modelos de declaração. A prévia real de vagas deve ser revisada por um administrador antes de importar as 364 linhas prontas e corrigir ou excluir as 25 pendentes. Em seguida, avançar por etapas, mensagens, pontuação e desempates versionados. Antes de abrir o cadastro público, publicar e validar um processo real pelo Gate P2. A publicação do processo e a classificação oficial continuam bloqueadas enquanto as seis decisões normativas estiverem abertas.

@@ -92,6 +92,18 @@ def main() -> int:
             "supabase/migrations/20260828200406_sigec_vacancy_configuration.sql",
             "SIGEC_PROCESS_CONFIGURATION_LOCKED",
         ),
+        "vacancy_import_server_revalidates_payload": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "VacancyImportSchema.safeParse",
+        ),
+        "vacancy_import_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_confirm_vacancy_import'",
+        ),
+        "vacancy_import_requires_clean_preview": (
+            "components/sigec-vacancy-import-review.tsx",
+            "disabled={isPending || analysis.flagged.length > 0}",
+        ),
         "candidate_registration_feature_flag": (
             "app/(public)/cadastro-candidato/actions.ts",
             "candidateRegistrationEnabled()",

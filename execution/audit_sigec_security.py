@@ -90,6 +90,10 @@ def audit(sql: str) -> dict[str, object]:
         "modality_process_scope": r"sigec_upsert_process_modality[\s\S]*?modality\.process_id = p_process_id",
         "vacancy_configuration_atomic_requirement": r"sigec_upsert_vacancy_configuration[\s\S]*?on conflict \(process_id, course_id\) do update",
         "vacancy_configuration_rpc_service_only": r"revoke all on function public\.sigec_upsert_vacancy_configuration.*from public, anon, authenticated",
+        "vacancy_import_duplicate_gate": r"sigec_confirm_vacancy_import[\s\S]*?SIGEC_IMPORT_DUPLICATES",
+        "vacancy_import_existing_conflict_gate": r"SIGEC_IMPORT_CONFLICTS_EXISTING",
+        "vacancy_import_draft_lock": r"sigec_confirm_vacancy_import[\s\S]*?sigec_assert_draft_process_manager",
+        "vacancy_import_rpc_service_only": r"revoke all on function public\.sigec_confirm_vacancy_import.*from public, anon, authenticated",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

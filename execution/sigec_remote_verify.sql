@@ -147,6 +147,15 @@ select json_build_object(
     and has_function_privilege('service_role', 'public.sigec_delete_process_modality(uuid,uuid,uuid)', 'EXECUTE')
     and has_function_privilege('service_role', 'public.sigec_upsert_vacancy_configuration(uuid,uuid,uuid,text,text,text,text,text,integer,boolean,uuid)', 'EXECUTE')
   ),
+  'vacancy_import_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828202054'
+  ),
+  'vacancy_import_function_server_only', (
+    not has_function_privilege('anon', 'public.sigec_confirm_vacancy_import(uuid,uuid,text,jsonb)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_confirm_vacancy_import(uuid,uuid,text,jsonb)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_confirm_vacancy_import(uuid,uuid,text,jsonb)', 'EXECUTE')
+  ),
   'consent_migrations_applied', (
     select count(*) = 3 from supabase_migrations.schema_migrations
     where version in ('20260827224616', '20260827225219', '20260827225348')
