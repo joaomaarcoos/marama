@@ -41,13 +41,24 @@ function digestIdentifier(bucket: RateLimitBucket, value: string) {
 }
 
 async function consume(rule: RateLimitRule): Promise<AbuseGateResult> {
-  const { data, error } = await adminClient.rpc('sigec_consume_auth_rate_limit', {
-    p_bucket: rule.bucket,
-    p_key_digest: digestIdentifier(rule.bucket, rule.value),
-    p_limit: rule.limit,
-    p_window_seconds: rule.windowSeconds,
-    p_block_seconds: rule.blockSeconds,
-  })
+  let response
+  try {
+    response = await adminClient.rpc('sigec_consume_auth_rate_limit', {
+      p_bucket: rule.bucket,
+      p_key_digest: digestIdentifier(rule.bucket, rule.value),
+      p_limit: rule.limit,
+      p_window_seconds: rule.windowSeconds,
+      p_block_seconds: rule.blockSeconds,
+    })
+  } catch (error) {
+    console.error('[SIGEC abuse gate] rate limit request failed', {
+      bucket: rule.bucket,
+      name: error instanceof Error ? error.name : 'unknown',
+    })
+    return { allowed: false, retryAfterSeconds: 0, unavailable: true }
+  }
+
+  const { data, error } = response
 
   if (error || !Array.isArray(data) || data.length !== 1) {
     console.error('[SIGEC abuse gate] rate limit unavailable', { bucket: rule.bucket, code: error?.code })
@@ -62,7 +73,14 @@ async function consume(rule: RateLimitRule): Promise<AbuseGateResult> {
 
 async function consumeRules(rules: RateLimitRule[]): Promise<AbuseGateResult> {
   try {
-    const results = await Promise.all(rules.map(consume))
+    // Keep the calls deterministic in server actions. Each rule still uses the
+    // atomic database function, while sequential execution makes failures
+    // attributable to one bucket and avoids coupling concurrent RPC requests
+    // to the same cached service-role client.
+    const results: AbuseGateResult[] = []
+    for (const rule of rules) {
+      results.push(await consume(rule))
+    }
     if (results.some((result) => result.unavailable)) {
       return { allowed: false, retryAfterSeconds: 0, unavailable: true }
     }

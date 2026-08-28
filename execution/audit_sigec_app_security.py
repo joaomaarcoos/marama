@@ -124,6 +124,14 @@ def main() -> int:
             "lib/sigec-abuse-server.ts",
             "createHmac('sha256'",
         ),
+        "rate_limit_rules_are_consumed_sequentially": (
+            "lib/sigec-abuse-server.ts",
+            "for (const rule of rules)",
+        ),
+        "password_recovery_logs_safe_failure_stage": (
+            "app/(auth)/recuperar-senha/actions.ts",
+            "unavailable('rate_limit')",
+        ),
         "signup_requires_server_nonce": (
             "app/(public)/cadastro-candidato/actions.ts",
             "issueCandidateSignupNonce()",

@@ -7,19 +7,25 @@ import { registrationSecurityConfigured } from '@/lib/sigec-registration'
 
 const emailSchema = z.string().trim().toLowerCase().email().max(320)
 const GENERIC_RESPONSE = 'Se o e-mail estiver cadastrado, enviaremos as instrucoes para redefinir a senha.'
+const UNAVAILABLE_RESPONSE = { status: 'unavailable' as const, message: 'Servico temporariamente indisponivel.' }
+
+function unavailable(stage: 'configuration' | 'app_url' | 'rate_limit') {
+  console.error('[SIGEC password recovery] unavailable', { stage })
+  return UNAVAILABLE_RESPONSE
+}
 
 export async function requestPasswordReset(formData: FormData) {
   if (!registrationSecurityConfigured()) {
-    return { status: 'unavailable' as const, message: 'Servico temporariamente indisponivel.' }
+    return unavailable('configuration')
   }
   const parsed = emailSchema.safeParse(formData.get('email'))
   if (!parsed.success) return { status: 'error' as const, message: 'Informe um e-mail valido.' }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
-  if (!appUrl) return { status: 'unavailable' as const, message: 'Servico temporariamente indisponivel.' }
+  if (!appUrl) return unavailable('app_url')
 
   const rateLimit = await consumeRecoveryLimits(parsed.data)
-  if (rateLimit.unavailable) return { status: 'unavailable' as const, message: 'Servico temporariamente indisponivel.' }
+  if (rateLimit.unavailable) return unavailable('rate_limit')
   if (!rateLimit.allowed) return { status: 'success' as const, message: GENERIC_RESPONSE }
 
   const captchaToken = String(formData.get('captchaToken') ?? '')
