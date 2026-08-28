@@ -45,6 +45,7 @@ Esta diretiva descreve a primeira versao da camada 1 para um fluxo que hoje aind
 - payloads salvos em `.tmp/` para reprocessamento
 
 ## Procedimento Padrao
+0. O script `execution/evolution_api.py` carrega `.env.local` e depois `.env`, sem sobrescrever variáveis já definidas no processo. Não copie credenciais para a linha de comando.
 1. Validar status da instancia:
    `py execution/evolution_api.py status`
 2. Se necessario, criar ou reconfigurar a instancia:

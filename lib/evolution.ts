@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { getConversationPhoneCandidates } from './mara-pause'
 
 function getRequiredEnv(name: string): string {
@@ -38,10 +39,11 @@ const SYSTEM_OUTBOUND_TTL_MS = 45_000
 const recentSystemOutbounds = new Map<string, RecentSystemOutboundEntry[]>()
 
 function normalizeOutboundFingerprint(value: string | null | undefined): string {
-  return (value ?? '')
+  const normalized = (value ?? '')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase()
+  return normalized ? createHash('sha256').update(normalized).digest('hex') : ''
 }
 
 export function createOutboundFingerprint(input: {
@@ -55,8 +57,8 @@ export function createOutboundFingerprint(input: {
   const captionFingerprint = normalizeOutboundFingerprint(input.caption)
   if (captionFingerprint) return captionFingerprint
 
-  if (input.mediaType) return `[${input.mediaType}]`
-  return '[sem-conteudo]'
+  const fallback = input.mediaType ? `[${input.mediaType}]` : '[sem-conteudo]'
+  return createHash('sha256').update(fallback).digest('hex')
 }
 
 function pruneRecentSystemOutbounds(now: number) {
@@ -184,6 +186,7 @@ export async function sendText(phone: string, text: string): Promise<void> {
       number: phone,
       text,
     }),
+    signal: AbortSignal.timeout(10_000),
   })
 
   if (!res.ok) {

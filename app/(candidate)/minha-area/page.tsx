@@ -1,8 +1,8 @@
 import Link from 'next/link'
-import { AlertCircle, ArrowRight, CheckCircle2, Clock3, UserRound } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle2, Clock3, MessageCircleMore, UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
-type CandidateProfile = { full_name: string; profile_completed_at: string | null }
+type CandidateProfile = { full_name: string; profile_completed_at: string | null; whatsapp_verified_at: string | null }
 type CandidateApplication = {
   id: string
   application_state: string
@@ -18,7 +18,7 @@ export default async function CandidateHomePage() {
   if (!user) return null
 
   const [profileResult, applicationsResult] = await Promise.all([
-    supabase.from('sigec_candidate_profiles').select('full_name, profile_completed_at').eq('user_id', user.id).maybeSingle(),
+    supabase.from('sigec_candidate_profiles').select('full_name, profile_completed_at, whatsapp_verified_at').eq('user_id', user.id).maybeSingle(),
     supabase
       .from('sigec_applications')
       .select('id, application_state, submitted_at, updated_at, sigec_processes(title, slug), sigec_process_stages(label, color)')
@@ -48,12 +48,17 @@ export default async function CandidateHomePage() {
         </div>
       )}
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-3">
+      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <UserRound className="h-5 w-5 text-emerald-600" />
           <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">Perfil</p>
           <p className="mt-1 font-semibold">{profile?.profile_completed_at ? 'Completo' : 'Pendente'}</p>
         </div>
+        <Link href="/minha-area/verificar-whatsapp" className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-emerald-300 hover:shadow-md">
+          <MessageCircleMore className="h-5 w-5 text-emerald-600" />
+          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">WhatsApp</p>
+          <p className="mt-1 font-semibold">{profile?.whatsapp_verified_at ? 'Verificado' : 'Confirmar número'}</p>
+        </Link>
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <Clock3 className="h-5 w-5 text-blue-600" />
           <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">Em andamento</p>

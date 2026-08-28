@@ -1,10 +1,10 @@
 # SIGEC Processos — Handoff, status e plano de execução
 
-**Última atualização:** 27/08/2026
-**Estado geral:** fundação e trilha auditável de classificação ativadas no Supabase; rubrica provisória implementada; produto operacional ainda não liberado
+**Última atualização:** 28/08/2026
+**Estado geral:** fundação, classificação auditável e cadastro-base do candidato ativados no Supabase; cadastro público permanece fechado até concluir o Gate P1
 **Fase atual:** cadastro e autenticação do candidato + configuração administrativa local
-**Progresso auditado:** 14 de 88 tarefas concluídas; 74 pendentes
-**Última auditoria automática:** aprovada em 27/08/2026, sem achados locais
+**Progresso auditado:** 19 de 88 tarefas concluídas; 69 pendentes
+**Última auditoria automática:** aprovada em 28/08/2026, sem achados locais
 **Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
 
 ## 1. Objetivo deste arquivo
@@ -37,9 +37,10 @@ Regra de precedência atual: SIGDOC prevalece; o edital antigo serve para aponta
 ### Ainda não operacional
 
 - A fundação está aplicada no Supabase configurado desde 27/08/2026, mas ainda não há processo real configurado ou publicado.
-- O cadastro público é apenas informativo e não cria candidato.
+- O cadastro, a confirmação de e-mail, o rate limit persistente e a verificação protegida do WhatsApp estão implementados. A chave `SIGEC_CANDIDATE_REGISTRATION_ENABLED` permanece desativada até cadastrar os dois segredos exclusivos do SIGEC e concluir os testes externos do Gate P1.
+- **Incidente operacional preventivo (28/08/2026):** o Supabase Auth exige CAPTCHA, mas a versão atualmente publicada em `mara.joaodantasia.com.br/login` ainda não carrega o widget. Até publicar esta branch, desativar temporariamente o CAPTCHA no painel do Supabase evita bloquear o login atual. Na promoção, publicar a aplicação primeiro, reativar o CAPTCHA e executar o smoke oficial imediatamente.
 - As páginas são estruturas iniciais; não existe ainda fluxo completo de perfil, inscrição, análise, pontuação, classificação, recurso, convocação ou WhatsApp transacional.
-- As alterações SIGEC estão no working tree e ainda não foram consolidadas em commit próprio.
+- A Fase 0 está consolidada em `master`; a Fase 1 está em desenvolvimento na branch `codex/sigec-fase-1-cadastro-auth` e ainda não atingiu seu gate de publicação.
 
 ## 3. Regras extraídas do Edital Nº 01/2026
 
@@ -176,12 +177,12 @@ Fórmula provisória para testes internos: `nota_final = titulacao (máx. 30) + 
 
 ### Fase 1 — Cadastro e autenticação do candidato
 
-- [ ] SIGEC-P1-01 — Implementar cadastro com e-mail, senha forte e papel `candidato` atribuído somente pelo backend.
-- [ ] SIGEC-P1-02 — Implementar confirmação de e-mail, recuperação de senha e revogação de sessões quando necessário.
-- [ ] SIGEC-P1-03 — Implementar CAPTCHA e rate limit por IP, e-mail e telefone.
-- [ ] SIGEC-P1-04 — Implementar verificação do WhatsApp com código expirável, limite de tentativas e armazenamento protegido.
-- [ ] SIGEC-P1-05 — Registrar aceite versionado do edital, veracidade, requisitos e LGPD.
-- [ ] SIGEC-P1-06 — Testar enumeração de contas, força bruta, replay de código e redirecionamentos por papel.
+- [x] SIGEC-P1-01 — Implementar cadastro com e-mail, senha forte e papel `candidato` atribuído somente pelo backend. Concluído em 27/08/2026 com validação duplicada em aplicação/banco, atribuição pós-inserção em `app_metadata`, perfil atômico, resposta anti-enumeração e liberação controlada por feature flag fechada.
+- [x] SIGEC-P1-02 — Implementar confirmação de e-mail, recuperação de senha e revogação de sessões quando necessário. Concluído em 27/08/2026 com callback PKCE, allowlist de redirecionamento, recuperação anti-enumeração, política de senha compartilhada e logout global após alteração.
+- [ ] SIGEC-P1-03 — Implementar CAPTCHA e rate limit por IP, e-mail e telefone. **Implementação técnica concluída em 27/08/2026:** widget Turnstile no cadastro, login e recuperação; token enviado ao Supabase Auth; buckets atômicos com identificadores em HMAC e nonce server-only contra bypass direto. Sitekey, segredo HMAC local, exigência do CAPTCHA no Supabase e gate de prontidão confirmados por teste. **Bloqueio operacional:** a versão atualmente publicada em `mara.joaodantasia.com.br` ainda não contém o widget; manter CAPTCHA desativado no Supabase até a promoção da nova versão e então executar o smoke real no hostname oficial.
+- [x] SIGEC-P1-04 — Implementar verificação do WhatsApp com código expirável, limite de tentativas e armazenamento protegido. Concluído em 28/08/2026 com OTP de seis dígitos em HMAC, expiração de 10 minutos, cinco tentativas, invalidação de códigos anteriores, rate limit por IP/usuário/telefone, vínculo ao próprio candidato, reset ao mudar o número e envio pela Evolution. Nove cenários remotos e entrega real para número autorizado foram aprovados; o perfil foi marcado atomicamente e toda a fixture foi removida apó a confirmação.
+- [x] SIGEC-P1-05 — Registrar aceite versionado do edital, veracidade, requisitos e LGPD. Concluído em 27/08/2026 com pacote atômico e idempotente vinculado à candidatura, versões derivadas no servidor, evidências de IP/user-agent em HMAC, bloqueio de inserção direta e preservação dos aceites anteriores após retificação.
+- [x] SIGEC-P1-06 — Testar enumeração de contas, força bruta, replay de código e redirecionamentos por papel. Concluído em 27/08/2026 com respostas anti-enumeração auditadas, rate limit atômico, nonce de uso único, rejeição explícita de replay do OTP e 10 cenários HTTP cobrindo candidato, admin, gerente, atendente, conta sem papel e anônimo.
 
 **Gate P1:** candidato confirmado acessa somente sua área e seus próprios dados; tentativas abusivas são limitadas e auditadas.
 
@@ -361,7 +362,16 @@ Ao concluir uma tarefa:
 | 27/08/2026 | SIGEC-P0-06 | migrações `sigec_ranking_audit_foundation` e `sigec_ranking_evidence_integrity`; `execution/test_sigec_ranking_remote.py`; verificação remota e Advisors | 33/33 tabelas com RLS; 19 cenários remotos aprovados; decisões, cotas e snapshots versionados; evidência antiga invalidada por retificação; dupla aprovação obrigatória; zero fixtures e zero achados acionáveis |
 | 27/08/2026 | SIGEC-P0-01 e fechamento da Fase 0 | auditoria do diff e preparação da branch `codex/sigec-fase-0-fundacao` | pacote SIGEC separado; temporários, caches, credenciais e CSV do usuário mantidos fora do commit; estratégia de promoção registrada |
 | 27/08/2026 | Promoção da Fase 0 para `master` | merge local `3066548`; auditorias de plano, SQL e aplicação; pontuação; TypeScript; build; smoke HTTP | promoção autorizada pelo responsável; 46 páginas geradas; `/api/health`, `/login`, `/processos` e `/cadastro-candidato` retornaram 200; `/minha-area` redirecionou para `/login`; rotação das credenciais históricas permanece obrigatória |
+| 27/08/2026 | SIGEC-P1-01 | migrações `sigec_candidate_signup_role` e `sigec_candidate_signup_admin_compatibility`; Server Action, schema Zod e formulário; testes remotos de cadastro, acesso e ranking | 7 cenários de cadastro, 36 de acesso e 19 de ranking aprovados; gerente via Admin API preservado; 33/33 tabelas com RLS; zero fixtures; 18 verificações estáticas, build de 46 páginas e smoke HTTP 200 com formulário habilitado aprovados; rota mantida fechada por feature flag |
+| 27/08/2026 | SIGEC-P1-02 | callback `/auth/confirm`, telas e ações de recuperação/redefinição, proteção no middleware e `execution/test_sigec_auth_lifecycle.py` | confirmação de e-mail obrigatória no Supabase; 8 cenários remotos aprovados com duas sessões e revogação de ambos os refresh tokens; 22 verificações estáticas, TypeScript, build de 49 páginas e smokes de acesso/redirecionamento aprovados |
+| 27/08/2026 | SIGEC-P1-03 (parcial) | migrações `sigec_registration_abuse_limits`, `sigec_remove_consumed_signup_proof` e `sigec_finalize_signup_proof_cleanup`; widget Turnstile em cadastro, login e recuperação; `lib/sigec-abuse-server.ts`; `execution/test_sigec_abuse_controls.py` | 35/35 tabelas com RLS; 9 cenários de cadastro e bypass, 4 de limites incluindo 10 chamadas concorrentes e 36 de acesso aprovados; RPC e tabelas server-only; zero fixtures; 40 controles estáticos, TypeScript e build de 50 páginas aprovados; configuração externa informada como concluída, aguardando Sitekey no ambiente e smoke no hostname oficial |
+| 27/08/2026 | SIGEC-P1-04 (parcial) | migrações `sigec_whatsapp_otp_hardening` e `sigec_whatsapp_replay_rejection`; ações e tela `/minha-area/verificar-whatsapp`; Evolution `marav2` conectada; `execution/test_sigec_whatsapp_otp.py` | 9 cenários remotos aprovados: hash sem texto puro, bloqueio na 5ª tentativa, não reutilização, rejeição explícita de replay, isolamento entre usuários, confirmação atômica, reset ao mudar telefone e RPC server-only; build de 50 páginas e smoke com redirecionamento `307` para `/login` aprovados; fingerprint outbound em SHA-256; entrega real aguarda segredo OTP e número autorizado |
+| 27/08/2026 | SIGEC-P1-05 | migrações `sigec_consent_integrity`, `sigec_consent_eligibility_diagnostics` e `sigec_consent_conflict_fix`; Server Action de aceites; `execution/test_sigec_consents.py` | 8 cenários remotos aprovados: quatro aceites versionados, idempotência, RPC server-only, inserção direta revogada, vínculo à própria candidatura, rejeição de aceite negativo e preservação de versões após retificação; fixtures removidas |
+| 27/08/2026 | SIGEC-P1-06 | `execution/test_sigec_role_redirects.mjs`; ampliação do teste OTP e da auditoria anti-enumeração | 10 cenários HTTP por papel, 9 de cadastro/nonce, 4 de rate limit e 9 de OTP aprovados; replay corrigido para `already_used`; cadastro, login e recuperação mantêm respostas genéricas; todas as fixtures removidas |
+| 27/08/2026 | Validação externa do Turnstile | Sitekey configurada localmente; `execution/test_sigec_captcha_configuration.py`; login atualizado para enviar `captchaToken`; verificação pública de `mara.joaodantasia.com.br/login` | Supabase confirmou `captcha_required`; 40 controles estáticos, TypeScript e build de 50 páginas aprovados; produção ainda sem widget, portanto CAPTCHA deve permanecer desativado até a promoção e o smoke oficial |
+| 28/08/2026 | Gate operacional do P1 | `execution/test_sigec_p1_readiness.py`; inspeção externa do login; status somente leitura da Evolution; testes remotos de abuso e OTP; build | Segredos independentes configurados localmente sem exposição; oito checagens de prontidão, quatro de abuso, nove de OTP e build de 50 páginas aprovados; Evolution `marav2` conectada; produção continua sem widget; nenhum WhatsApp enviado e cadastro mantido fechado |
+| 28/08/2026 | SIGEC-P1-04 e smoke de entrega OTP | `execution/test_sigec_whatsapp_delivery.py`; candidato sintético temporário; Evolution `marav2`; RPC protegido do Supabase | Mensagem entregue ao número autorizado e mascarado; código recebido foi aceito, perfil marcado atomicamente e fixture apagada; nenhum OTP permaneceu em texto puro |
 
 ## 9. Próxima ação recomendada
 
-Executar P1-01 para cadastro com e-mail, senha forte e papel `candidato` atribuído exclusivamente pelo backend; depois P1-02 para confirmação de e-mail, recuperação de senha e revogação de sessões. Em paralelo, concluir P2-01 e a configuração de vagas, requisitos, documentos e da rubrica provisória. A publicação de classificação permanece tecnicamente bloqueada enquanto as decisões normativas estiverem abertas, e o cadastro público permanece bloqueado até os gates P1.
+Concluir o P1 antes de iniciar o P2: promover a branch, garantir que os segredos SIGEC também existam no ambiente publicado, reativar o CAPTCHA e executar o smoke real no hostname oficial. O gate local de prontidão e a entrega OTP real já estão aprovados. A publicação de classificação permanece bloqueada enquanto as decisões normativas estiverem abertas, e o cadastro público permanece fechado até o Gate P1.

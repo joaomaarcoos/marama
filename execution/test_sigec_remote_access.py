@@ -85,6 +85,27 @@ class Api:
         except json.JSONDecodeError:
             return text
 
+    def create_email_link_session(self, email: str, link_type: str = "magiclink") -> tuple[int, Any]:
+        """Create a one-use test session without bypassing CAPTCHA-protected password auth."""
+        status, generated = self.request(
+            "POST",
+            "/auth/v1/admin/generate_link",
+            service=True,
+            body={"type": link_type, "email": email},
+        )
+        if status != 200 or not isinstance(generated, dict):
+            return status, generated
+        properties = generated.get("properties") if isinstance(generated.get("properties"), dict) else generated
+        token_hash = properties.get("hashed_token")
+        verification_type = properties.get("verification_type") or link_type
+        if not token_hash:
+            return 500, {"error": "admin_link_missing_hashed_token"}
+        return self.request(
+            "POST",
+            "/auth/v1/verify",
+            body={"type": verification_type, "token_hash": token_hash},
+        )
+
 
 def expect_status(name: str, status: int, allowed: set[int], checks: list[str]) -> None:
     if status not in allowed:
@@ -162,9 +183,7 @@ def main() -> int:
         expect_status(f"create_user_{label}", status, {200}, checks)
         user_id = body["id"]
         users.append(user_id)
-        status, token_body = api.request(
-            "POST", "/auth/v1/token?grant_type=password", body={"email": email, "password": password}
-        )
+        status, token_body = api.create_email_link_session(email)
         expect_status(f"login_{label}", status, {200}, checks)
         return user_id, token_body["access_token"]
 
@@ -173,7 +192,7 @@ def main() -> int:
         candidate_b, token_b = create_user("candidate-b", "candidato")
         manager, token_manager = create_user("manager", "gerente")
         _, token_attendant = create_user("attendant", "atendente")
-        _, token_no_role = create_user("no-role", None)
+        _, token_no_role = create_user("no-role", "sem_acesso")
 
         now = datetime.now(timezone.utc)
         profile_rows = [

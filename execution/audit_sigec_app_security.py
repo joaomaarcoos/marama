@@ -64,6 +64,130 @@ def main() -> int:
             "app/(dashboard)/sigec-processos/actions.ts",
             ".eq('status', 'draft')",
         ),
+        "candidate_registration_feature_flag": (
+            "app/(public)/cadastro-candidato/actions.ts",
+            "candidateRegistrationEnabled()",
+        ),
+        "candidate_registration_uses_public_signup": (
+            "app/(public)/cadastro-candidato/actions.ts",
+            "supabase.auth.signUp",
+        ),
+        "candidate_registration_uses_generic_result": (
+            "app/(public)/cadastro-candidato/actions.ts",
+            "return { status: 'success', message: GENERIC_SUCCESS }",
+        ),
+        "login_masks_account_existence": (
+            "app/(auth)/login/actions.ts",
+            "return { error: 'Email ou senha incorretos.' }",
+        ),
+        "login_requires_captcha_configuration": (
+            "app/(auth)/login/actions.ts",
+            "captchaSecurityConfigured()",
+        ),
+        "login_passes_captcha_token_to_supabase": (
+            "app/(auth)/login/actions.ts",
+            "options: { captchaToken }",
+        ),
+        "candidate_password_strength": (
+            "lib/sigec-registration.ts",
+            ".min(12",
+        ),
+        "auth_callback_destination_allowlist": (
+            "app/auth/confirm/route.ts",
+            "ALLOWED_DESTINATIONS.has(requestedNext)",
+        ),
+        "password_recovery_generic_response": (
+            "app/(auth)/recuperar-senha/actions.ts",
+            "GENERIC_RESPONSE",
+        ),
+        "password_recovery_always_returns_generic_success": (
+            "app/(auth)/recuperar-senha/actions.ts",
+            "return { status: 'success' as const, message: GENERIC_RESPONSE }",
+        ),
+        "password_update_revalidates_user": (
+            "app/(auth)/redefinir-senha/actions.ts",
+            "supabase.auth.getUser()",
+        ),
+        "password_change_revokes_all_sessions": (
+            "app/(auth)/redefinir-senha/actions.ts",
+            "signOut({ scope: 'global' })",
+        ),
+        "registration_requires_captcha_configuration": (
+            "lib/sigec-registration.ts",
+            "SIGEC_SUPABASE_CAPTCHA_ENABLED",
+        ),
+        "signup_rate_limits_ip_email_phone": (
+            "lib/sigec-abuse-server.ts",
+            "'signup_ip', value: ip",
+        ),
+        "rate_limit_identifiers_use_hmac": (
+            "lib/sigec-abuse-server.ts",
+            "createHmac('sha256'",
+        ),
+        "signup_requires_server_nonce": (
+            "app/(public)/cadastro-candidato/actions.ts",
+            "issueCandidateSignupNonce()",
+        ),
+        "whatsapp_otp_uses_hmac": (
+            "lib/sigec-whatsapp-verification.ts",
+            "createHmac('sha256'",
+        ),
+        "whatsapp_request_revalidates_candidate": (
+            "app/(candidate)/minha-area/verificar-whatsapp/actions.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "whatsapp_rate_limits_ip_user_phone": (
+            "lib/sigec-abuse-server.ts",
+            "'whatsapp_user', value: userId",
+        ),
+        "evolution_send_timeout": (
+            "lib/evolution.ts",
+            "AbortSignal.timeout(10_000)",
+        ),
+        "outbound_fingerprint_does_not_store_otp_plaintext": (
+            "lib/evolution.ts",
+            "createHash('sha256').update(normalized)",
+        ),
+        "consent_action_revalidates_candidate": (
+            "app/(candidate)/minha-area/aceites/actions.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "consent_action_checks_all_required_flags": (
+            "app/(candidate)/minha-area/aceites/actions.ts",
+            "lgpd: z.literal('on')",
+        ),
+        "consent_action_rechecks_application_owner": (
+            "app/(candidate)/minha-area/aceites/actions.ts",
+            ".eq('candidate_id', user.id)",
+        ),
+        "consent_evidence_uses_hmac": (
+            "lib/sigec-abuse-server.ts",
+            "update(`consent_user_agent:${userAgent}`)",
+        ),
+        "docker_build_receives_turnstile_sitekey": (
+            "Dockerfile",
+            "ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+        ),
+        "docker_runtime_expects_supabase_captcha": (
+            "Dockerfile",
+            "ENV SIGEC_SUPABASE_CAPTCHA_ENABLED=true",
+        ),
+        "compose_build_passes_turnstile_sitekey": (
+            "docker-compose.yml",
+            "NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}",
+        ),
+        "compose_runtime_passes_rate_limit_secret": (
+            "docker-compose.yml",
+            "SIGEC_RATE_LIMIT_SECRET: ${SIGEC_RATE_LIMIT_SECRET}",
+        ),
+        "compose_runtime_passes_whatsapp_otp_secret": (
+            "docker-compose.yml",
+            "SIGEC_WHATSAPP_OTP_SECRET: ${SIGEC_WHATSAPP_OTP_SECRET}",
+        ),
+        "compose_registration_defaults_closed": (
+            "docker-compose.yml",
+            "SIGEC_CANDIDATE_REGISTRATION_ENABLED: ${SIGEC_CANDIDATE_REGISTRATION_ENABLED:-false}",
+        ),
     }
 
     for name, (path, expected) in checks.items():
@@ -89,7 +213,15 @@ def main() -> int:
             "detail": "Process actions must archive instead of hard deleting records.",
         })
 
-    result = {"ok": not findings, "checks": len(checks) + 3, "findings": findings}
+    registration_action = read("app/(public)/cadastro-candidato/actions.ts")
+    if "app_metadata" in registration_action or "adminClient" in registration_action:
+        findings.append({
+            "severity": "critical",
+            "check": "candidate_role_not_controlled_by_public_action",
+            "detail": "Public registration must not assign app_metadata or import the service-role client.",
+        })
+
+    result = {"ok": not findings, "checks": len(checks) + 4, "findings": findings}
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["ok"] else 1
 

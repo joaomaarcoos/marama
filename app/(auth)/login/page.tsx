@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Inter } from 'next/font/google'
 import { Loader2 } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
+import { TurnstileWidget } from '@/components/turnstile-widget'
 import { login } from './actions'
 
 const inter = Inter({
@@ -571,6 +572,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaResetKey, setCaptchaResetKey] = useState(0)
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? ''
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -583,10 +587,14 @@ export default function LoginPage() {
 
       if (result?.error) {
         setError(result.error)
+        setCaptchaToken('')
+        setCaptchaResetKey((value) => value + 1)
         setLoading(false)
       }
     } catch {
       setError('Não foi possível entrar. Tente novamente.')
+      setCaptchaToken('')
+      setCaptchaResetKey((value) => value + 1)
       setLoading(false)
     }
   }
@@ -726,14 +734,28 @@ export default function LoginPage() {
                         <span>Lembrar-me</span>
                       </label>
 
-                      <button className="mp-login-forgot" type="button">
+                      <Link className="mp-login-forgot" href="/recuperar-senha">
                         Esqueci minha senha
-                      </button>
+                      </Link>
                     </div>
+
+                    {turnstileSiteKey ? (
+                      <>
+                        <TurnstileWidget
+                          siteKey={turnstileSiteKey}
+                          action="sigec_login"
+                          resetKey={captchaResetKey}
+                          onToken={setCaptchaToken}
+                        />
+                        <input type="hidden" name="captchaToken" value={captchaToken} />
+                      </>
+                    ) : (
+                      <div className="mp-login-error">A proteção de acesso ainda não foi configurada.</div>
+                    )}
 
                     {error ? <div className="mp-login-error">{error}</div> : null}
 
-                    <button className="mp-login-submit" type="submit" disabled={loading}>
+                    <button className="mp-login-submit" type="submit" disabled={loading || !captchaToken}>
                       {loading ? (
                         <>
                           <Loader2 size={18} style={{ animation: 'mp-login-spin 1s linear infinite' }} />

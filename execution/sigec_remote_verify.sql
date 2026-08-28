@@ -1,6 +1,7 @@
 with expected(table_name) as (
   values
     ('sigec_candidate_profiles'), ('sigec_candidate_education'),
+    ('sigec_auth_rate_limits'), ('sigec_candidate_signup_nonces'),
     ('sigec_candidate_experience'), ('sigec_processes'), ('sigec_modalities'),
     ('sigec_courses'), ('sigec_process_course_requirements'), ('sigec_vacancies'),
     ('sigec_process_questions'), ('sigec_document_requirements'),
@@ -80,6 +81,50 @@ select json_build_object(
   'ranking_migrations_applied', (
     select count(*) = 2 from supabase_migrations.schema_migrations
     where version in ('20260827145229', '20260827150004')
+  ),
+  'candidate_signup_migrations_applied', (
+    select count(*) = 2 from supabase_migrations.schema_migrations
+    where version in ('20260827191720', '20260827192334')
+  ),
+  'abuse_limit_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260827210859'
+  ),
+  'signup_proof_cleanup_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260827211700'
+  ),
+  'signup_proof_atomic_cleanup_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260827211803'
+  ),
+  'whatsapp_otp_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260827223306'
+  ),
+  'whatsapp_replay_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260827225813'
+  ),
+  'consent_migrations_applied', (
+    select count(*) = 3 from supabase_migrations.schema_migrations
+    where version in ('20260827224616', '20260827225219', '20260827225348')
+  ),
+  'abuse_tables_server_only', not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public'
+      and table_name in ('sigec_auth_rate_limits', 'sigec_candidate_signup_nonces')
+      and grantee in ('anon', 'authenticated')
+  ),
+  'candidate_signup_trigger_ok', exists (
+    select 1
+    from pg_trigger trigger
+    join pg_class relation on relation.oid = trigger.tgrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'auth'
+      and relation.relname = 'users'
+      and trigger.tgname = 'sigec_finalize_candidate_signup'
+      and not trigger.tgisinternal
   ),
   'ranking_immutability_triggers', (
     select count(*) from pg_trigger trigger

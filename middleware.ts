@@ -16,8 +16,8 @@ function getSupabaseAnonKey() {
 
 const publicApiPrefixes = ['/api/webhook', '/api/health']
 const candidateApiPrefixes = ['/api/candidato']
-const publicPagePrefixes = ['/processos', '/cadastro-candidato', '/acesso-negado']
-const authEntryPaths = ['/login', '/cadastro-candidato']
+const publicPagePrefixes = ['/processos', '/cadastro-candidato', '/recuperar-senha', '/auth/confirm', '/acesso-negado']
+const authEntryPaths = ['/login', '/cadastro-candidato', '/recuperar-senha']
 const internalPagePrefixes = [
   '/dashboard', '/prompt', '/disparos', '/conversas',
   '/documentos', '/usuarios', '/relatorios', '/contatos', '/logs',
@@ -41,7 +41,8 @@ export async function middleware(request: NextRequest) {
   const isHomePage = pathname === '/'
   const isInternalPage = internalPagePrefixes.some((path) => matchesPathPrefix(pathname, path))
   const isCandidatePage = candidatePagePrefixes.some((path) => matchesPathPrefix(pathname, path))
-  const isProtectedPage = isInternalPage || isCandidatePage
+  const isPasswordUpdatePage = pathname === '/redefinir-senha'
+  const isProtectedPage = isInternalPage || isCandidatePage || isPasswordUpdatePage
   const isProtectedApiRoute = pathname.startsWith('/api/') && !isPublicApi
 
   if (isPublicApi) return supabaseResponse
@@ -86,7 +87,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 })
     }
     if (isProtectedPage && !user) {
-      return NextResponse.redirect(new URL('/login', request.url))
+      return NextResponse.redirect(new URL(isPasswordUpdatePage ? '/recuperar-senha' : '/login', request.url))
     }
 
     // Defesa central para APIs. Cada rota continua responsavel por validar
