@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { AlertCircle, ArrowRight, BriefcaseBusiness, Clock3, GraduationCap, MessageCircleMore, UserRound } from 'lucide-react'
+import { AlertCircle, ArrowRight, BriefcaseBusiness, Clock3, FileCheck2, GraduationCap, MessageCircleMore, UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
 type CandidateProfile = { full_name: string; profile_completed_at: string | null; whatsapp_verified_at: string | null }
@@ -48,7 +48,7 @@ export default async function CandidateHomePage() {
         </div>
       )}
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Link href="/minha-area/perfil" className="rounded-2xl border border-[#d9e0e7] bg-[#ffffff] p-5 text-[#172033] transition hover:-translate-y-0.5 hover:border-[#8bcbb4] hover:shadow-md">
           <UserRound className="h-5 w-5 text-[#16845f]" />
           <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#657084]">Perfil</p>
@@ -73,6 +73,11 @@ export default async function CandidateHomePage() {
           <BriefcaseBusiness className="h-5 w-5 text-[#315f9d]" />
           <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#657084]">Experiência</p>
           <p className="mt-1 font-semibold">Cadastrar vínculos</p>
+        </Link>
+        <Link href="/minha-area/documentos" className="rounded-2xl border border-[#d9e0e7] bg-[#ffffff] p-5 text-[#172033] transition hover:-translate-y-0.5 hover:border-[#9db8dd] hover:shadow-md">
+          <FileCheck2 className="h-5 w-5 text-[#315f9d]" />
+          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#657084]">Documentos</p>
+          <p className="mt-1 font-semibold">Enviar arquivos</p>
         </Link>
       </section>
 

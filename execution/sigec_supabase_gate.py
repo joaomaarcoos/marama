@@ -59,6 +59,15 @@ def credential_args(values: dict[str, str]) -> tuple[list[str], str]:
         if EXPECTED_PROJECT_REF not in f"{username} {destination}":
             raise ValueError("POSTGRES connection string does not match the approved project")
         normalized_password = quote(unquote(password), safe="")
+        # The session pooler on 5432 has repeatedly terminated short-lived
+        # migration connections. Supabase's transaction pooler is the stable
+        # equivalent for these non-interactive, single-transaction commands.
+        destination = re.sub(
+            r"(\.pooler\.supabase\.com):5432(?=/|$)",
+            r"\1:6543",
+            destination,
+            count=1,
+        )
         normalized = f"{scheme}://{username}:{normalized_password}@{destination}"
         return ["--db-url", normalized], normalized
 
@@ -102,6 +111,46 @@ def main() -> int:
     npx = shutil.which("npx.cmd" if os.name == "nt" else "npx")
     if not npx:
         raise SystemExit("npx was not found")
+
+    if args.action == "verify":
+        verification_sql = (ROOT / "execution" / "sigec_remote_verify.sql").read_text(encoding="utf-8")
+        last_error: Exception | None = None
+        for attempt in range(3):
+            connection = None
+            try:
+                import psycopg2
+
+                connection = psycopg2.connect(secret, connect_timeout=15)
+                connection.autocommit = False
+                with connection.cursor() as cursor:
+                    cursor.execute(verification_sql)
+                    result = cursor.fetchone()[0]
+                connection.rollback()
+                print(json.dumps({
+                    "ok": True,
+                    "action": args.action,
+                    "projectRef": EXPECTED_PROJECT_REF,
+                    "exitCode": 0,
+                    "verification": result,
+                    "attempts": attempt + 1,
+                }, ensure_ascii=False, indent=2, default=str))
+                return 0
+            except Exception as error:
+                last_error = error
+                if attempt < 2:
+                    time.sleep(1 + attempt)
+            finally:
+                if connection is not None:
+                    connection.close()
+        print(json.dumps({
+            "ok": False,
+            "action": args.action,
+            "projectRef": EXPECTED_PROJECT_REF,
+            "exitCode": 1,
+            "error": sanitized(str(last_error), secret),
+            "attempts": 3,
+        }, ensure_ascii=False, indent=2))
+        return 1
 
     temporary_directory: tempfile.TemporaryDirectory[str] | None = None
     preliminary_output = ""
@@ -264,9 +313,6 @@ def main() -> int:
     elif args.action in ("advisors", "advisors-sigec"):
         command = [npx, "--no-install", "supabase", "db", "advisors", *connection_args,
                    "--type", "all", "--level", "info", "--fail-on", "error"]
-    elif args.action == "verify":
-        command = [npx, "--no-install", "supabase", "db", "query", *connection_args,
-                   "--file", str(ROOT / "execution" / "sigec_remote_verify.sql")]
     else:
         command = [npx, "--no-install", "supabase", "db", "push", *connection_args,
                    "--skip-vault", "--dry-run"]

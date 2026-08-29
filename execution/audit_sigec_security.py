@@ -132,6 +132,14 @@ def audit(sql: str) -> dict[str, object]:
         "scoring_confirmation_trigger_defense": r"guard_scoring_rule_immutability[\s\S]*?sigec_assert_draft_process_manager\(new\.process_id, new\.confirmed_by\)",
         "scoring_publication_requires_official": r"sigec_latest_scoring_is_official[\s\S]*?version\.status = 'official' and not version\.is_provisional",
         "scoring_rpcs_service_only": r"revoke all on function public\.sigec_confirm_scoring_version.*from public, anon, authenticated",
+        "document_hash_is_required": r"alter column sha256 set not null",
+        "document_version_chain": r"supersedes_document_id uuid references public\.sigec_application_documents",
+        "document_rpc_security_invoker": r"sigec_register_candidate_document[\s\S]*?security invoker",
+        "document_rpc_service_only": r"revoke all on function public\.sigec_register_candidate_document.*from public, anon, authenticated",
+        "document_metadata_direct_insert_revoked": r"revoke insert on public\.sigec_application_documents from authenticated",
+        "document_direct_storage_insert_removed": r"drop policy if exists sigec_storage_candidate_insert on storage\.objects",
+        "staff_document_read_requires_clean_scan": r"sigec_storage_candidate_read[\s\S]*?malware_status = 'clean'",
+        "validated_document_requires_sanitization": r"technical_status = 'validated' and sanitized_at is not null",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

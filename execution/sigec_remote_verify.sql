@@ -282,6 +282,45 @@ select jsonb_build_object(
     and not has_column_privilege('authenticated', 'public.sigec_candidate_experience', 'id', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.sigec_candidate_experience', 'created_at', 'UPDATE')
   ),
+  'candidate_document_processing_migrations_applied', (
+    select count(*) = 2 from supabase_migrations.schema_migrations
+    where version in ('20260829225014', '20260829230009')
+  ),
+  'candidate_document_columns_safe', (
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'sigec_application_documents'
+        and column_name = 'sha256' and is_nullable = 'NO'
+    )
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'sigec_application_documents'
+        and column_name in ('technical_status', 'malware_status', 'sanitized_at', 'supersedes_document_id')
+      group by table_schema, table_name having count(*) = 4
+    )
+  ),
+  'candidate_document_rpc_safe', (
+    not has_function_privilege('anon', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)', 'EXECUTE')
+    and not (
+      select procedure.prosecdef from pg_proc procedure
+      join pg_namespace namespace on namespace.oid = procedure.pronamespace
+      where namespace.nspname = 'public' and procedure.proname = 'sigec_register_candidate_document'
+    )
+  ),
+  'candidate_document_direct_insert_absent', (
+    not has_table_privilege('authenticated', 'public.sigec_application_documents', 'INSERT')
+    and not exists (
+      select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects'
+        and cmd = 'INSERT' and policyname like 'sigec_storage_candidate%'
+    )
+  ),
+  'staff_document_storage_requires_clean_scan', exists (
+    select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects'
+      and policyname = 'sigec_storage_candidate_read'
+      and coalesce(qual, '') like '%malware_status%clean%'
+  ),
   'process_preference_limit_trigger_present', exists (
     select 1 from pg_trigger trigger
     join pg_class relation on relation.oid = trigger.tgrelid

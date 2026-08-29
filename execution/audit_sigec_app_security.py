@@ -96,6 +96,34 @@ def main() -> int:
             "app/(candidate)/minha-area/experiencia/actions.ts",
             "const supabase = await createClient()",
         ),
+        "candidate_document_role_guard": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "candidate_document_owner_scope": (
+            "app/api/sigec/candidate-documents/route.ts",
+            ".eq('candidate_id', user.id)",
+        ),
+        "candidate_document_server_processing": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "processCandidateDocument(file)",
+        ),
+        "candidate_document_validated_backend_upload": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "adminClient.storage.from(SIGEC_DOCUMENT_BUCKET).upload",
+        ),
+        "candidate_document_storage_is_append_only": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "upsert: false",
+        ),
+        "candidate_document_orphan_cleanup": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "remove([path])",
+        ),
+        "candidate_document_safe_error_log": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "console.error('[SIGEC candidate document] upload failed', { stage })",
+        ),
         "documents_role_guard": (
             "app/api/documentos/route.ts",
             "requireApiUser(['admin', 'gerente'])",
