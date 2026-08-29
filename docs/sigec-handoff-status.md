@@ -17,7 +17,7 @@ Fontes funcionais, em ordem de precedência:
 - Decisões do responsável pelo produto registradas nesta conversa.
 - `EDITAL Nº 01/2026 — SEDUC`, arquivo `C:\Users\joaom\Downloads\EDITAL-No-01_2026-PROCESSO-SELETIVO-EPT (1).docx`, documento mais antigo e usado somente como referência histórica.
 
-**Observação pendente:** as regras extraídas do edital antigo nas seções 3 e 4 não devem ser implementadas como regra definitiva. Pontuação, desempates, classificação, ordenação, inscrição única e cotas aguardam reconfirmação. Até lá, o SIGEC deve manter essas regras configuráveis e não publicar classificação automática.
+**Observação pendente:** as regras extraídas do edital antigo nas seções 3 e 4 não devem ser implementadas como regra definitiva. Desempates, classificação, ordenação, inscrição única e cotas aguardam reconfirmação. A lógica da rubrica complementar de 30 pontos e o fluxo de aprovação de pendências foram compreendidos e aceitos como direção de produto, mas sua finalização foi adiada pelo responsável. Até esse fechamento, o SIGEC deve mantê-los configuráveis e não publicar classificação automática.
 
 Regra de precedência atual: SIGDOC prevalece; o edital antigo serve para apontar perguntas e riscos, não para substituir o SIGDOC.
 
@@ -78,7 +78,7 @@ Fórmula implementável apenas parcialmente:
 nota_final = maior_pontuacao_de_pos_graduacao + pontuacao_de_experiencia + criterio_oficial_ainda_ausente
 ```
 
-Não configurar total máximo de 100 nem homologar classificação automática até resolver `SIGEC-DEC-01`.
+No SIGEC, configurar o total máximo de 100 com a rubrica de produto aprovada na seção 4.1. A classificação automática continua bloqueada até confirmar a transição `habilitado → classificado`, a ordem dos desempates e as demais regras de ranqueamento.
 
 ### 3.3 Desempate — ordem obrigatória
 
@@ -125,8 +125,8 @@ Solicitações administrativas de esclarecimento devem ser modeladas separadamen
 
 ## 4. Decisões normativas pendentes
 
-- [ ] SIGEC-DEC-01 — Obter retificação/orientação oficial com a rubrica dos 30 pontos ausentes. Em 27/08/2026 foi aprovada uma rubrica provisória de produto para implementação configurável e testes, descrita na seção 4.1. **A confirmação oficial ainda bloqueia homologação automática da nota e classificação.**
-- [ ] SIGEC-DEC-02 — Confirmar oficialmente se “produção acadêmica” é exatamente o critério ausente de 30 pontos. A decisão provisória do produto considera que sim. **A confirmação oficial ainda bloqueia o terceiro desempate na classificação publicada.**
+- [ ] SIGEC-DEC-01 — Finalizar e homologar a rubrica complementar de 30 pontos. A lógica da seção 4.1 foi aceita como direção de produto, mas o responsável decidiu deixar o fechamento para depois; a ausência da rubrica no SIGDOC permanece registrada como divergência documental.
+- [ ] SIGEC-DEC-02 — Finalizar a confirmação de “produção acadêmica e desenvolvimento profissional” como grupo complementar e de seu eventual uso no desempate. A proposta foi aceita como direção, mas permanece em observação até o fechamento solicitado.
 - [ ] SIGEC-DEC-03 — Confirmar formalmente se todo candidato elegível e não desclassificado será classificado no cadastro de reserva ou se haverá nota/corte mínimo. **Bloqueia transição automática `habilitado → classificado`.**
 - [ ] SIGEC-DEC-04 — Resolver conflito entre o edital, que permite uma inscrição com uma opção de município/curso/modalidade, e a decisão de produto de até cinco preferências. Definir por processo: `uma_opcao` ou `ate_cinco_preferencias`. **Bloqueia publicação do formulário deste edital.**
 - [ ] SIGEC-DEC-05 — Confirmar a chave exata de ranqueamento: processo + modalidade + município + curso/especialidade + tipo de concorrência. **Bloqueia geração da lista oficial.**
@@ -134,9 +134,9 @@ Solicitações administrativas de esclarecimento devem ser modeladas separadamen
 
 As decisões devem registrar fonte, responsável, data, versão do edital e impacto. Não remover o histórico quando uma decisão for substituída por retificação.
 
-### 4.1 Rubrica provisória aprovada pelo produto — 30 pontos
+### 4.1 Rubrica de produto aceita como direção — 30 pontos
 
-Esta rubrica foi aprovada em 27/08/2026 para implementação configurável, testes e homologação interna. Ela não foi extraída do SIGDOC nem do edital antigo e não pode sustentar publicação oficial até a resolução de `SIGEC-DEC-01` e `SIGEC-DEC-02`.
+Esta rubrica foi aceita pelo responsável do produto como a lógica a ser usada para completar os 100 pontos, mas sua finalização foi adiada. Ela não foi extraída do SIGDOC nem do edital antigo; essa divergência de origem deve permanecer visível no histórico da versão da regra. Até o fechamento, pode sustentar configuração e testes internos, mas não a classificação automática publicada.
 
 | Critério | Pontos por item | Limite |
 |---|---:|---:|
@@ -147,7 +147,7 @@ Esta rubrica foi aprovada em 27/08/2026 para implementação configurável, test
 | Formação continuada relacionada à vaga | 1 ponto a cada 20 horas | 5 |
 | **Total de produção acadêmica e desenvolvimento profissional** |  | **30** |
 
-Regras provisórias de cálculo e auditoria:
+Regras de cálculo e auditoria:
 
 - somente comprovantes validados geram pontos;
 - pendência documental impede a conclusão da análise e documento rejeitado vale zero;
@@ -158,9 +158,19 @@ Regras provisórias de cálculo e auditoria:
 - cada lançamento preserva comprovante, avaliador, data, regra aplicada, pontos e justificativa;
 - alterações manuais preservam valor anterior, novo valor e autoria;
 - o período de validade sugerido é de cinco anos, ainda pendente de confirmação;
-- o valor do grupo será usado como terceiro desempate quando a regra normativa for homologada.
+- o valor do grupo somente será usado como terceiro desempate após a confirmação da ordem oficial dos desempates.
 
-Fórmula provisória para testes internos: `nota_final = titulacao (máx. 30) + experiencia (máx. 40) + producao (máx. 30)`. Nota máxima: 100 pontos.
+Fórmula aceita como direção e pendente de fechamento: `nota_final = titulacao (máx. 30) + experiencia (máx. 40) + producao_e_desenvolvimento (máx. 30)`. Nota máxima pretendida: 100 pontos.
+
+### 4.2 Regra compreendida para pendências e avanço de etapa — finalizar depois
+
+- Uma pendência aberta e marcada como bloqueante impede a transição da candidatura para a etapa seguinte.
+- O candidato pode corrigir ou complementar o que foi solicitado, mas não aprova a própria pendência.
+- Administrador ou gerente responsável pela análise pode aprovar a correção e marcar a pendência como resolvida.
+- Depois que todas as pendências bloqueantes da etapa estiverem aprovadas ou resolvidas, a candidatura fica liberada para a próxima etapa.
+- Pendência rejeitada ou devolvida para nova correção continua bloqueando o avanço.
+- Toda decisão deve preservar candidatura, pendência, documento ou campo relacionado, situação anterior e nova, analista, data/hora e justificativa.
+- Exceção administrativa deve exigir permissão específica e justificativa, sem apagar nem contornar o histórico da pendência.
 
 ## 5. Plano priorizado de execução
 
@@ -193,7 +203,7 @@ Fórmula provisória para testes internos: `nota_final = titulacao (máx. 30) + 
 - [x] SIGEC-P2-03 — Importar vagas dos anexos, normalizar nomes e gerar relatório de duplicidades antes da confirmação. Concluído em 28/08/2026 com extrator determinístico do SIGDOC, normalização sem acentos, prévia administrativa editável, bloqueio de requisitos vazios e duplicidades, confirmação explícita e importação transacional auditada. A prévia real identificou 389 linhas, das quais 364 prontas e 25 bloqueadas para revisão; nenhuma linha real foi importada automaticamente.
 - [x] SIGEC-P2-04 — Configurar perguntas, documentos obrigatórios, condições PCD/PPP e modelos de declaração. Concluído em 28/08/2026 com painel administrativo único, públicos `todos/PCD/PPP`, tipos e opções de pergunta validados, anexos limitados a PDF/JPG/PNG e 50 MB, declarações versionadas e RPCs transacionais somente no backend; toda alteração é auditada e bloqueada após sair do rascunho. Os textos PCD/PPP permanecem configuráveis e pendentes de confirmação oficial.
 - [x] SIGEC-P2-05 — Configurar etapas, transições permitidas e mensagens públicas/WhatsApp. Concluído em 28/08/2026 com etapa inicial única, terminais sem saída, grafo alcançável, transições ativas/inativas, exigência opcional de motivo e trava configurável de pendências; mensagens públicas e templates WhatsApp usam variáveis permitidas e são obrigatórios no gate de publicação. O envio pela MARA e a execução da trava ao mudar uma candidatura permanecem, respectivamente, nas tarefas P9 e P5.
-- [x] SIGEC-P2-06 — Configurar critérios de pontuação e desempate com versionamento e bloqueio de alteração após publicação. Concluído em 29/08/2026: versões `draft`, `internal` e `official`, critérios e desempates vinculados à versão exata, imutabilidade após confirmação, RPCs somente `service_role`, trigger contra confirmação direta, gate da versão mais recente oficial e não provisória e painel administrativo com histórico. Retificações preservam as versões oficiais anteriores; um novo rascunho volta a bloquear a publicação. A rubrica de 30 pontos permanece provisória e não libera publicação.
+- [x] SIGEC-P2-06 — Configurar critérios de pontuação e desempate com versionamento e bloqueio de alteração após publicação. Concluído em 29/08/2026: versões `draft`, `internal` e `official`, critérios e desempates vinculados à versão exata, imutabilidade após confirmação, RPCs somente `service_role`, trigger contra confirmação direta, gate da versão mais recente oficial e não provisória e painel administrativo com histórico. Retificações preservam as versões oficiais anteriores; um novo rascunho volta a bloquear a publicação. A rubrica complementar permanece configurável e em observação até o fechamento posterior solicitado.
 - [x] SIGEC-P2-07 — Configurar por processo o número de opções permitido, conforme `SIGEC-DEC-04`. Concluído em 29/08/2026: seleção explícita de uma a cinco opções no rascunho, comunicação pública sem limite global fixo e trigger que aplica o limite do processo, valida o vínculo da vaga e impede alteração após envio. A publicação continua bloqueada enquanto `SIGEC-DEC-04` não estiver oficialmente confirmada.
 
 **Gate P2:** processo só pode ser publicado após validação de datas, vagas, requisitos, total de pontos, desempates e documentos.
@@ -237,7 +247,7 @@ Fórmula provisória para testes internos: `nota_final = titulacao (máx. 30) + 
 
 - [ ] SIGEC-P6-01 — Implementar pós-graduação não cumulativa: 30/25/20, máximo 30.
 - [ ] SIGEC-P6-02 — Implementar experiência por faixas, máximo 40, com regra explícita para sobreposição de vínculos.
-- [ ] SIGEC-P6-03 — Implementar o critério oficial restante somente após `SIGEC-DEC-01` e `SIGEC-DEC-02`.
+- [ ] SIGEC-P6-03 — Implementar no motor de avaliação a rubrica aprovada de produção acadêmica e desenvolvimento profissional, com teto de 30 pontos, comprovação, limites por categoria e trilha de auditoria.
 - [ ] SIGEC-P6-04 — Calcular nota total no servidor/banco e impedir pontos acima do máximo por critério.
 - [ ] SIGEC-P6-05 — Implementar desempates na ordem oficial, incluindo idade calculada na data da inscrição.
 - [ ] SIGEC-P6-06 — Gerar snapshots imutáveis da classificação preliminar e final, com versão do algoritmo.
@@ -303,8 +313,8 @@ Fórmula provisória para testes internos: `nota_final = titulacao (máx. 30) + 
 
 ### Fios soltos encontrados e tratados no plano
 
-1. Total de 100 pontos versus apenas 70 detalhados: bloqueado por `SIGEC-DEC-01`.
-2. Produção acadêmica usada no desempate sem rubrica: bloqueado por `SIGEC-DEC-02`.
+1. Total de 100 pontos versus apenas 70 detalhados no SIGDOC: resolvido no produto pela rubrica complementar de 30 pontos; preservar a divergência documental na versão da regra.
+2. Produção acadêmica usada no desempate: rubrica resolvida; uso como terceiro desempate ainda depende da confirmação da ordem oficial dos desempates.
 3. Ausência de corte entre habilitado e classificado: bloqueado por `SIGEC-DEC-03`.
 4. Uma inscrição no edital versus cinco preferências no produto: bloqueado por `SIGEC-DEC-04` e configurável por processo.
 5. Escopo exato da lista de classificação: bloqueado por `SIGEC-DEC-05`.
@@ -385,7 +395,8 @@ Ao concluir uma tarefa:
 | 28/08/2026 | SIGEC-P2-05 | migrações `sigec_stage_configuration` e `sigec_stage_transition_fk_indexes`; painel visual do fluxo; RPCs de etapas/transições; gate de alcançabilidade; teste remoto ampliado | fluxo desconectado ou sem mensagens não pode ser publicado; terminal não aceita saída; templates rejeitam variáveis desconhecidas; RPCs e transições somente `service_role`; 25 controles remotos com rollback integral, 37/37 tabelas RLS, nenhum FK sem índice, 76 controles da aplicação, zero fixtures, zero Advisors acionáveis, TypeScript e build de 50 páginas aprovados |
 | 29/08/2026 | SIGEC-P2-06 | migrações `sigec_scoring_configuration_versioning`, `sigec_scoring_latest_version_gate` e `sigec_scoring_confirmation_trigger_guard`; painel de pontuação/desempate; RPCs versionadas; gate oficial; testes e auditorias ampliados | versão confirmada é imutável; versão provisória aceita somente homologação interna; versão oficial exige total exato, desempate e seis decisões confirmadas, inclusive contra atualização direta com chave de serviço; retificações preservam o histórico e a versão mais recente governa o gate; 31 controles remotos com rollback integral, 40/40 tabelas RLS, nenhum FK sem índice, 80 controles da aplicação, zero fixtures, zero Advisors acionáveis e build de 50 páginas aprovado |
 | 29/08/2026 | SIGEC-P2-07 | migração `sigec_process_preference_limit`; formulário e comunicação pública por processo; trigger de limite e imutabilidade após envio; teste remoto ampliado | processo aceita de uma a cinco opções no rascunho; banco rejeita preferência acima do limite, vaga de outro processo/inativa e mudança após envio; 34 controles remotos com rollback integral, 40/40 tabelas RLS, nenhum FK sem índice, 82 controles da aplicação, zero fixtures, zero Advisors acionáveis e build de 50 páginas aprovado |
+| 29/08/2026 | Observações de produto sobre pontuação e pendências | revisão integral do SIGDOC e orientação do responsável | lógica complementar para completar 100 pontos e fluxo de aprovação de pendências compreendidos; ambos mantidos como observação para finalização posterior, sem bloquear o avanço para as próximas implementações |
 
 ## 9. Próxima ação recomendada
 
-Validar o Gate P2 com um processo real antes de promover a Fase 2 para `master`: revisar a prévia real, importar as 364 linhas prontas, corrigir ou excluir as 25 pendentes, registrar as seis decisões normativas e confirmar a versão oficial de pontuação/desempates. Sem essas confirmações o banco rejeita corretamente a publicação; cadastro público, classificação e início da Fase 3 permanecem fechados.
+Prosseguir com a implementação da Fase 3 sem publicar um processo real. Para fechar posteriormente o Gate P2 e promover a Fase 2 para `master`, ainda será necessário revisar a prévia real, importar as 364 linhas prontas, corrigir ou excluir as 25 pendentes, finalizar e registrar as seis decisões exigidas pelo gate e confirmar a versão oficial de pontuação/desempates. Até lá, o banco rejeita corretamente a publicação e a classificação automática permanece fechada.
