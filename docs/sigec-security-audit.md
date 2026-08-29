@@ -36,6 +36,10 @@ O SIGEC armazenará dados pessoais, documentos profissionais, decisões de sele�
 - Identidade e autoria da formação (`id`, candidato e criação) não ficam em colunas graváveis; a defesa também é aplicada por trigger no banco.
 - Formação pedagógica e complementação exigem carga horária; conclusão e períodos são validados no servidor e novamente no banco.
 - Auditoria acadêmica registra operação e nomes dos campos alterados, sem copiar curso ou instituição para o log.
+- Experiências profissionais usam RLS por proprietário; gestores possuem leitura, mas não mutação direta.
+- O total docente é calculado no banco pela união dos intervalos, impedindo dupla contagem de dias sobrepostos e excluindo vínculos não docentes.
+- A conversão em meses equivalentes de 30 dias é exibida como indicador cadastral; ela não gera pontuação oficial antes da implementação e homologação do `SIGEC-P6-02`.
+- Identidade do vínculo é imutável e os logs registram somente operação e campos alterados, sem copiar empregador ou função.
 - Até cinco preferências, únicas e ordenadas, validadas na aplicação e no banco.
 - Histórico de status, auditoria, consentimentos e outbox idempotente previstos no esquema.
 - Observações internas não possuem política de leitura para candidato.

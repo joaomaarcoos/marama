@@ -72,6 +72,11 @@ def audit(sql: str) -> dict[str, object]:
         "candidate_education_audit_omits_values": r"sigec_audit_candidate_education_change[\s\S]*?'changed_fields'",
         "candidate_education_private_triggers_not_callable": r"revoke all on function private\.sigec_prepare_candidate_education_write\(\) from public, anon, authenticated",
         "candidate_education_pedagogy_requires_workload": r"sigec_candidate_education_pedagogy_workload_check",
+        "candidate_experience_identity_immutable": r"SIGEC_EXPERIENCE_IDENTITY_IMMUTABLE",
+        "candidate_experience_overlap_is_merged": r"range_agg\(daterange\(starts_on, coalesce\(ends_on, current_date\) \+ 1",
+        "candidate_experience_summary_owner_guard": r"SIGEC_EXPERIENCE_SUMMARY_FORBIDDEN",
+        "candidate_experience_audit_omits_values": r"sigec_audit_candidate_experience_change[\s\S]*?'changed_fields'",
+        "candidate_experience_private_triggers_not_callable": r"revoke all on function private\.sigec_prepare_candidate_experience_write\(\) from public, anon, authenticated",
         "candidate_signup_admin_compatibility": r"sigec_finalize_candidate_signup",
         "auth_rate_limit_rls": r"alter table public\.sigec_auth_rate_limits enable row level security",
         "auth_rate_limit_service_only": r"revoke all on function public\.sigec_consume_auth_rate_limit.*from public, anon, authenticated",
@@ -159,6 +164,23 @@ def audit(sql: str) -> dict[str, object]:
             "severity": "critical",
             "check": "candidate_education_identity_grants",
             "detail": "Candidate-writable grants include immutable education identity fields.",
+        })
+
+    experience_update_grants = re.findall(
+        r"grant\s+update\s*\(([^;]*?)\)\s*on public\.sigec_candidate_experience",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    experience_update_columns = {
+        column.strip()
+        for grant in experience_update_grants
+        for column in grant.split(",")
+    }
+    if experience_update_columns & {"id", "candidate_id", "created_at"}:
+        findings.append({
+            "severity": "critical",
+            "check": "candidate_experience_identity_grants",
+            "detail": "Candidate-writable grants include immutable experience identity fields.",
         })
 
     return {

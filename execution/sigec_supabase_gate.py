@@ -208,15 +208,26 @@ def main() -> int:
                     if connection is not None:
                         connection.close()
             elif args.action == "isolated-apply":
-                dry_run_result = subprocess.run(
-                    dry_run_command,
-                    cwd=ROOT,
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    check=False,
-                )
+                for dry_run_attempt in range(3):
+                    dry_run_result = subprocess.run(
+                        dry_run_command,
+                        cwd=ROOT,
+                        capture_output=True,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        check=False,
+                    )
+                    raw_dry_run_output = f"{dry_run_result.stdout}\n{dry_run_result.stderr}".lower()
+                    transient_dry_run_failure = any(marker in raw_dry_run_output for marker in (
+                        "connection terminated unexpectedly",
+                        "timeout expired",
+                        "connection reset by peer",
+                        "temporary failure in name resolution",
+                    ))
+                    if dry_run_result.returncode == 0 or not transient_dry_run_failure or dry_run_attempt == 2:
+                        break
+                    time.sleep(1 + dry_run_attempt)
                 dry_run_output = sanitized(
                     "\n".join(part for part in (dry_run_result.stdout, dry_run_result.stderr) if part), secret
                 ).strip()
@@ -259,6 +270,11 @@ def main() -> int:
     else:
         command = [npx, "--no-install", "supabase", "db", "push", *connection_args,
                    "--skip-vault", "--dry-run"]
+
+    # The Session pooler can terminate a third immediate connection after the
+    # history fetch and dry-run. Give it a brief recovery window before apply.
+    if args.action == "isolated-apply" and preliminary_output:
+        time.sleep(3)
 
     max_attempts = 3 if args.action in ("verify", "advisors", "advisors-sigec", "history") else 1
     attempts_used = 0

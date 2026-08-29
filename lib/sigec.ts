@@ -123,6 +123,35 @@ export const CandidateEducationSchema = z.object({
   }
 })
 
+export const SIGEC_EMPLOYMENT_TYPES = [
+  'servidor_publico',
+  'contratado_publico',
+  'empregado_privado',
+  'bolsista',
+  'outro',
+] as const
+
+export const CandidateExperienceSchema = z.object({
+  id: z.preprocess(
+    (value) => value === '' || value === null ? undefined : value,
+    z.string().uuid().optional(),
+  ),
+  employmentType: z.enum(SIGEC_EMPLOYMENT_TYPES),
+  institution: z.string().trim().min(2).max(200),
+  roleTitle: z.string().trim().min(2).max(200),
+  startsOn: z.coerce.date().max(new Date(), 'A data de início não pode estar no futuro'),
+  endsOn: OptionalPastDateSchema,
+  isTeaching: z.boolean(),
+}).superRefine((data, context) => {
+  if (data.endsOn && data.endsOn < data.startsOn) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['endsOn'],
+      message: 'O término deve ocorrer depois do início',
+    })
+  }
+})
+
 export const ProcessInputSchema = z.object({
   title: z.string().trim().min(3).max(200),
   slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),

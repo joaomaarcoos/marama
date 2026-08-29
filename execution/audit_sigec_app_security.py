@@ -80,6 +80,22 @@ def main() -> int:
             "app/(candidate)/minha-area/formacao/actions.ts",
             "const supabase = await createClient()",
         ),
+        "candidate_experience_server_validation": (
+            "app/(candidate)/minha-area/experiencia/actions.ts",
+            "CandidateExperienceSchema.safeParse",
+        ),
+        "candidate_experience_role_guard": (
+            "app/(candidate)/minha-area/experiencia/actions.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "candidate_experience_owner_scope": (
+            "app/(candidate)/minha-area/experiencia/actions.ts",
+            ".eq('candidate_id', auth.user.id)",
+        ),
+        "candidate_experience_avoids_service_role": (
+            "app/(candidate)/minha-area/experiencia/actions.ts",
+            "const supabase = await createClient()",
+        ),
         "documents_role_guard": (
             "app/api/documentos/route.ts",
             "requireApiUser(['admin', 'gerente'])",

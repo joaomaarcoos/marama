@@ -259,6 +259,29 @@ select jsonb_build_object(
     and not has_column_privilege('authenticated', 'public.sigec_candidate_education', 'id', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.sigec_candidate_education', 'created_at', 'UPDATE')
   ),
+  'candidate_experience_management_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations where version = '20260829220824'
+  ),
+  'candidate_experience_management_triggers_present', (
+    select count(*) = 2
+    from pg_trigger trigger
+    join pg_class relation on relation.oid = trigger.tgrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'public'
+      and relation.relname = 'sigec_candidate_experience'
+      and trigger.tgname in ('sigec_candidate_experience_prepare', 'sigec_candidate_experience_audit')
+      and not trigger.tgisinternal
+  ),
+  'candidate_experience_summary_permissions_safe', (
+    not has_function_privilege('anon', 'public.sigec_candidate_teaching_experience_summary(uuid)', 'EXECUTE')
+    and has_function_privilege('authenticated', 'public.sigec_candidate_teaching_experience_summary(uuid)', 'EXECUTE')
+  ),
+  'candidate_experience_column_grants_safe', (
+    has_column_privilege('authenticated', 'public.sigec_candidate_experience', 'role_title', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_experience', 'candidate_id', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_experience', 'id', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_experience', 'created_at', 'UPDATE')
+  ),
   'process_preference_limit_trigger_present', exists (
     select 1 from pg_trigger trigger
     join pg_class relation on relation.oid = trigger.tgrelid
