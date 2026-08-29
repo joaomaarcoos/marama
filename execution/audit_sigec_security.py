@@ -68,6 +68,10 @@ def audit(sql: str) -> dict[str, object]:
         "candidate_profile_audit_omits_values": r"sigec_audit_candidate_profile_update[\s\S]*?'changed_fields'",
         "candidate_profile_audit_actor_deletion_safe": r"sigec_audit_events_actor_id_fkey[\s\S]*?on delete set null",
         "candidate_profile_private_triggers_not_callable": r"revoke all on function private\.sigec_prepare_candidate_profile_update\(\) from public, anon, authenticated",
+        "candidate_education_identity_immutable": r"SIGEC_EDUCATION_IDENTITY_IMMUTABLE",
+        "candidate_education_audit_omits_values": r"sigec_audit_candidate_education_change[\s\S]*?'changed_fields'",
+        "candidate_education_private_triggers_not_callable": r"revoke all on function private\.sigec_prepare_candidate_education_write\(\) from public, anon, authenticated",
+        "candidate_education_pedagogy_requires_workload": r"sigec_candidate_education_pedagogy_workload_check",
         "candidate_signup_admin_compatibility": r"sigec_finalize_candidate_signup",
         "auth_rate_limit_rls": r"alter table public\.sigec_auth_rate_limits enable row level security",
         "auth_rate_limit_service_only": r"revoke all on function public\.sigec_consume_auth_rate_limit.*from public, anon, authenticated",
@@ -138,6 +142,23 @@ def audit(sql: str) -> dict[str, object]:
             "severity": "critical",
             "check": "candidate_cannot_self_verify",
             "detail": "Candidate-writable grants include server-controlled verification fields.",
+        })
+
+    education_update_grants = re.findall(
+        r"grant\s+update\s*\(([^;]*?)\)\s*on public\.sigec_candidate_education",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    education_update_columns = {
+        column.strip()
+        for grant in education_update_grants
+        for column in grant.split(",")
+    }
+    if education_update_columns & {"id", "candidate_id", "created_at"}:
+        findings.append({
+            "severity": "critical",
+            "check": "candidate_education_identity_grants",
+            "detail": "Candidate-writable grants include immutable education identity fields.",
         })
 
     return {

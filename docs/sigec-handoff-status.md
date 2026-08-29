@@ -3,7 +3,7 @@
 **Última atualização:** 29/08/2026
 **Estado geral:** fundação, classificação auditável, Gate P1 e configuração administrativa da Fase 2 implementados; cadastro público permanece fechado até existir processo real pronto para publicação
 **Fase atual:** Fase 3 em implementação na branch `codex/sigec-fase-3-perfil-candidato`; Gate P2 permanece adiado com observações registradas
-**Progresso auditado:** 28 de 88 tarefas concluídas; 60 pendentes
+**Progresso auditado:** 29 de 88 tarefas concluídas; 59 pendentes
 **Última auditoria automática:** aprovada em 29/08/2026, sem achados locais ou remotos acionáveis
 **Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
 
@@ -211,7 +211,7 @@ Fórmula aceita como direção e pendente de fechamento: `nota_final = titulacao
 ### Fase 3 — Perfil profissional e documentos
 
 - [x] SIGEC-P3-01 — Implementar dados pessoais, endereço, contatos e disponibilidade. Concluído em 29/08/2026 com tela própria do candidato, validação Zod no servidor, normalização e completude derivada no banco, CPF/e-mail protegidos, troca de WhatsApp com revogação da verificação, RLS por proprietário e auditoria somente dos nomes dos campos alterados, sem copiar valores pessoais para o log.
-- [ ] SIGEC-P3-02 — Implementar formação acadêmica e equivalência/complementação pedagógica.
+- [x] SIGEC-P3-02 — Implementar formação acadêmica e equivalência/complementação pedagógica. Concluído em 29/08/2026 com cadastro, edição e remoção pelo próprio candidato; tipos acadêmicos e de formação/complementação pedagógica; período, conclusão e carga horária; normalização e regras de consistência no banco; leitura gerencial sem permissão de mutação; identidade imutável, RLS por proprietário e auditoria sem copiar curso ou instituição para o log.
 - [ ] SIGEC-P3-03 — Implementar experiências docentes com períodos, empregador, vínculo e cálculo de meses sem dupla contagem.
 - [ ] SIGEC-P3-04 — Implementar upload versionado com tamanho/tipo, hash, validação de conteúdo e remoção de metadados de imagem.
 - [ ] SIGEC-P3-05 — Adicionar varredura antimalware e quarentena antes de disponibilizar documento à comissão.
@@ -397,7 +397,8 @@ Ao concluir uma tarefa:
 | 29/08/2026 | SIGEC-P2-07 | migração `sigec_process_preference_limit`; formulário e comunicação pública por processo; trigger de limite e imutabilidade após envio; teste remoto ampliado | processo aceita de uma a cinco opções no rascunho; banco rejeita preferência acima do limite, vaga de outro processo/inativa e mudança após envio; 34 controles remotos com rollback integral, 40/40 tabelas RLS, nenhum FK sem índice, 82 controles da aplicação, zero fixtures, zero Advisors acionáveis e build de 50 páginas aprovado |
 | 29/08/2026 | Observações de produto sobre pontuação e pendências | revisão integral do SIGDOC e orientação do responsável | lógica complementar para completar 100 pontos e fluxo de aprovação de pendências compreendidos; ambos mantidos como observação para finalização posterior, sem bloquear o avanço para as próximas implementações |
 | 29/08/2026 | SIGEC-P3-01 | migração `sigec_candidate_profile_management`; rota `/minha-area/perfil`; Server Action e formulário do perfil; teste transacional remoto e auditorias | candidato altera somente o próprio perfil; CPF, conclusão e verificação permanecem protegidos; WhatsApp alterado perde a verificação; completude é derivada; auditoria não registra valores pessoais; 19 controles remotos com rollback e limpeza, 40/40 tabelas RLS, 87 controles da aplicação, zero Advisors acionáveis, TypeScript e build de 51 páginas aprovados |
+| 29/08/2026 | SIGEC-P3-02 | migração `sigec_candidate_education_management`; rota `/minha-area/formacao`; Server Actions e gerenciador de formações; teste transacional remoto e auditorias | candidato gerencia somente a própria formação; outro candidato não lê nem altera; gerente apenas consulta; formação pedagógica exige carga horária; datas e conclusão são consistentes; identidade é imutável; auditoria omite curso e instituição; 22 controles remotos com rollback e limpeza, 91 controles da aplicação, zero Advisors acionáveis, TypeScript e build de 52 páginas aprovados |
 
 ## 9. Próxima ação recomendada
 
-Prosseguir com `SIGEC-P3-02`, formação acadêmica e equivalência/complementação pedagógica, sem publicar um processo real. Para fechar posteriormente o Gate P2 e promover a Fase 2 para `master`, ainda será necessário revisar a prévia real, importar as 364 linhas prontas, corrigir ou excluir as 25 pendentes, finalizar e registrar as seis decisões exigidas pelo gate e confirmar a versão oficial de pontuação/desempates. Até lá, o banco rejeita corretamente a publicação e a classificação automática permanece fechada.
+Prosseguir com `SIGEC-P3-03`, experiências docentes com períodos, empregador, vínculo e cálculo de meses sem dupla contagem, sem publicar um processo real. Para fechar posteriormente o Gate P2 e promover a Fase 2 para `master`, ainda será necessário revisar a prévia real, importar as 364 linhas prontas, corrigir ou excluir as 25 pendentes, finalizar e registrar as seis decisões exigidas pelo gate e confirmar a versão oficial de pontuação/desempates. Até lá, o banco rejeita corretamente a publicação e a classificação automática permanece fechada.

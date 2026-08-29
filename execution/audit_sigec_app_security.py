@@ -64,6 +64,22 @@ def main() -> int:
             "app/(candidate)/minha-area/perfil/actions.ts",
             "Confirme o novo número de WhatsApp",
         ),
+        "candidate_education_server_validation": (
+            "app/(candidate)/minha-area/formacao/actions.ts",
+            "CandidateEducationSchema.safeParse",
+        ),
+        "candidate_education_role_guard": (
+            "app/(candidate)/minha-area/formacao/actions.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "candidate_education_owner_scope": (
+            "app/(candidate)/minha-area/formacao/actions.ts",
+            ".eq('candidate_id', auth.user.id)",
+        ),
+        "candidate_education_avoids_service_role": (
+            "app/(candidate)/minha-area/formacao/actions.ts",
+            "const supabase = await createClient()",
+        ),
         "documents_role_guard": (
             "app/api/documentos/route.ts",
             "requireApiUser(['admin', 'gerente'])",

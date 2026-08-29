@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from urllib.parse import quote, unquote
 
@@ -259,15 +260,29 @@ def main() -> int:
         command = [npx, "--no-install", "supabase", "db", "push", *connection_args,
                    "--skip-vault", "--dry-run"]
 
-    result = subprocess.run(
-        command,
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
+    max_attempts = 3 if args.action in ("verify", "advisors", "advisors-sigec", "history") else 1
+    attempts_used = 0
+    for attempt in range(max_attempts):
+        attempts_used = attempt + 1
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        raw_output = f"{result.stdout}\n{result.stderr}".lower()
+        transient_connection_failure = any(marker in raw_output for marker in (
+            "connection terminated unexpectedly",
+            "timeout expired",
+            "connection reset by peer",
+            "temporary failure in name resolution",
+        ))
+        if result.returncode == 0 or not transient_connection_failure or attempt + 1 == max_attempts:
+            break
+        time.sleep(1 + attempt)
     output = sanitized("\n".join(part for part in (result.stdout, result.stderr) if part), secret).strip()
     if preliminary_output:
         output = f"{preliminary_output}\n{output}".strip()
@@ -278,6 +293,8 @@ def main() -> int:
         "exitCode": result.returncode,
         "output": output,
     }
+    if attempts_used > 1:
+        response["attempts"] = attempts_used
     if args.action == "advisors-sigec" and result.returncode == 0:
         advisor_results: list[dict[str, object]] = []
         for line in result.stdout.splitlines():

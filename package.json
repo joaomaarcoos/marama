@@ -18,6 +18,7 @@
     "sigec:test:remote-consents": "py execution/test_sigec_consents.py",
     "sigec:test:remote-process-management": "py execution/test_sigec_process_management.py",
     "sigec:test:remote-candidate-profile": "py execution/test_sigec_candidate_profile.py",
+    "sigec:test:remote-candidate-education": "py execution/test_sigec_candidate_education.py",
     "sigec:test:vacancy-import": "py execution/test_sigec_vacancy_import.py",
     "sigec:test:role-redirects": "node execution/test_sigec_role_redirects.mjs",
     "sigec:test:captcha-config": "py execution/test_sigec_captcha_configuration.py",

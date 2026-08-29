@@ -32,6 +32,10 @@ O SIGEC armazenará dados pessoais, documentos profissionais, decisões de sele�
 - Completude do perfil é derivada pelo banco a partir dos campos essenciais; remover um dado obrigatório volta a deixar o perfil incompleto.
 - Alterar o WhatsApp invalida automaticamente a verificação anterior.
 - Atualizações do perfil registram somente nomes dos campos alterados, ator e estado de completude; valores pessoais não são copiados para o evento de auditoria.
+- Formação acadêmica usa RLS por proprietário: candidatos não enxergam registros de terceiros e a gestão possui somente leitura direta.
+- Identidade e autoria da formação (`id`, candidato e criação) não ficam em colunas graváveis; a defesa também é aplicada por trigger no banco.
+- Formação pedagógica e complementação exigem carga horária; conclusão e períodos são validados no servidor e novamente no banco.
+- Auditoria acadêmica registra operação e nomes dos campos alterados, sem copiar curso ou instituição para o log.
 - Até cinco preferências, únicas e ordenadas, validadas na aplicação e no banco.
 - Histórico de status, auditoria, consentimentos e outbox idempotente previstos no esquema.
 - Observações internas não possuem política de leitura para candidato.

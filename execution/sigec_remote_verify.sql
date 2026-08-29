@@ -39,7 +39,7 @@ with expected(table_name) as (
       where i.indrelid = c.conrelid and i.indkey[0] = a.attnum
     )
 )
-select json_build_object(
+select jsonb_build_object(
   'expected_tables', (select count(*) from expected),
   'actual_tables', (select count(*) from actual),
   'missing_tables', coalesce((
@@ -237,6 +237,27 @@ select json_build_object(
     and not has_column_privilege('authenticated', 'public.sigec_candidate_profiles', 'cpf', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.sigec_candidate_profiles', 'profile_completed_at', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.sigec_candidate_profiles', 'whatsapp_verified_at', 'UPDATE')
+  )
+) || jsonb_build_object(
+  'candidate_education_management_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829205525'
+  ),
+  'candidate_education_management_triggers_present', (
+    select count(*) = 2
+    from pg_trigger trigger
+    join pg_class relation on relation.oid = trigger.tgrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'public'
+      and relation.relname = 'sigec_candidate_education'
+      and trigger.tgname in ('sigec_candidate_education_prepare', 'sigec_candidate_education_audit')
+      and not trigger.tgisinternal
+  ),
+  'candidate_education_column_grants_safe', (
+    has_column_privilege('authenticated', 'public.sigec_candidate_education', 'course_name', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_education', 'candidate_id', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_education', 'id', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_education', 'created_at', 'UPDATE')
   ),
   'process_preference_limit_trigger_present', exists (
     select 1 from pg_trigger trigger

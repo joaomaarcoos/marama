@@ -61,6 +61,68 @@ export const CandidateProfileSchema = z.object({
   professionalSummary: z.string().trim().max(5000).optional(),
 })
 
+export const SIGEC_EDUCATION_LEVELS = [
+  'tecnico',
+  'licenciatura',
+  'bacharelado',
+  'tecnologo',
+  'especializacao',
+  'mestrado',
+  'doutorado',
+  'formacao_pedagogica',
+  'complementacao_pedagogica',
+  'outro',
+] as const
+
+const OptionalPastDateSchema = z.preprocess(
+  (value) => value === '' || value === null ? undefined : value,
+  z.coerce.date().max(new Date(), 'A data não pode estar no futuro').optional(),
+)
+
+const OptionalPositiveIntegerSchema = z.preprocess(
+  (value) => value === '' || value === null ? undefined : value,
+  z.coerce.number().int().min(1).max(20000).optional(),
+)
+
+export const CandidateEducationSchema = z.object({
+  id: z.preprocess(
+    (value) => value === '' || value === null ? undefined : value,
+    z.string().uuid().optional(),
+  ),
+  level: z.enum(SIGEC_EDUCATION_LEVELS),
+  courseName: z.string().trim().min(2).max(200),
+  institution: z.string().trim().min(2).max(200),
+  startedOn: OptionalPastDateSchema,
+  completionDate: OptionalPastDateSchema,
+  isCompleted: z.boolean(),
+  workloadHours: OptionalPositiveIntegerSchema,
+}).superRefine((data, context) => {
+  if (data.isCompleted && !data.completionDate) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['completionDate'],
+      message: 'Informe a data de conclusão',
+    })
+  }
+  if (data.startedOn && data.completionDate && data.startedOn > data.completionDate) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['completionDate'],
+      message: 'A conclusão deve ocorrer depois do início',
+    })
+  }
+  if (
+    (data.level === 'formacao_pedagogica' || data.level === 'complementacao_pedagogica')
+    && !data.workloadHours
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['workloadHours'],
+      message: 'Informe a carga horária da formação pedagógica',
+    })
+  }
+})
+
 export const ProcessInputSchema = z.object({
   title: z.string().trim().min(3).max(200),
   slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { AlertCircle, ArrowRight, CheckCircle2, Clock3, MessageCircleMore, UserRound } from 'lucide-react'
+import { AlertCircle, ArrowRight, Clock3, GraduationCap, MessageCircleMore, UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
 type CandidateProfile = { full_name: string; profile_completed_at: string | null; whatsapp_verified_at: string | null }
@@ -64,11 +64,11 @@ export default async function CandidateHomePage() {
           <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#657084]">Em andamento</p>
           <p className="mt-1 text-2xl font-bold">{applications.filter((item) => item.application_state !== 'withdrawn').length}</p>
         </div>
-        <div className="rounded-2xl border border-[#d9e0e7] bg-[#ffffff] p-5 text-[#172033]">
-          <CheckCircle2 className="h-5 w-5 text-violet-600" />
-          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#657084]">Limite por inscrição</p>
-          <p className="mt-1 font-semibold">Definido no edital</p>
-        </div>
+        <Link href="/minha-area/formacao" className="rounded-2xl border border-[#d9e0e7] bg-[#ffffff] p-5 text-[#172033] transition hover:-translate-y-0.5 hover:border-[#9db8dd] hover:shadow-md">
+          <GraduationCap className="h-5 w-5 text-[#315f9d]" />
+          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#657084]">Formação</p>
+          <p className="mt-1 font-semibold">Cadastrar trajetória</p>
+        </Link>
       </section>
 
       <section className="mt-8 overflow-hidden rounded-2xl border border-[#d9e0e7] bg-[#ffffff] text-[#172033]">
