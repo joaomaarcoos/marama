@@ -108,6 +108,14 @@ def audit(sql: str) -> dict[str, object]:
         "stage_template_placeholder_allowlist": r"nome\|processo\|status\|link\|prazo",
         "terminal_stage_has_no_outgoing_transition": r"SIGEC_TERMINAL_STAGE_HAS_OUTGOING_TRANSITION",
         "stage_publication_reachability_gate": r"reachable_stages[\s\S]*?reachability_ready",
+        "scoring_version_tables_service_only": r"revoke all on public\.sigec_scoring_rule_versions from public, anon, authenticated",
+        "scoring_version_draft_lock": r"sigec_upsert_scoring_version[\s\S]*?sigec_assert_draft_process_manager",
+        "scoring_version_immutability": r"SIGEC_SCORING_VERSION_IMMUTABLE",
+        "scoring_official_requires_normative_decisions": r"p_target_status = 'official'[\s\S]*?sigec_official_rules_are_confirmed",
+        "scoring_total_must_match": r"SIGEC_SCORING_TOTAL_MISMATCH",
+        "scoring_confirmation_trigger_defense": r"guard_scoring_rule_immutability[\s\S]*?sigec_assert_draft_process_manager\(new\.process_id, new\.confirmed_by\)",
+        "scoring_publication_requires_official": r"sigec_latest_scoring_is_official[\s\S]*?version\.status = 'official' and not version\.is_provisional",
+        "scoring_rpcs_service_only": r"revoke all on function public\.sigec_confirm_scoring_version.*from public, anon, authenticated",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

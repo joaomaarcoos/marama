@@ -15,6 +15,8 @@ with expected(table_name) as (
     ('sigec_convocations'), ('sigec_consents'), ('sigec_notification_outbox'),
     ('sigec_whatsapp_verifications'), ('sigec_audit_events'),
     ('sigec_process_decisions'), ('sigec_quota_rule_versions'),
+    ('sigec_scoring_rule_versions'), ('sigec_scoring_rule_items'),
+    ('sigec_tie_break_rules'),
     ('sigec_ranking_snapshots'), ('sigec_ranking_snapshot_entries'),
     ('sigec_ranking_snapshot_approvals'), ('sigec_ranking_snapshot_publications')
 ), actual as (
@@ -198,6 +200,33 @@ select json_build_object(
     select 1 from information_schema.role_table_grants
     where table_schema = 'public'
       and table_name = 'sigec_process_stage_transitions'
+      and grantee in ('anon', 'authenticated')
+  ),
+  'scoring_configuration_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829134055'
+  ),
+  'scoring_latest_version_gate_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829135432'
+  ),
+  'scoring_confirmation_trigger_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829135829'
+  ),
+  'scoring_configuration_functions_server_only', (
+    not has_function_privilege('anon', 'public.sigec_upsert_scoring_version(uuid,uuid,text,numeric,text,boolean,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_scoring_version(uuid,uuid,text,numeric,text,boolean,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_scoring_item(uuid,uuid,uuid,text,text,text,numeric,jsonb,integer,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_tie_break_rule(uuid,uuid,uuid,text,text,text,text,jsonb,integer,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_confirm_scoring_version(uuid,uuid,uuid,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_scoring_version(uuid,uuid,text,numeric,text,boolean,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_confirm_scoring_version(uuid,uuid,uuid,text)', 'EXECUTE')
+  ),
+  'scoring_configuration_tables_server_only', not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public'
+      and table_name in ('sigec_scoring_rule_versions', 'sigec_scoring_rule_items', 'sigec_tie_break_rules')
       and grantee in ('anon', 'authenticated')
   ),
   'consent_migrations_applied', (

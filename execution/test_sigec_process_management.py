@@ -106,6 +106,24 @@ def main() -> int:
             raise AssertionError("stage_configuration_rpc_privileges_invalid")
         checks.append("stage_configuration_rpcs_are_service_only")
 
+        cursor.execute("""select
+          not has_function_privilege('anon','public.sigec_upsert_scoring_version(uuid,uuid,text,numeric,text,boolean,uuid)','EXECUTE'),
+          not has_function_privilege('authenticated','public.sigec_confirm_scoring_version(uuid,uuid,uuid,text)','EXECUTE'),
+          has_function_privilege('service_role','public.sigec_upsert_scoring_version(uuid,uuid,text,numeric,text,boolean,uuid)','EXECUTE'),
+          has_function_privilege('service_role','public.sigec_confirm_scoring_version(uuid,uuid,uuid,text)','EXECUTE')""")
+        if cursor.fetchone() != (True, True, True, True):
+            raise AssertionError("scoring_configuration_rpc_privileges_invalid")
+        checks.append("scoring_configuration_rpcs_are_service_only")
+
+        cursor.execute("select public.sigec_upsert_scoring_version(%s,%s,%s,%s,%s,%s,%s)",
+                       (process_id, manager_id, "Tentativa direta sintética", 1,
+                        "Validação do trigger de confirmação.", False, None))
+        guarded_version_id = cursor.fetchone()[0]
+        expect_error(cursor, "direct_scoring_confirmation_bypass_is_rejected",
+                     "update public.sigec_scoring_rule_versions set status='official',confirmed_by=%s,confirmed_at=now() where id=%s",
+                     (manager_id, guarded_version_id), "SIGEC_SCORING_TOTAL_MISMATCH")
+        cursor.execute("delete from public.sigec_scoring_rule_versions where id=%s", (guarded_version_id,))
+
         cursor.execute("set local role authenticated")
         expect_error(cursor, "authenticated_role_cannot_publish",
                      "select * from public.sigec_publish_process(%s,%s)",
@@ -216,12 +234,48 @@ def main() -> int:
                      (process_id, manager_id, terminal_stage_id, initial_stage_id, False, True, True, None),
                      "SIGEC_TERMINAL_STAGE_HAS_OUTGOING_TRANSITION")
         checks.append("stage_and_transition_crud_is_scoped_and_audited")
-        cursor.execute("insert into public.sigec_scoring_criteria (process_id,code,label,max_points) values (%s,'titulacao','Titulação',30)", (process_id,))
         cursor.executemany("""insert into public.sigec_process_decisions
           (process_id,code,revision,title,status,resolution,source_type,source_reference,impact,recorded_by)
           values (%s,%s,1,%s,'confirmed','Confirmada apenas para teste.','product_decision',
                   'Fixture transacional isolada do P2.','Valida o gate sem definir regra real.',%s)""",
           [(process_id, f"SIGEC-DEC-{n:02d}", f"Decisão sintética {n}", manager_id) for n in range(1, 7)])
+
+        cursor.execute("select public.sigec_upsert_scoring_version(%s,%s,%s,%s,%s,%s,%s)",
+                       (process_id, manager_id, "Regra oficial sintética", 30,
+                        "Fixture transacional isolada da P2-06.", False, None))
+        scoring_version_id = cursor.fetchone()[0]
+        cursor.execute("select public.sigec_upsert_scoring_item(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                       (process_id, manager_id, scoring_version_id, "producao", "Produção acadêmica",
+                        "Critério sintético para teste.", 30, Json({"unit": "item"}), 10, None))
+        cursor.execute("select public.sigec_upsert_tie_break_rule(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                       (process_id, manager_id, scoring_version_id, "maior_nota", "Maior nota final",
+                        "score_total", "desc", Json({}), 1, None))
+        cursor.execute("select public.sigec_confirm_scoring_version(%s,%s,%s,%s)",
+                       (process_id, manager_id, scoring_version_id, "official"))
+        expect_error(cursor, "confirmed_scoring_version_is_immutable",
+                     "update public.sigec_scoring_rule_items set max_points=29 where rule_version_id=%s",
+                     (scoring_version_id,), "SIGEC_SCORING_VERSION_IMMUTABLE")
+        checks.append("official_scoring_version_is_complete_and_versioned")
+
+        cursor.execute("select public.sigec_upsert_scoring_version(%s,%s,%s,%s,%s,%s,%s)",
+                       (process_id, manager_id, "Retificação oficial sintética", 30,
+                        "Segunda versão transacional da P2-06.", False, None))
+        revised_scoring_version_id = cursor.fetchone()[0]
+        cursor.execute("select ready from public.sigec_get_process_publication_readiness(%s) where code='scoring'", (process_id,))
+        if cursor.fetchone()[0]:
+            raise AssertionError("newer_scoring_draft_did_not_block_publication")
+        cursor.execute("select public.sigec_upsert_scoring_item(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                       (process_id, manager_id, revised_scoring_version_id, "producao", "Produção acadêmica revisada",
+                        "Critério sintético revisado.", 30, Json({"unit": "item"}), 10, None))
+        cursor.execute("select public.sigec_upsert_tie_break_rule(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                       (process_id, manager_id, revised_scoring_version_id, "maior_nota", "Maior nota final",
+                        "score_total", "desc", Json({}), 1, None))
+        cursor.execute("select public.sigec_confirm_scoring_version(%s,%s,%s,%s)",
+                       (process_id, manager_id, revised_scoring_version_id, "official"))
+        cursor.execute("select count(*) from public.sigec_scoring_rule_versions where process_id=%s and status='official'", (process_id,))
+        if cursor.fetchone()[0] != 2:
+            raise AssertionError("official_scoring_history_not_preserved")
+        checks.append("latest_scoring_version_controls_publication_without_erasing_history")
 
         cursor.execute("select code, ready from public.sigec_get_process_publication_readiness(%s)", (process_id,))
         readiness = cursor.fetchall()
@@ -247,6 +301,11 @@ def main() -> int:
                      (process_id, manager_id, "bloqueada_fluxo", "Etapa bloqueada", "Mensagem pública.",
                       "#64748b", 100, False, False, False,
                       "Olá, {{nome}}. Consulte {{processo}} em {{link}}", None),
+                     "SIGEC_PROCESS_CONFIGURATION_LOCKED")
+        expect_error(cursor, "published_scoring_configuration_is_locked",
+                     "select public.sigec_upsert_scoring_version(%s,%s,%s,%s,%s,%s,%s)",
+                     (process_id, manager_id, "Nova regra bloqueada", 30,
+                      "Fixture após publicação.", True, None),
                      "SIGEC_PROCESS_CONFIGURATION_LOCKED")
 
         cursor.execute("set local role anon")

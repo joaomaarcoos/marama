@@ -137,6 +137,29 @@ const StageTransitionInputSchema = z.object({
   message: 'A origem e o destino precisam ser diferentes.', path: ['toStageId'],
 })
 
+const ScoringVersionInputSchema = z.object({
+  processId: z.string().uuid(),
+  versionId: OptionalIdSchema,
+  label: z.string().trim().min(3).max(240),
+  totalMaxPoints: z.coerce.number().positive().max(10_000),
+  sourceReference: z.string().trim().min(3).max(1000),
+  isProvisional: z.boolean(),
+})
+
+const ScoringItemInputSchema = z.object({
+  processId: z.string().uuid(), versionId: z.string().uuid(), itemId: OptionalIdSchema,
+  code: z.string().trim().regex(/^[a-z][a-z0-9_]*$/, 'Use letras minúsculas, números e sublinhado no código.'),
+  label: z.string().trim().min(3).max(240), instructions: z.string().trim().max(4000).optional(),
+  maxPoints: z.coerce.number().positive().max(10_000), position: z.coerce.number().int().min(0).max(10_000),
+})
+
+const TieBreakInputSchema = z.object({
+  processId: z.string().uuid(), versionId: z.string().uuid(), ruleId: OptionalIdSchema,
+  code: z.string().trim().regex(/^[a-z][a-z0-9_]*$/, 'Use letras minúsculas, números e sublinhado no código.'),
+  label: z.string().trim().min(3).max(240), valueSource: z.string().trim().min(3).max(120),
+  direction: z.enum(['asc', 'desc']), position: z.coerce.number().int().positive().max(100),
+})
+
 async function requireSigecManager() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -667,4 +690,120 @@ export async function deleteSigecStageTransition(processId: string, transitionId
   }
   revalidatePath(`/sigec-processos/${parsed.data.processId}`)
   return { success: 'Transição removida.', processId: parsed.data.processId }
+}
+
+export async function upsertSigecScoringVersion(formData: FormData): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem configurar pontuação.' }
+  const parsed = ScoringVersionInputSchema.safeParse({
+    processId: formData.get('processId'), versionId: formData.get('versionId'),
+    label: formData.get('label'), totalMaxPoints: formData.get('totalMaxPoints'),
+    sourceReference: formData.get('sourceReference'),
+    isProvisional: formData.getAll('isProvisional').includes('true'),
+  })
+  if (!parsed.success) return { error: firstValidationError(parsed.error) }
+  const input = parsed.data
+  const { error } = await adminClient.rpc('sigec_upsert_scoring_version', {
+    p_process_id: input.processId, p_actor_id: user.id, p_label: input.label,
+    p_total_max_points: input.totalMaxPoints, p_source_reference: input.sourceReference,
+    p_is_provisional: input.isProvisional, p_version_id: input.versionId || null,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao salvar versão de pontuação:', error.code, error.message)
+    if (error.code === '23505') return { error: 'Já existe uma versão em rascunho para este processo.' }
+    if (error.message.includes('SIGEC_PROCESS_CONFIGURATION_LOCKED')) return { error: 'A pontuação está bloqueada porque o processo não está em rascunho.' }
+    return { error: 'Não foi possível salvar a versão de pontuação.' }
+  }
+  revalidatePath(`/sigec-processos/${input.processId}`)
+  return { success: input.versionId ? 'Versão atualizada.' : 'Nova versão criada.', processId: input.processId }
+}
+
+export async function upsertSigecScoringItem(formData: FormData): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem configurar pontuação.' }
+  const parsed = ScoringItemInputSchema.safeParse({
+    processId: formData.get('processId'), versionId: formData.get('versionId'), itemId: formData.get('itemId'),
+    code: formData.get('code'), label: formData.get('label'), instructions: formData.get('instructions') || undefined,
+    maxPoints: formData.get('maxPoints'), position: formData.get('position'),
+  })
+  if (!parsed.success) return { error: firstValidationError(parsed.error) }
+  const input = parsed.data
+  const { error } = await adminClient.rpc('sigec_upsert_scoring_item', {
+    p_process_id: input.processId, p_actor_id: user.id, p_version_id: input.versionId,
+    p_code: input.code, p_label: input.label, p_instructions: input.instructions || null,
+    p_max_points: input.maxPoints, p_scoring_config: {}, p_position: input.position,
+    p_item_id: input.itemId || null,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao salvar critério:', error.code, error.message)
+    if (error.code === '23505') return { error: 'Código de critério duplicado nesta versão.' }
+    if (error.message.includes('IMMUTABLE')) return { error: 'A versão confirmada é imutável. Crie uma nova versão.' }
+    return { error: 'Não foi possível salvar o critério.' }
+  }
+  revalidatePath(`/sigec-processos/${input.processId}`)
+  return { success: input.itemId ? 'Critério atualizado.' : 'Critério adicionado.', processId: input.processId }
+}
+
+export async function upsertSigecTieBreakRule(formData: FormData): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem configurar desempates.' }
+  const parsed = TieBreakInputSchema.safeParse({
+    processId: formData.get('processId'), versionId: formData.get('versionId'), ruleId: formData.get('ruleId'),
+    code: formData.get('code'), label: formData.get('label'), valueSource: formData.get('valueSource'),
+    direction: formData.get('direction'), position: formData.get('position'),
+  })
+  if (!parsed.success) return { error: firstValidationError(parsed.error) }
+  const input = parsed.data
+  const { error } = await adminClient.rpc('sigec_upsert_tie_break_rule', {
+    p_process_id: input.processId, p_actor_id: user.id, p_version_id: input.versionId,
+    p_code: input.code, p_label: input.label, p_value_source: input.valueSource,
+    p_direction: input.direction, p_configuration: {}, p_position: input.position,
+    p_rule_id: input.ruleId || null,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao salvar desempate:', error.code, error.message)
+    if (error.code === '23505') return { error: 'Código ou ordem de desempate duplicado nesta versão.' }
+    if (error.message.includes('IMMUTABLE')) return { error: 'A versão confirmada é imutável. Crie uma nova versão.' }
+    return { error: 'Não foi possível salvar o desempate.' }
+  }
+  revalidatePath(`/sigec-processos/${input.processId}`)
+  return { success: input.ruleId ? 'Desempate atualizado.' : 'Desempate adicionado.', processId: input.processId }
+}
+
+export async function deleteSigecScoringRuleItem(
+  processId: string, versionId: string, kind: 'criterion' | 'tie_break', itemId: string
+): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem remover regras.' }
+  const parsed = z.object({ processId: z.string().uuid(), versionId: z.string().uuid(), itemId: z.string().uuid(), kind: z.enum(['criterion', 'tie_break']) }).safeParse({ processId, versionId, itemId, kind })
+  if (!parsed.success) return { error: 'Regra inválida.' }
+  const { error } = await adminClient.rpc('sigec_delete_scoring_rule_item', {
+    p_process_id: parsed.data.processId, p_actor_id: user.id, p_version_id: parsed.data.versionId,
+    p_kind: parsed.data.kind, p_item_id: parsed.data.itemId,
+  })
+  if (error) return { error: error.message.includes('IMMUTABLE') ? 'A versão confirmada é imutável.' : 'Não foi possível remover a regra.' }
+  revalidatePath(`/sigec-processos/${parsed.data.processId}`)
+  return { success: 'Regra removida.', processId: parsed.data.processId }
+}
+
+export async function confirmSigecScoringVersion(
+  processId: string, versionId: string, targetStatus: 'internal' | 'official'
+): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem confirmar regras.' }
+  const parsed = z.object({ processId: z.string().uuid(), versionId: z.string().uuid(), targetStatus: z.enum(['internal', 'official']) }).safeParse({ processId, versionId, targetStatus })
+  if (!parsed.success) return { error: 'Versão de pontuação inválida.' }
+  const { error } = await adminClient.rpc('sigec_confirm_scoring_version', {
+    p_process_id: parsed.data.processId, p_actor_id: user.id,
+    p_version_id: parsed.data.versionId, p_target_status: parsed.data.targetStatus,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao confirmar pontuação:', error.code, error.message)
+    if (error.message.includes('TOTAL_MISMATCH')) return { error: 'A soma dos critérios precisa ser igual ao total da versão.' }
+    if (error.message.includes('TIE_BREAK_REQUIRED')) return { error: 'Cadastre ao menos um critério de desempate.' }
+    if (error.message.includes('NORMATIVE_DECISIONS_PENDING')) return { error: 'A confirmação oficial aguarda as decisões normativas e não aceita versão provisória.' }
+    return { error: 'Não foi possível confirmar a versão.' }
+  }
+  revalidatePath(`/sigec-processos/${parsed.data.processId}`)
+  return { success: targetStatus === 'official' ? 'Versão oficial confirmada e bloqueada.' : 'Versão interna confirmada e bloqueada.', processId: parsed.data.processId }
 }

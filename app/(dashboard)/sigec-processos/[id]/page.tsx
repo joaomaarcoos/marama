@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, FlaskConical } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { extractRole } from '@/lib/roles'
@@ -12,7 +12,6 @@ import {
   type SigecModalityRow,
   type SigecVacancyRow,
 } from '@/components/sigec-vacancy-configuration'
-import { SIGEC_PROVISIONAL_SCORING } from '@/lib/sigec-scoring'
 import { SigecVacancyImportReview } from '@/components/sigec-vacancy-import-review'
 import {
   SigecFormConfiguration,
@@ -25,6 +24,10 @@ import {
   type SigecStageRow,
   type SigecStageTransitionRow,
 } from '@/components/sigec-stage-configuration'
+import {
+  SigecScoringConfiguration, type SigecScoringItemRow,
+  type SigecScoringVersionRow, type SigecTieBreakRow,
+} from '@/components/sigec-scoring-configuration'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,7 +66,7 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
   if (processResult.error || !processResult.data) notFound()
 
   // Papel e RLS são confirmados antes de qualquer leitura com o cliente service-only.
-  const [readinessResult, modalitiesResult, vacanciesResult, requirementsResult, questionsResult, documentsResult, declarationsResult, stagesResult, transitionsResult] = await Promise.all([
+  const [readinessResult, modalitiesResult, vacanciesResult, requirementsResult, questionsResult, documentsResult, declarationsResult, stagesResult, transitionsResult, scoringVersionsResult] = await Promise.all([
     adminClient.rpc('sigec_get_process_publication_readiness', { p_process_id: params.id }),
     supabase.from('sigec_modalities').select('id, name, slug, description').eq('process_id', params.id).order('position'),
     supabase.from('sigec_vacancies').select('id, modality_id, course_id, municipality, vacancy_kind, vacancy_count, active, course:sigec_courses(canonical_name)').eq('process_id', params.id).order('municipality'),
@@ -73,6 +76,7 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
     adminClient.from('sigec_declaration_templates').select('id, code, label, content, version, audience, required, position').eq('process_id', params.id).eq('active', true).order('position'),
     adminClient.from('sigec_process_stages').select('id, code, label, public_description, color, position, is_initial, is_terminal, allows_appeal, whatsapp_template').eq('process_id', params.id).order('position'),
     adminClient.from('sigec_process_stage_transitions').select('id, from_stage_id, to_stage_id, requires_reason, blocks_on_pending, active').eq('process_id', params.id).order('created_at'),
+    adminClient.from('sigec_scoring_rule_versions').select('id, version, label, status, is_provisional, total_max_points, source_reference, recorded_at, confirmed_at').eq('process_id', params.id).order('version', { ascending: false }),
   ])
 
   const process = processResult.data as ProcessDetail
@@ -97,6 +101,14 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
   const declarations = (declarationsResult.data ?? []) as SigecDeclarationRow[]
   const stages = (stagesResult.data ?? []) as SigecStageRow[]
   const transitions = (transitionsResult.data ?? []) as SigecStageTransitionRow[]
+  const scoringVersions = (scoringVersionsResult.data ?? []) as SigecScoringVersionRow[]
+  const scoringVersionIds = scoringVersions.map((version) => version.id)
+  const [loadedScoringItems, loadedTieBreaks] = scoringVersionIds.length ? await Promise.all([
+    adminClient.from('sigec_scoring_rule_items').select('id, rule_version_id, code, label, instructions, max_points, position').in('rule_version_id', scoringVersionIds).order('position'),
+    adminClient.from('sigec_tie_break_rules').select('id, rule_version_id, code, label, value_source, direction, position').in('rule_version_id', scoringVersionIds).order('position'),
+  ]) : [{ data: [] }, { data: [] }]
+  const scoringItems = (loadedScoringItems.data ?? []) as SigecScoringItemRow[]
+  const tieBreaks = (loadedTieBreaks.data ?? []) as SigecTieBreakRow[]
 
   return (
     <>
@@ -143,47 +155,6 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
               }}
             />
 
-            <div className="mt-8 border-t pt-7" style={{ borderColor: 'hsl(var(--border))' }}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="rounded-lg p-2" style={{ background: 'hsl(var(--accent-amber) / .10)', color: 'hsl(var(--accent-amber))' }}>
-                    <FlaskConical className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <h2 className="font-semibold" style={{ color: 'hsl(var(--fg1))' }}>{SIGEC_PROVISIONAL_SCORING.groupLabel}</h2>
-                    <p className="mt-1 text-xs leading-5" style={{ color: 'hsl(var(--fg3))' }}>
-                      Rubrica {SIGEC_PROVISIONAL_SCORING.version} aprovada para testes internos. Não autoriza publicação oficial.
-                    </p>
-                  </div>
-                </div>
-                <span className="self-start rounded-full px-3 py-1 text-xs font-bold" style={{ background: 'hsl(var(--accent-amber) / .12)', color: 'hsl(var(--accent-amber))' }}>
-                  máximo {SIGEC_PROVISIONAL_SCORING.maxPoints} pontos
-                </span>
-              </div>
-
-              <div className="mt-5 overflow-hidden rounded-xl border" style={{ borderColor: 'hsl(var(--border))' }}>
-                {SIGEC_PROVISIONAL_SCORING.categories.map((category, index) => (
-                  <div
-                    key={category.code}
-                    className="grid gap-1 px-4 py-3 text-xs sm:grid-cols-[minmax(0,1fr)_130px_80px] sm:items-center"
-                    style={{
-                      borderTop: index ? '1px solid hsl(var(--border))' : undefined,
-                      background: index % 2 ? 'hsl(var(--muted) / .28)' : 'transparent',
-                    }}
-                  >
-                    <span className="font-medium" style={{ color: 'hsl(var(--fg2))' }}>{category.label}</span>
-                    <span style={{ color: 'hsl(var(--fg3))' }}>
-                      {category.pointsPerUnit} pt{category.pointsPerUnit === 1 ? '' : 's'} / {category.unitSize} {category.unit === 'hours' ? 'horas' : 'item'}
-                    </span>
-                    <span className="font-data font-semibold sm:text-right" style={{ color: 'hsl(var(--fg1))' }}>até {category.maxPoints}</span>
-                  </div>
-                ))}
-              </div>
-
-              <p className="mt-4 text-xs leading-5" style={{ color: 'hsl(var(--fg3))' }}>
-                Somente comprovantes validados e relacionados à vaga pontuam. O mesmo documento não pode ser contado duas vezes e requisitos obrigatórios não geram pontuação adicional.
-              </p>
-            </div>
           </section>
 
           <aside className="space-y-5 xl:sticky xl:top-5">
@@ -216,6 +187,13 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
           editable={editable}
           stages={stages}
           transitions={transitions}
+        />
+        <SigecScoringConfiguration
+          processId={process.id}
+          editable={editable}
+          versions={scoringVersions}
+          items={scoringItems}
+          tieBreaks={tieBreaks}
         />
       </div>
     </>

@@ -136,6 +136,22 @@ def main() -> int:
             "components/sigec-stage-configuration.tsx",
             "O processo já saiu do rascunho",
         ),
+        "scoring_configuration_server_revalidates_input": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "ScoringVersionInputSchema.safeParse",
+        ),
+        "scoring_configuration_uses_scoped_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_scoring_version'",
+        ),
+        "scoring_confirmation_uses_database_gate": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_confirm_scoring_version'",
+        ),
+        "scoring_ui_marks_provisional_block": (
+            "components/sigec-scoring-configuration.tsx",
+            "bloqueia confirmação e publicação oficial",
+        ),
         "candidate_registration_feature_flag": (
             "app/(public)/cadastro-candidato/actions.ts",
             "candidateRegistrationEnabled()",
