@@ -214,6 +214,19 @@ select json_build_object(
     select 1 from supabase_migrations.schema_migrations
     where version = '20260829135829'
   ),
+  'process_preference_limit_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829140413'
+  ),
+  'process_preference_limit_trigger_present', exists (
+    select 1 from pg_trigger trigger
+    join pg_class relation on relation.oid = trigger.tgrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'public'
+      and relation.relname = 'sigec_application_preferences'
+      and trigger.tgname = 'sigec_application_preference_limit_guard'
+      and not trigger.tgisinternal
+  ),
   'scoring_configuration_functions_server_only', (
     not has_function_privilege('anon', 'public.sigec_upsert_scoring_version(uuid,uuid,text,numeric,text,boolean,uuid)', 'EXECUTE')
     and not has_function_privilege('authenticated', 'public.sigec_upsert_scoring_version(uuid,uuid,text,numeric,text,boolean,uuid)', 'EXECUTE')

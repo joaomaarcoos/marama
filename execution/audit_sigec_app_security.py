@@ -80,6 +80,14 @@ def main() -> int:
             "components/sigec-process-publication-panel.tsx",
             "disabled={!canPublish || isPending}",
         ),
+        "process_preference_limit_is_server_validated": (
+            "lib/sigec.ts",
+            "maxPreferences: z.coerce.number().int().min(1).max(SIGEC_MAX_PREFERENCES)",
+        ),
+        "process_preference_ui_mentions_normative_gate": (
+            "components/sigec-process-form.tsx",
+            "SIGEC-DEC-04",
+        ),
         "vacancy_configuration_uses_atomic_rpc": (
             "app/(dashboard)/sigec-processos/actions.ts",
             "adminClient.rpc('sigec_upsert_vacancy_configuration'",

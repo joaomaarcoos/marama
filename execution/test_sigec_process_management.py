@@ -17,6 +17,7 @@ import psycopg2
 from psycopg2.extras import Json
 
 from test_sigec_remote_access import Api, load_env
+from test_sigec_candidate_signup import valid_cpf
 
 
 def main() -> int:
@@ -174,6 +175,31 @@ def main() -> int:
         expect_error(cursor, "modality_with_vacancy_cannot_be_deleted",
                      "select public.sigec_delete_process_modality(%s,%s,%s)",
                      (process_id, manager_id, modality_id), "SIGEC_MODALITY_HAS_VACANCIES")
+
+        cursor.execute("update public.sigec_processes set max_preferences=1 where id=%s", (process_id,))
+        test_cpf = valid_cpf(f"{int(run_id[:8], 16) % 1_000_000_000:09d}")
+        test_whatsapp = f"5598{int(run_id[1:8], 16) % 1_000_000_000:09d}"
+        cursor.execute("""insert into public.sigec_candidate_profiles
+          (user_id,full_name,cpf,birth_date,whatsapp,city,state)
+          values (%s,'Candidato de preferências sintético',%s,'1990-01-01',%s,'São Luís','MA')""",
+                       (manager_id, test_cpf, test_whatsapp))
+        cursor.execute("insert into public.sigec_applications (process_id,candidate_id) values (%s,%s) returning id",
+                       (process_id, manager_id))
+        application_id = cursor.fetchone()[0]
+        cursor.execute("select vacancy.id from public.sigec_vacancies vacancy join public.sigec_courses course on course.id=vacancy.course_id where vacancy.process_id=%s and course.canonical_name=%s",
+                       (process_id, import_row["courseName"]))
+        imported_vacancy_id = cursor.fetchone()[0]
+        cursor.execute("insert into public.sigec_application_preferences (application_id,vacancy_id,position) values (%s,%s,1)",
+                       (application_id, vacancy_id))
+        expect_error(cursor, "process_preference_limit_is_enforced",
+                     "insert into public.sigec_application_preferences (application_id,vacancy_id,position) values (%s,%s,2)",
+                     (application_id, imported_vacancy_id), "SIGEC_APPLICATION_PREFERENCE_LIMIT")
+        cursor.execute("update public.sigec_applications set application_state='submitted',submitted_at=now() where id=%s", (application_id,))
+        expect_error(cursor, "submitted_preferences_are_immutable",
+                     "update public.sigec_application_preferences set vacancy_id=%s where application_id=%s and position=1",
+                     (imported_vacancy_id, application_id), "SIGEC_APPLICATION_PREFERENCE_INVALID")
+        checks.append("process_specific_preference_limit_is_database_enforced")
+
         form_rpc = "select public.sigec_upsert_form_configuration(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
         cursor.execute(form_rpc, (process_id, manager_id, "question", "declaracao_pcd",
                                   "Você concorre às vagas PCD?", "Selecione uma opção.", True, 10,

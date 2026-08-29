@@ -46,6 +46,8 @@ def audit(sql: str) -> dict[str, object]:
         "private_bucket": r"'sigec-candidate-documents'\s*,\s*'sigec-candidate-documents'\s*,\s*false",
         "candidate_role_from_app_metadata": r"auth\.jwt\(\)\s*->\s*'app_metadata'\s*->>\s*'role'",
         "preference_limit": r"position\s+smallint\s+not null\s+check\s*\(position between 1 and 5\)",
+        "preference_process_limit_trigger": r"sigec_enforce_application_preference_limit[\s\S]*?new\.position > allowed_preferences",
+        "submitted_preferences_immutable": r"target_state <> 'draft'",
         "application_owner_policy": r"sigec_applications_owner_(read|insert)",
         "storage_owner_prefix": r"storage\.foldername\(name\)\)\[1\].*auth\.uid",
         "document_application_path": r"storage_path like \(select auth\.uid\(\)\)::text \|\| '/' \|\| application_id::text \|\| '/%'",

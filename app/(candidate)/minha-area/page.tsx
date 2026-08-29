@@ -67,7 +67,7 @@ export default async function CandidateHomePage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <CheckCircle2 className="h-5 w-5 text-violet-600" />
           <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">Limite por inscrição</p>
-          <p className="mt-1 font-semibold">Até 5 preferências</p>
+          <p className="mt-1 font-semibold">Definido no edital</p>
         </div>
       </section>
 

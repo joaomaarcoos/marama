@@ -52,7 +52,7 @@ export default async function PublicProcessesPage() {
               Sua trajetória profissional começa por aqui.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-              Consulte editais, escolha até cinco preferências de vaga e acompanhe cada etapa da sua candidatura em um único lugar.
+              Consulte editais, escolha as vagas conforme a regra de cada processo e acompanhe cada etapa da sua candidatura em um único lugar.
             </p>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
