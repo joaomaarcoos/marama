@@ -2,7 +2,7 @@
 
 O plano vivo, o estado de execução e as decisões normativas estão registrados em [sigec-handoff-status.md](sigec-handoff-status.md).
 
-Data da revisão: 21/07/2026.
+Data da revisão: 29/08/2026.
 
 ## Escopo e premissas
 
@@ -10,7 +10,7 @@ O SIGEC armazenará dados pessoais, documentos profissionais, decisões de sele�
 
 ## Prioridade 0 — bloqueios antes de produção
 
-1. **Aplicar a migração apenas no projeto Supabase correto.** A migração local ainda não foi executada nem validada pelo banco remoto. Depois da aplicação, executar os Advisors de segurança e desempenho e testar as políticas com usuários reais de cada papel.
+1. **Aplicar migrações apenas no projeto Supabase correto.** As migrações SIGEC estão aplicadas e validadas no projeto esperado até `20260829201635`; repetir verificação remota, Advisors e testes de autorização após cada nova migração.
 2. **Liberar cadastro somente com provisionamento confiável.** A conta deve receber `app_metadata.role = candidato` exclusivamente pelo backend. Não confiar em `user_metadata`. Cadastro público precisa de CAPTCHA, limitação de tentativas por IP/e-mail/telefone, confirmação de e-mail e verificação do WhatsApp.
 3. **Manter o formulário público fechado até o item anterior.** A rota existe, mas não coleta dados nem cria contas incompletamente protegidas.
 4. **Configurar `WEBHOOK_SECRET` e atualizar a Evolution API.** Os dois webhooks agora falham com 503 sem segredo e aceitam o segredo somente no cabeçalho `x-webhook-secret`; segredo em URL não é aceito.
@@ -24,10 +24,14 @@ O SIGEC armazenará dados pessoais, documentos profissionais, decisões de sele�
 - Middleware impede candidato de acessar qualquer API interna e impede equipe interna de usar APIs exclusivas do candidato.
 - Rotas sensíveis de usuários, documentos, relatórios e logs repetem a autorização no servidor.
 - Webhooks usam comparação de segredo em tempo constante e falham fechados.
-- RLS habilitada nas 27 tabelas SIGEC; candidato lê somente seus registros e equipe autorizada lê o conjunto administrativo.
+- RLS habilitada nas 40 tabelas SIGEC; candidato lê somente seus registros e equipe autorizada lê o conjunto administrativo.
 - Bucket de documentos privado, limite de 10 MB e tipos PDF/JPEG/PNG.
 - Caminho de arquivo vinculado ao usuário e à candidatura; alteração bloqueada após o prazo, salvo solicitação de informação aberta.
 - Candidato não pode marcar o próprio WhatsApp ou perfil como verificado/concluído.
+- Perfil do candidato usa permissões por coluna: CPF, `profile_completed_at` e `whatsapp_verified_at` não são graváveis pelo papel autenticado.
+- Completude do perfil é derivada pelo banco a partir dos campos essenciais; remover um dado obrigatório volta a deixar o perfil incompleto.
+- Alterar o WhatsApp invalida automaticamente a verificação anterior.
+- Atualizações do perfil registram somente nomes dos campos alterados, ator e estado de completude; valores pessoais não são copiados para o evento de auditoria.
 - Até cinco preferências, únicas e ordenadas, validadas na aplicação e no banco.
 - Histórico de status, auditoria, consentimentos e outbox idempotente previstos no esquema.
 - Observações internas não possuem política de leitura para candidato.
@@ -45,18 +49,19 @@ O SIGEC armazenará dados pessoais, documentos profissionais, decisões de sele�
 
 ## Regras de fluxo que evitam inconsistências
 
-- Uma candidatura não avança enquanto existir documento obrigatório pendente ou solicitação de informação aberta.
+- A regra definitiva de avanço com pendência permanece em observação. A direção registrada é bloquear enquanto a pendência estiver aberta e liberar depois de aprovada/resolvida por analista autorizado.
 - `habilitado` significa documentação/requisitos validados; `classificado` significa aprovação; `convocado` significa chamado para ocupar a vaga.
 - Toda mudança de status exige motivo público quando afetar o candidato e pode ter nota interna separada.
 - Alteração após envio até o encerramento gera versão auditável; depois do prazo, somente campos explicitamente reabertos podem mudar.
-- Pontuação continua configurável. A regra dos 30 pontos não deve ser codificada até a definição oficial.
+- Pontuação continua configurável e versionada. A lógica complementar dos 30 pontos foi aceita como direção de produto, mas permanece sem homologação final e não libera classificação automática.
 
 ## Gates de liberação
 
 Executar antes de cada publicação:
 
 ```powershell
-py execution\audit_sigec_security.py supabase\migrations\20260722022016_sigec_processos_foundation.sql
+$migrations = Get-ChildItem supabase\migrations\*.sql | Sort-Object Name | ForEach-Object FullName
+py execution\audit_sigec_security.py $migrations
 py execution\audit_sigec_app_security.py
 npx tsc --noEmit
 npm run build

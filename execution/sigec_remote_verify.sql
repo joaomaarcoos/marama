@@ -218,6 +218,26 @@ select json_build_object(
     select 1 from supabase_migrations.schema_migrations
     where version = '20260829140413'
   ),
+  'candidate_profile_management_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829201635'
+  ),
+  'candidate_profile_management_triggers_present', (
+    select count(*) = 2
+    from pg_trigger trigger
+    join pg_class relation on relation.oid = trigger.tgrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'public'
+      and relation.relname = 'sigec_candidate_profiles'
+      and trigger.tgname in ('sigec_candidate_profile_prepare', 'sigec_candidate_profile_audit')
+      and not trigger.tgisinternal
+  ),
+  'candidate_profile_column_grants_safe', (
+    has_column_privilege('authenticated', 'public.sigec_candidate_profiles', 'whatsapp', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_profiles', 'cpf', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_profiles', 'profile_completed_at', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_profiles', 'whatsapp_verified_at', 'UPDATE')
+  ),
   'process_preference_limit_trigger_present', exists (
     select 1 from pg_trigger trigger
     join pg_class relation on relation.oid = trigger.tgrelid

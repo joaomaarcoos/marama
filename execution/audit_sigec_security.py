@@ -63,6 +63,11 @@ def audit(sql: str) -> dict[str, object]:
         "candidate_role_assigned_by_auth_trigger": r"sigec_prepare_candidate_signup",
         "candidate_profile_created_atomically": r"sigec_create_candidate_profile",
         "candidate_cpf_validated_in_database": r"sigec_cpf_is_valid",
+        "candidate_profile_completion_is_derived": r"sigec_prepare_candidate_profile_update[\s\S]*?new\.profile_completed_at := case",
+        "candidate_profile_immutable_identity": r"SIGEC_CANDIDATE_IDENTITY_IMMUTABLE",
+        "candidate_profile_audit_omits_values": r"sigec_audit_candidate_profile_update[\s\S]*?'changed_fields'",
+        "candidate_profile_audit_actor_deletion_safe": r"sigec_audit_events_actor_id_fkey[\s\S]*?on delete set null",
+        "candidate_profile_private_triggers_not_callable": r"revoke all on function private\.sigec_prepare_candidate_profile_update\(\) from public, anon, authenticated",
         "candidate_signup_admin_compatibility": r"sigec_finalize_candidate_signup",
         "auth_rate_limit_rls": r"alter table public\.sigec_auth_rate_limits enable row level security",
         "auth_rate_limit_service_only": r"revoke all on function public\.sigec_consume_auth_rate_limit.*from public, anon, authenticated",
@@ -124,7 +129,7 @@ def audit(sql: str) -> dict[str, object]:
             findings.append({"severity": "high", "check": name, "detail": "Required control not found."})
 
     profile_grants = re.findall(
-        r"grant\s+(?:insert|update)\s*\((.*?)\)\s*on public\.sigec_candidate_profiles",
+        r"grant\s+(?:insert|update)\s*\(([^;]*?)\)\s*on public\.sigec_candidate_profiles",
         normalized,
         flags=re.IGNORECASE,
     )

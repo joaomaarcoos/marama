@@ -15,13 +15,13 @@ export default async function CandidateLayout({ children }: { children: React.Re
   if (role !== 'candidato') redirect(roleHome(role))
 
   return (
-    <div className="h-screen overflow-y-auto bg-slate-100 text-slate-950">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div className="h-screen overflow-y-auto bg-[#f1f4f6] text-[#172033]">
+      <header className="sticky top-0 z-20 border-b border-[#d9e0e7] bg-[#ffffff]/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <Link href="/minha-area" className="font-display text-lg font-bold">SIGEC <span className="text-emerald-600">Processos</span></Link>
+          <Link href="/minha-area" className="font-display text-lg font-bold text-[#172033]">SIGEC <span className="text-[#16845f]">Processos</span></Link>
           <div className="flex items-center gap-4">
-            <span className="hidden text-xs text-slate-500 sm:inline">{user.email}</span>
-            <form action={logout}><button className="text-sm font-semibold text-slate-600 hover:text-slate-950">Sair</button></form>
+            <span className="hidden text-xs text-[#657084] sm:inline">{user.email}</span>
+            <form action={logout}><button className="text-sm font-semibold text-[#526074] hover:text-[#172033]">Sair</button></form>
           </div>
         </div>
       </header>

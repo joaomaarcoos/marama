@@ -35,11 +35,11 @@ export default async function CandidateHomePage() {
     <main className="mx-auto max-w-6xl px-6 py-10">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-semibold text-emerald-700">Área do candidato</p>
-          <h1 className="mt-2 font-display text-3xl font-bold">Olá, {firstName}.</h1>
-          <p className="mt-2 text-sm text-slate-600">Acompanhe aqui suas candidaturas e solicitações.</p>
+          <p className="text-sm font-semibold text-[#137052]">Área do candidato</p>
+          <h1 className="mt-2 font-display text-3xl font-bold text-[#172033]">Olá, {firstName}.</h1>
+          <p className="mt-2 text-sm text-[#657084]">Acompanhe aqui suas candidaturas e solicitações.</p>
         </div>
-        <Link href="/processos" className="inline-flex items-center gap-2 text-sm font-bold text-emerald-700">Ver processos abertos <ArrowRight className="h-4 w-4" /></Link>
+        <Link href="/processos" className="inline-flex items-center gap-2 text-sm font-bold text-[#137052]">Ver processos abertos <ArrowRight className="h-4 w-4" /></Link>
       </div>
 
       {!schemaReady && (
@@ -49,29 +49,29 @@ export default async function CandidateHomePage() {
       )}
 
       <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <UserRound className="h-5 w-5 text-emerald-600" />
-          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">Perfil</p>
-          <p className="mt-1 font-semibold">{profile?.profile_completed_at ? 'Completo' : 'Pendente'}</p>
-        </div>
-        <Link href="/minha-area/verificar-whatsapp" className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-emerald-300 hover:shadow-md">
-          <MessageCircleMore className="h-5 w-5 text-emerald-600" />
-          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">WhatsApp</p>
+        <Link href="/minha-area/perfil" className="rounded-2xl border border-[#d9e0e7] bg-[#ffffff] p-5 text-[#172033] transition hover:-translate-y-0.5 hover:border-[#8bcbb4] hover:shadow-md">
+          <UserRound className="h-5 w-5 text-[#16845f]" />
+          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#657084]">Perfil</p>
+          <p className="mt-1 font-semibold">{profile?.profile_completed_at ? 'Completo' : 'Completar dados'}</p>
+        </Link>
+        <Link href="/minha-area/verificar-whatsapp" className="rounded-2xl border border-[#d9e0e7] bg-[#ffffff] p-5 text-[#172033] transition hover:-translate-y-0.5 hover:border-[#8bcbb4] hover:shadow-md">
+          <MessageCircleMore className="h-5 w-5 text-[#16845f]" />
+          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#657084]">WhatsApp</p>
           <p className="mt-1 font-semibold">{profile?.whatsapp_verified_at ? 'Verificado' : 'Confirmar número'}</p>
         </Link>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="rounded-2xl border border-[#d9e0e7] bg-[#ffffff] p-5 text-[#172033]">
           <Clock3 className="h-5 w-5 text-blue-600" />
-          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">Em andamento</p>
+          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#657084]">Em andamento</p>
           <p className="mt-1 text-2xl font-bold">{applications.filter((item) => item.application_state !== 'withdrawn').length}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="rounded-2xl border border-[#d9e0e7] bg-[#ffffff] p-5 text-[#172033]">
           <CheckCircle2 className="h-5 w-5 text-violet-600" />
-          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">Limite por inscrição</p>
+          <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#657084]">Limite por inscrição</p>
           <p className="mt-1 font-semibold">Definido no edital</p>
         </div>
       </section>
 
-      <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <section className="mt-8 overflow-hidden rounded-2xl border border-[#d9e0e7] bg-[#ffffff] text-[#172033]">
         <div className="border-b border-slate-200 px-6 py-5"><h2 className="font-display text-lg font-bold">Minhas candidaturas</h2></div>
         {applications.length === 0 ? (
           <div className="px-6 py-12 text-center">

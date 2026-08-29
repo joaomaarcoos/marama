@@ -57,7 +57,7 @@ export const CandidateProfileSchema = z.object({
   district: z.string().trim().min(2).max(120),
   city: z.string().trim().min(2).max(160),
   state: z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/),
-  availability: z.string().trim().max(1000).optional(),
+  availability: z.string().trim().min(2, 'Informe sua disponibilidade').max(1000),
   professionalSummary: z.string().trim().max(5000).optional(),
 })
 

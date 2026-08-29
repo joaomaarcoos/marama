@@ -44,6 +44,26 @@ def main() -> int:
             "app/(candidate)/minha-area/layout.tsx",
             "role !== 'candidato'",
         ),
+        "candidate_profile_server_validation": (
+            "app/(candidate)/minha-area/perfil/actions.ts",
+            "CandidateProfileSchema.safeParse",
+        ),
+        "candidate_profile_role_guard": (
+            "app/(candidate)/minha-area/perfil/actions.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "candidate_profile_owner_scope": (
+            "app/(candidate)/minha-area/perfil/actions.ts",
+            ".eq('user_id', user.id)",
+        ),
+        "candidate_profile_avoids_service_role": (
+            "app/(candidate)/minha-area/perfil/actions.ts",
+            "const supabase = await createClient()",
+        ),
+        "candidate_profile_whatsapp_reverification": (
+            "app/(candidate)/minha-area/perfil/actions.ts",
+            "Confirme o novo número de WhatsApp",
+        ),
         "documents_role_guard": (
             "app/api/documentos/route.ts",
             "requireApiUser(['admin', 'gerente'])",

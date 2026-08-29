@@ -2,8 +2,8 @@
 
 **Última atualização:** 29/08/2026
 **Estado geral:** fundação, classificação auditável, Gate P1 e configuração administrativa da Fase 2 implementados; cadastro público permanece fechado até existir processo real pronto para publicação
-**Fase atual:** implementação da Fase 2 concluída na branch `codex/sigec-fase-2-configuracao-processo`; Gate P2 aguarda processo real e decisões normativas
-**Progresso auditado:** 27 de 88 tarefas concluídas; 61 pendentes
+**Fase atual:** Fase 3 em implementação na branch `codex/sigec-fase-3-perfil-candidato`; Gate P2 permanece adiado com observações registradas
+**Progresso auditado:** 28 de 88 tarefas concluídas; 60 pendentes
 **Última auditoria automática:** aprovada em 29/08/2026, sem achados locais ou remotos acionáveis
 **Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
 
@@ -210,7 +210,7 @@ Fórmula aceita como direção e pendente de fechamento: `nota_final = titulacao
 
 ### Fase 3 — Perfil profissional e documentos
 
-- [ ] SIGEC-P3-01 — Implementar dados pessoais, endereço, contatos e disponibilidade.
+- [x] SIGEC-P3-01 — Implementar dados pessoais, endereço, contatos e disponibilidade. Concluído em 29/08/2026 com tela própria do candidato, validação Zod no servidor, normalização e completude derivada no banco, CPF/e-mail protegidos, troca de WhatsApp com revogação da verificação, RLS por proprietário e auditoria somente dos nomes dos campos alterados, sem copiar valores pessoais para o log.
 - [ ] SIGEC-P3-02 — Implementar formação acadêmica e equivalência/complementação pedagógica.
 - [ ] SIGEC-P3-03 — Implementar experiências docentes com períodos, empregador, vínculo e cálculo de meses sem dupla contagem.
 - [ ] SIGEC-P3-04 — Implementar upload versionado com tamanho/tipo, hash, validação de conteúdo e remoção de metadados de imagem.
@@ -396,7 +396,8 @@ Ao concluir uma tarefa:
 | 29/08/2026 | SIGEC-P2-06 | migrações `sigec_scoring_configuration_versioning`, `sigec_scoring_latest_version_gate` e `sigec_scoring_confirmation_trigger_guard`; painel de pontuação/desempate; RPCs versionadas; gate oficial; testes e auditorias ampliados | versão confirmada é imutável; versão provisória aceita somente homologação interna; versão oficial exige total exato, desempate e seis decisões confirmadas, inclusive contra atualização direta com chave de serviço; retificações preservam o histórico e a versão mais recente governa o gate; 31 controles remotos com rollback integral, 40/40 tabelas RLS, nenhum FK sem índice, 80 controles da aplicação, zero fixtures, zero Advisors acionáveis e build de 50 páginas aprovado |
 | 29/08/2026 | SIGEC-P2-07 | migração `sigec_process_preference_limit`; formulário e comunicação pública por processo; trigger de limite e imutabilidade após envio; teste remoto ampliado | processo aceita de uma a cinco opções no rascunho; banco rejeita preferência acima do limite, vaga de outro processo/inativa e mudança após envio; 34 controles remotos com rollback integral, 40/40 tabelas RLS, nenhum FK sem índice, 82 controles da aplicação, zero fixtures, zero Advisors acionáveis e build de 50 páginas aprovado |
 | 29/08/2026 | Observações de produto sobre pontuação e pendências | revisão integral do SIGDOC e orientação do responsável | lógica complementar para completar 100 pontos e fluxo de aprovação de pendências compreendidos; ambos mantidos como observação para finalização posterior, sem bloquear o avanço para as próximas implementações |
+| 29/08/2026 | SIGEC-P3-01 | migração `sigec_candidate_profile_management`; rota `/minha-area/perfil`; Server Action e formulário do perfil; teste transacional remoto e auditorias | candidato altera somente o próprio perfil; CPF, conclusão e verificação permanecem protegidos; WhatsApp alterado perde a verificação; completude é derivada; auditoria não registra valores pessoais; 19 controles remotos com rollback e limpeza, 40/40 tabelas RLS, 87 controles da aplicação, zero Advisors acionáveis, TypeScript e build de 51 páginas aprovados |
 
 ## 9. Próxima ação recomendada
 
-Prosseguir com a implementação da Fase 3 sem publicar um processo real. Para fechar posteriormente o Gate P2 e promover a Fase 2 para `master`, ainda será necessário revisar a prévia real, importar as 364 linhas prontas, corrigir ou excluir as 25 pendentes, finalizar e registrar as seis decisões exigidas pelo gate e confirmar a versão oficial de pontuação/desempates. Até lá, o banco rejeita corretamente a publicação e a classificação automática permanece fechada.
+Prosseguir com `SIGEC-P3-02`, formação acadêmica e equivalência/complementação pedagógica, sem publicar um processo real. Para fechar posteriormente o Gate P2 e promover a Fase 2 para `master`, ainda será necessário revisar a prévia real, importar as 364 linhas prontas, corrigir ou excluir as 25 pendentes, finalizar e registrar as seis decisões exigidas pelo gate e confirmar a versão oficial de pontuação/desempates. Até lá, o banco rejeita corretamente a publicação e a classificação automática permanece fechada.
