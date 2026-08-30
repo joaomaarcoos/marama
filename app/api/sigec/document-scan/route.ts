@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     .from('sigec_application_documents')
     .select('id, storage_path, sha256, size_bytes, technical_status, malware_status')
     .eq('id', input.data.documentId)
+    .is('removed_at', null)
     .maybeSingle()
   if (!document || document.technical_status !== 'validated' || !['pending', 'error'].includes(document.malware_status)) {
     return NextResponse.json({ error: 'Documento indisponível para nova varredura.' }, { status: 409 })

@@ -124,6 +124,30 @@ def main() -> int:
             "app/api/sigec/candidate-documents/route.ts",
             "remove([path])",
         ),
+        "candidate_document_remove_uses_guarded_rpc": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "sigec_remove_candidate_document",
+        ),
+        "candidate_document_ui_hides_removed_metadata": (
+            "app/(candidate)/minha-area/documentos/page.tsx",
+            ".is('removed_at', null)",
+        ),
+        "candidate_document_remove_rpc_service_only": (
+            "supabase/migrations/20260830220912_sigec_candidate_document_removal.sql",
+            "revoke all on function public.sigec_remove_candidate_document(uuid,uuid)",
+        ),
+        "candidate_document_removed_storage_is_inaccessible": (
+            "supabase/migrations/20260830220912_sigec_candidate_document_removal.sql",
+            "document.removed_at is null",
+        ),
+        "candidate_document_removed_by_fk_is_indexed": (
+            "supabase/migrations/20260830221831_sigec_candidate_document_removed_by_index.sql",
+            "sigec_documents_removed_by_fk_idx",
+        ),
+        "candidate_document_removal_is_audited": (
+            "supabase/migrations/20260830220912_sigec_candidate_document_removal.sql",
+            "candidate_document_removed",
+        ),
         "candidate_document_safe_error_log": (
             "app/api/sigec/candidate-documents/route.ts",
             "console.error('[SIGEC candidate document] upload failed', { stage })",

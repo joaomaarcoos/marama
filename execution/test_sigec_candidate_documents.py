@@ -174,23 +174,53 @@ def main() -> int:
         expect_error(cursor, "invalid_hash_is_rejected", rpc,
                      (application_id, requirement_id, path_two + "z", "x.pdf", "application/pdf", 100, "invalid", candidate_a), {"23514"})
 
+        remove_rpc = "select storage_path from public.sigec_remove_candidate_document(%s,%s)"
+        expect_error(cursor, "other_candidate_cannot_remove_document", remove_rpc,
+                     (document_two, candidate_b), {"42501"})
+        cursor.execute(
+            "update public.sigec_applications set application_state='submitted',submitted_at=now() where id=%s",
+            (application_id,),
+        )
+        expect_error(cursor, "submitted_application_document_cannot_be_removed", remove_rpc,
+                     (document_two, candidate_a), {"23514"})
+        cursor.execute(
+            "update public.sigec_applications set application_state='draft',submitted_at=null where id=%s",
+            (application_id,),
+        )
+        cursor.execute(remove_rpc, (document_two, candidate_a))
+        expect("candidate_removes_own_draft_document", cursor.fetchone() == (path_two,))
+        cursor.execute("select removed_at is not null,removed_by from public.sigec_application_documents where id=%s", (document_two,))
+        expect("removed_document_keeps_audited_metadata", cursor.fetchone() == (True, candidate_a))
+        expect_error(cursor, "removed_document_is_immutable", scan_rpc,
+                     (document_two, "b" * 64, "clean", "clamav-test", None, None), {"23514"})
+
+        path_three = f"{candidate_a}/{application_id}/{requirement_id}-{uuid.uuid4()}.pdf"
+        cursor.execute(rpc, (application_id, requirement_id, path_three, "diploma-corrigido.pdf", "application/pdf", 700, "c" * 64, candidate_a))
+        document_three, version_three = cursor.fetchone()
+        expect("upload_after_removal_keeps_version_history", version_three == 3)
+        cursor.execute("select supersedes_document_id from public.sigec_application_documents where id=%s", (document_three,))
+        expect("replacement_supersedes_removed_version", cursor.fetchone() == (document_two,))
+        cursor.execute("select count(*) from public.sigec_application_documents where application_id=%s and removed_at is null", (application_id,))
+        expect("only_active_documents_remain_visible_in_product_queries", cursor.fetchone()[0] == 2)
+
         cursor.execute("select prosecdef from pg_proc where oid='public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)'::regprocedure")
         expect("document_rpc_uses_security_invoker", cursor.fetchone() == (False,))
         cursor.execute("""select
           not has_function_privilege('authenticated','public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)','EXECUTE'),
           not has_function_privilege('authenticated','public.sigec_record_document_malware_scan(uuid,text,text,text,text,text)','EXECUTE'),
+          not has_function_privilege('authenticated','public.sigec_remove_candidate_document(uuid,uuid)','EXECUTE'),
           not has_table_privilege('authenticated','public.sigec_application_documents','INSERT')""")
-        expect("candidate_cannot_bypass_document_backend", cursor.fetchone() == (True, True, True))
+        expect("candidate_cannot_bypass_document_backend", cursor.fetchone() == (True, True, True, True))
 
         authenticate(cursor, candidate_a, "candidato")
         cursor.execute("select count(*) from public.sigec_application_documents where application_id=%s", (application_id,))
-        expect("candidate_reads_own_document_metadata", cursor.fetchone()[0] == 2)
+        expect("candidate_reads_own_document_metadata", cursor.fetchone()[0] == 3)
         authenticate(cursor, candidate_b, "candidato")
         cursor.execute("select count(*) from public.sigec_application_documents where application_id=%s", (application_id,))
         expect("other_candidate_cannot_read_documents", cursor.fetchone()[0] == 0)
         authenticate(cursor, manager, "gerente")
         cursor.execute("select count(*) from public.sigec_application_documents where application_id=%s", (application_id,))
-        expect("manager_reads_document_metadata", cursor.fetchone()[0] == 2)
+        expect("manager_reads_document_metadata", cursor.fetchone()[0] == 3)
 
         reset_postgres(cursor)
         cursor.execute("""select count(*) from pg_policies
@@ -200,20 +230,26 @@ def main() -> int:
         cursor.execute("""select coalesce(qual,'') from pg_policies
           where schemaname='storage' and tablename='objects' and policyname='sigec_storage_candidate_read'""")
         storage_qual = cursor.fetchone()[0]
-        expect("all_authenticated_storage_read_requires_clean_scan", "malware_status" in storage_qual and "clean" in storage_qual and "candidate_id" in storage_qual)
+        expect("all_authenticated_storage_read_requires_active_clean_scan", "removed_at" in storage_qual and "malware_status" in storage_qual and "clean" in storage_qual and "candidate_id" in storage_qual)
         cursor.execute("""select metadata from public.sigec_audit_events
           where action='candidate_document_uploaded' and entity_type='application_document'
-            and entity_id in (%s,%s) order by id""", (str(document_one), str(document_two)))
+            and entity_id in (%s,%s,%s) order by id""", (str(document_one), str(document_two), str(document_three)))
         events = cursor.fetchall()
         serialized = json.dumps(events, ensure_ascii=False)
         expect("document_versions_are_audited_without_sensitive_metadata",
-               len(events) == 2 and "diploma.pdf" not in serialized and str(candidate_a) not in serialized and "aaaa" not in serialized)
+               len(events) == 3 and "diploma.pdf" not in serialized and str(candidate_a) not in serialized and "aaaa" not in serialized)
         cursor.execute("""select metadata from public.sigec_audit_events
           where action='candidate_document_malware_scanned' and entity_id in (%s,%s) order by id""",
                        (str(document_one), str(document_two)))
         scan_events = cursor.fetchall()
         expect("every_malware_scan_attempt_is_audited_without_signature",
                len(scan_events) == 4 and "Eicar-Signature" not in json.dumps(scan_events, ensure_ascii=False))
+        cursor.execute("""select metadata from public.sigec_audit_events
+          where action='candidate_document_removed' and entity_id=%s""", (str(document_two),))
+        removal_events = cursor.fetchall()
+        expect("document_removal_is_audited_without_filename_or_path",
+               len(removal_events) == 1 and "diploma" not in json.dumps(removal_events, ensure_ascii=False)
+               and path_two not in json.dumps(removal_events, ensure_ascii=False))
 
         connection.rollback()
         connection.close()

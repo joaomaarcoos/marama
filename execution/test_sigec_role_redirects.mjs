@@ -73,7 +73,7 @@ async function createActor(role) {
 async function request(path, cookie = '', init = {}) {
   return fetch(`${baseUrl}${path}`, {
     ...init,
-    headers: cookie ? { cookie } : {},
+    headers: { ...(init.headers || {}), ...(cookie ? { cookie } : {}) },
     redirect: 'manual',
   })
 }
@@ -101,6 +101,8 @@ try {
   assert(response.status === 403, 'candidate_internal_api_denied')
   response = await request('/api/sigec/candidate-documents', candidate, { method: 'POST', body: new FormData() })
   assert(response.status === 400, 'candidate_document_api_reaches_route_guard', `HTTP ${response.status}`)
+  response = await request('/api/sigec/candidate-documents', candidate, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+  assert(response.status === 400, 'candidate_document_remove_api_reaches_route_guard', `HTTP ${response.status}`)
   response = await request('/api/sigec/document-scan', candidate, { method: 'POST' })
   assert(response.status === 403, 'candidate_document_rescan_stays_denied')
 
@@ -110,6 +112,8 @@ try {
   assert(response.status === 403, 'internal_candidate_api_denied')
   response = await request('/api/sigec/candidate-documents', adminCookie, { method: 'POST' })
   assert(response.status === 403, 'internal_candidate_document_api_denied')
+  response = await request('/api/sigec/candidate-documents', adminCookie, { method: 'DELETE' })
+  assert(response.status === 403, 'internal_candidate_document_remove_api_denied')
 
   response = await request('/sigec-processos', manager)
   assert(response.status === 200, 'manager_sigec_access')
