@@ -119,8 +119,18 @@ def cleanup(api: Api) -> dict[str, Any]:
         require(status, {200}, "find_documents", documents)
         for document in documents:
             object_status, object_body = api.delete_object(document["storage_path"])
-            require(object_status, {200, 404}, "delete_storage_object", object_body)
-            removed_objects += 1
+            object_missing = (
+                object_status in {400, 404}
+                and isinstance(object_body, dict)
+                and object_body.get("code") == "NoSuchKey"
+            )
+            if not object_missing:
+                require(object_status, {200}, "delete_storage_object", object_body)
+                removed_objects += 1
+        status, body = api.request(
+            "DELETE", f"/rest/v1/sigec_applications?process_id=eq.{process_id}"
+        )
+        require(status, {204}, "delete_applications", body)
         status, body = api.request("DELETE", f"/rest/v1/sigec_processes?id=eq.{process_id}")
         require(status, {204}, "delete_process", body)
 
@@ -247,6 +257,7 @@ def status(api: Api) -> dict[str, Any]:
     require(process_status, {200}, "status_process", processes)
     application_count = 0
     requirement_count = 0
+    documents: list[dict[str, Any]] = []
     if processes:
         process_id = processes[0]["id"]
         app_status, applications = api.request(
@@ -257,6 +268,14 @@ def status(api: Api) -> dict[str, Any]:
             "GET", f"/rest/v1/sigec_document_requirements?process_id=eq.{process_id}&select=id"
         )
         require(req_status, {200}, "status_requirement", requirements)
+        doc_status, documents = api.request(
+            "GET",
+            "/rest/v1/sigec_application_documents"
+            "?select=id,version,original_name,technical_status,malware_status,malware_scan_attempts,storage_path,"
+            "sigec_applications!inner(process_id)"
+            f"&sigec_applications.process_id=eq.{process_id}&order=version.asc",
+        )
+        require(doc_status, {200}, "status_documents", documents)
         application_count = len(applications)
         requirement_count = len(requirements)
     return {
@@ -265,6 +284,18 @@ def status(api: Api) -> dict[str, Any]:
         "processes": len(processes),
         "applications": application_count,
         "requirements": requirement_count,
+        "documents": [
+            {
+                "id": document["id"],
+                "version": document["version"],
+                "originalName": document["original_name"],
+                "technicalStatus": document["technical_status"],
+                "malwareStatus": document["malware_status"],
+                "scanAttempts": document["malware_scan_attempts"],
+                "storagePath": document["storage_path"],
+            }
+            for document in documents
+        ],
         "credentialsPresent": CREDENTIALS_PATH.is_file(),
     }
 
