@@ -15,7 +15,9 @@ function getSupabaseAnonKey() {
 }
 
 const publicApiPrefixes = ['/api/webhook', '/api/health']
-const candidateApiPrefixes = ['/api/candidato']
+// Allow only the candidate-owned SIGEC endpoint. Other /api/sigec routes stay
+// behind the internal-role boundary and keep their own operation-level guards.
+const candidateApiPrefixes = ['/api/candidato', '/api/sigec/candidate-documents']
 const publicPagePrefixes = ['/processos', '/cadastro-candidato', '/recuperar-senha', '/auth/confirm', '/acesso-negado']
 const authEntryPaths = ['/login', '/cadastro-candidato', '/recuperar-senha']
 const internalPagePrefixes = [

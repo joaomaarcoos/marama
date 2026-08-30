@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowRight, CalendarDays, CheckCircle2, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { hasSupabasePublicEnv } from '@/lib/supabase/env'
+import { extractRole, roleHome } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,14 +19,23 @@ type PublicProcess = {
 export default async function PublicProcessesPage() {
   let processes: PublicProcess[] = []
   let available = hasSupabasePublicEnv()
+  let account: { href: string; label: string; email?: string } = { href: '/login', label: 'Entrar' }
 
   if (available) {
     const supabase = await createClient()
-    const result = await supabase
-      .from('sigec_processes')
-      .select('id, slug, title, summary, edital_version, applications_open_at, applications_close_at')
-      .eq('status', 'open')
-      .order('applications_close_at', { ascending: true })
+    const [userResult, result] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase
+        .from('sigec_processes')
+        .select('id, slug, title, summary, edital_version, applications_open_at, applications_close_at')
+        .eq('status', 'open')
+        .order('applications_close_at', { ascending: true }),
+    ])
+    const user = userResult.data.user
+    if (user) {
+      const role = extractRole(user)
+      account = { href: roleHome(role), label: role === 'candidato' ? 'Minha área' : 'Painel', email: user.email }
+    }
     available = !result.error
     processes = (result.data ?? []) as PublicProcess[]
   }
@@ -33,14 +43,17 @@ export default async function PublicProcessesPage() {
   return (
     <main className="h-screen overflow-y-auto bg-slate-950 text-white">
       <div className="mx-auto max-w-6xl px-6 py-8 sm:px-10 sm:py-12">
-        <header className="flex items-center justify-between gap-6">
+        <header className="flex items-center justify-between gap-4 sm:gap-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-400">Maranhão Profissionalizado</p>
             <p className="mt-2 font-display text-xl font-bold">SIGEC Processos</p>
           </div>
-          <Link href="/login" className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold transition hover:bg-white/10">
-            Entrar
-          </Link>
+          <div className="flex min-w-0 items-center gap-3">
+            {account.email && <span className="hidden max-w-[15rem] truncate text-xs font-medium text-slate-400 lg:inline">Sessão ativa · {account.email}</span>}
+            <Link href={account.href} className="shrink-0 rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-sm font-bold text-white transition hover:border-emerald-300/50 hover:bg-white/10">
+              {account.label}
+            </Link>
+          </div>
         </header>
 
         <section className="grid gap-10 py-16 lg:grid-cols-[1.15fr_.85fr] lg:items-end">

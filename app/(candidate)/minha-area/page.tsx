@@ -32,14 +32,14 @@ export default async function CandidateHomePage() {
   const firstName = profile?.full_name?.split(' ')[0] || 'candidato'
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-10">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm font-semibold text-[#137052]">Área do candidato</p>
           <h1 className="mt-2 font-display text-3xl font-bold text-[#172033]">Olá, {firstName}.</h1>
           <p className="mt-2 text-sm text-[#657084]">Acompanhe aqui suas candidaturas e solicitações.</p>
         </div>
-        <Link href="/processos" className="inline-flex items-center gap-2 text-sm font-bold text-[#137052]">Ver processos abertos <ArrowRight className="h-4 w-4" /></Link>
+        <Link href="/processos" className="inline-flex min-h-11 w-fit items-center gap-2 rounded-xl border border-[#afd6c8] bg-[#f4fbf8] px-4 text-sm font-extrabold text-[#0b684e] transition hover:border-[#79bda5] hover:bg-[#e8f7f1]">Explorar processos abertos <ArrowRight className="h-4 w-4" /></Link>
       </div>
 
       {!schemaReady && (
@@ -89,8 +89,8 @@ export default async function CandidateHomePage() {
             <Link href="/processos" className="mt-3 inline-flex text-sm font-bold text-emerald-700">Consultar oportunidades</Link>
           </div>
         ) : applications.map((application) => (
-          <div key={application.id} className="flex items-center justify-between gap-4 border-b border-slate-100 px-6 py-5 last:border-0">
-            <div>
+          <div key={application.id} className="flex flex-col items-start justify-between gap-3 border-b border-slate-100 px-5 py-5 last:border-0 sm:flex-row sm:items-center sm:px-6">
+            <div className="min-w-0">
               <p className="font-semibold">{application.sigec_processes?.title || 'Processo seletivo'}</p>
               <p className="mt-1 text-xs text-slate-500">Atualizada em {new Date(application.updated_at).toLocaleDateString('pt-BR')}</p>
             </div>

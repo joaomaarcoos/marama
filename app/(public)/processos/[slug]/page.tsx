@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft, CalendarDays, MapPin, ShieldCheck } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { extractRole, roleHome } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,12 +17,19 @@ type Vacancy = {
 
 export default async function PublicProcessDetailPage({ params }: { params: { slug: string } }) {
   const supabase = await createClient()
-  const processResult = await supabase
-    .from('sigec_processes')
-    .select('id, title, summary, description, edital_version, applications_open_at, applications_close_at, max_preferences')
-    .eq('slug', params.slug)
-    .eq('status', 'open')
-    .maybeSingle()
+  const [userResult, processResult] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from('sigec_processes')
+      .select('id, title, summary, description, edital_version, applications_open_at, applications_close_at, max_preferences')
+      .eq('slug', params.slug)
+      .eq('status', 'open')
+      .maybeSingle(),
+  ])
+  const user = userResult.data.user
+  const role = extractRole(user)
+  const accountHref = user ? roleHome(role) : '/login'
+  const accountLabel = user ? (role === 'candidato' ? 'Minha área' : 'Painel') : 'Entrar'
 
   if (!processResult.data || processResult.error) notFound()
   const process = processResult.data
@@ -37,7 +45,7 @@ export default async function PublicProcessDetailPage({ params }: { params: { sl
   return (
     <main className="h-screen overflow-y-auto bg-slate-950 text-white">
       <div className="mx-auto max-w-6xl px-6 py-10">
-        <Link href="/processos" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white"><ArrowLeft className="h-4 w-4" /> Todos os processos</Link>
+        <div className="flex items-center justify-between gap-4"><Link href="/processos" className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white"><ArrowLeft className="h-4 w-4" /> Todos os processos</Link><Link href={accountHref} className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-sm font-bold text-white transition hover:border-emerald-300/50 hover:bg-white/10">{accountLabel}</Link></div>
 
         <header className="mt-10 max-w-4xl">
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-400">Edital {process.edital_version}</p>
@@ -67,9 +75,9 @@ export default async function PublicProcessDetailPage({ params }: { params: { sl
           )}
         </section>
 
-        <section className="my-12 rounded-3xl border border-emerald-400/25 bg-emerald-400/10 p-7 sm:flex sm:items-center sm:justify-between sm:gap-8">
-          <div><h2 className="font-display text-xl font-bold">Interessado neste processo?</h2><p className="mt-2 text-sm text-emerald-50/80">Crie seu acesso para preencher o perfil e preparar os documentos.</p></div>
-          <Link href="/cadastro-candidato" className="mt-5 inline-flex rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 sm:mt-0">Criar cadastro</Link>
+        <section className="my-12 rounded-3xl border border-emerald-400/25 bg-emerald-400/10 p-6 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-7">
+          <div><h2 className="font-display text-xl font-bold">{user ? 'Sua sessão continua ativa.' : 'Interessado neste processo?'}</h2><p className="mt-2 text-sm text-emerald-50/80">{user ? 'Volte à sua área para acompanhar candidaturas e documentos.' : 'Crie seu acesso para preencher o perfil e preparar os documentos.'}</p></div>
+          <Link href={user ? accountHref : '/cadastro-candidato'} className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-300 sm:mt-0">{user ? accountLabel : 'Criar cadastro'}</Link>
         </section>
       </div>
     </main>

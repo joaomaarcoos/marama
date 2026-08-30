@@ -70,8 +70,9 @@ async function createActor(role) {
   return [...jar.entries()].map(([name, value]) => `${name}=${value}`).join('; ')
 }
 
-async function request(path, cookie = '') {
+async function request(path, cookie = '', init = {}) {
   return fetch(`${baseUrl}${path}`, {
+    ...init,
     headers: cookie ? { cookie } : {},
     redirect: 'manual',
   })
@@ -98,11 +99,17 @@ try {
   assert(response.status === 307 && locationPath(response) === '/minha-area', 'candidate_internal_page_redirect')
   response = await request('/api/usuarios', candidate)
   assert(response.status === 403, 'candidate_internal_api_denied')
+  response = await request('/api/sigec/candidate-documents', candidate, { method: 'POST', body: new FormData() })
+  assert(response.status === 400, 'candidate_document_api_reaches_route_guard', `HTTP ${response.status}`)
+  response = await request('/api/sigec/document-scan', candidate, { method: 'POST' })
+  assert(response.status === 403, 'candidate_document_rescan_stays_denied')
 
   response = await request('/minha-area', adminCookie)
   assert(response.status === 307 && locationPath(response) === '/dashboard', 'admin_candidate_area_redirect')
   response = await request('/api/candidato/teste-inexistente', adminCookie)
   assert(response.status === 403, 'internal_candidate_api_denied')
+  response = await request('/api/sigec/candidate-documents', adminCookie, { method: 'POST' })
+  assert(response.status === 403, 'internal_candidate_document_api_denied')
 
   response = await request('/sigec-processos', manager)
   assert(response.status === 200, 'manager_sigec_access')

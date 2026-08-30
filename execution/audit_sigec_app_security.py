@@ -100,6 +100,10 @@ def main() -> int:
             "app/api/sigec/candidate-documents/route.ts",
             "extractRole(user) !== 'candidato'",
         ),
+        "candidate_document_middleware_boundary": (
+            "middleware.ts",
+            "'/api/sigec/candidate-documents'",
+        ),
         "candidate_document_owner_scope": (
             "app/api/sigec/candidate-documents/route.ts",
             ".eq('candidate_id', user.id)",
