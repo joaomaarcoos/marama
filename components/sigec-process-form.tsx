@@ -181,9 +181,9 @@ export function SigecProcessForm({
       <label className="block text-xs font-semibold" style={{ color: 'hsl(var(--fg2))' }}>
         Máximo de opções por candidatura
         <select name="maxPreferences" defaultValue={String(initialValues.maxPreferences || 5)} className={inputClass} style={inputStyle} disabled={locked}>
-          {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}
+          {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value === 1 ? 'Uma opção' : `Até ${value} preferências`}</option>)}
         </select>
-        <span className="mt-2 block font-normal" style={{ color: 'hsl(var(--fg3))' }}>Configurável por processo enquanto a regra oficial é reconfirmada.</span>
+        <span className="mt-2 block font-normal leading-5" style={{ color: 'hsl(var(--fg3))' }}>Configurável por processo. A escolha fica protegida pelo banco e a publicação continua condicionada à confirmação da decisão SIGEC-DEC-04.</span>
       </label>
 
       {state.error && (

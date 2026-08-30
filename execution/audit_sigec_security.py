@@ -15,7 +15,7 @@ from pathlib import Path
 
 def audit(sql: str) -> dict[str, object]:
     normalized = re.sub(r"\s+", " ", sql.lower())
-    tables = sorted(set(re.findall(r"create table public\.(sigec_[a-z0-9_]+)", normalized)))
+    tables = sorted(set(re.findall(r"create table(?: if not exists)? public\.(sigec_[a-z0-9_]+)", normalized)))
     rls_tables = sorted(
         set(re.findall(r"alter table public\.(sigec_[a-z0-9_]+) enable row level security", normalized))
     )
@@ -46,6 +46,8 @@ def audit(sql: str) -> dict[str, object]:
         "private_bucket": r"'sigec-candidate-documents'\s*,\s*'sigec-candidate-documents'\s*,\s*false",
         "candidate_role_from_app_metadata": r"auth\.jwt\(\)\s*->\s*'app_metadata'\s*->>\s*'role'",
         "preference_limit": r"position\s+smallint\s+not null\s+check\s*\(position between 1 and 5\)",
+        "preference_process_limit_trigger": r"sigec_enforce_application_preference_limit[\s\S]*?new\.position > allowed_preferences",
+        "submitted_preferences_immutable": r"target_state <> 'draft'",
         "application_owner_policy": r"sigec_applications_owner_(read|insert)",
         "storage_owner_prefix": r"storage\.foldername\(name\)\)\[1\].*auth\.uid",
         "document_application_path": r"storage_path like \(select auth\.uid\(\)\)::text \|\| '/' \|\| application_id::text \|\| '/%'",
@@ -61,6 +63,20 @@ def audit(sql: str) -> dict[str, object]:
         "candidate_role_assigned_by_auth_trigger": r"sigec_prepare_candidate_signup",
         "candidate_profile_created_atomically": r"sigec_create_candidate_profile",
         "candidate_cpf_validated_in_database": r"sigec_cpf_is_valid",
+        "candidate_profile_completion_is_derived": r"sigec_prepare_candidate_profile_update[\s\S]*?new\.profile_completed_at := case",
+        "candidate_profile_immutable_identity": r"SIGEC_CANDIDATE_IDENTITY_IMMUTABLE",
+        "candidate_profile_audit_omits_values": r"sigec_audit_candidate_profile_update[\s\S]*?'changed_fields'",
+        "candidate_profile_audit_actor_deletion_safe": r"sigec_audit_events_actor_id_fkey[\s\S]*?on delete set null",
+        "candidate_profile_private_triggers_not_callable": r"revoke all on function private\.sigec_prepare_candidate_profile_update\(\) from public, anon, authenticated",
+        "candidate_education_identity_immutable": r"SIGEC_EDUCATION_IDENTITY_IMMUTABLE",
+        "candidate_education_audit_omits_values": r"sigec_audit_candidate_education_change[\s\S]*?'changed_fields'",
+        "candidate_education_private_triggers_not_callable": r"revoke all on function private\.sigec_prepare_candidate_education_write\(\) from public, anon, authenticated",
+        "candidate_education_pedagogy_requires_workload": r"sigec_candidate_education_pedagogy_workload_check",
+        "candidate_experience_identity_immutable": r"SIGEC_EXPERIENCE_IDENTITY_IMMUTABLE",
+        "candidate_experience_overlap_is_merged": r"range_agg\(daterange\(starts_on, coalesce\(ends_on, current_date\) \+ 1",
+        "candidate_experience_summary_owner_guard": r"SIGEC_EXPERIENCE_SUMMARY_FORBIDDEN",
+        "candidate_experience_audit_omits_values": r"sigec_audit_candidate_experience_change[\s\S]*?'changed_fields'",
+        "candidate_experience_private_triggers_not_callable": r"revoke all on function private\.sigec_prepare_candidate_experience_write\(\) from public, anon, authenticated",
         "candidate_signup_admin_compatibility": r"sigec_finalize_candidate_signup",
         "auth_rate_limit_rls": r"alter table public\.sigec_auth_rate_limits enable row level security",
         "auth_rate_limit_service_only": r"revoke all on function public\.sigec_consume_auth_rate_limit.*from public, anon, authenticated",
@@ -78,13 +94,64 @@ def audit(sql: str) -> dict[str, object]:
         "consent_direct_insert_revoked": r"revoke insert, update, delete on public\.sigec_consents from public, anon, authenticated",
         "consent_bundle_server_versioned": r"sigec_record_required_consents.*'edital:' \|\| v_edital_version",
         "consent_rpc_service_only": r"revoke all on function public\.sigec_record_required_consents.*from public, anon, authenticated",
+        "process_publication_readiness_gate": r"sigec_get_process_publication_readiness",
+        "process_publication_requires_normative_decisions": r"normative_decisions.*count\(\*\) = 6 and bool_and\(status = 'confirmed'\)",
+        "process_publication_row_lock": r"sigec_publish_process[\s\S]*?for update",
+        "process_publication_actor_role_check": r"actor_role not in \('admin', 'gerente'\)",
+        "process_publication_audit_event": r"'sigec\.process\.published'",
+        "process_close_audit_event": r"'sigec\.process\.closed'",
+        "process_publication_rpc_service_only": r"revoke all on function public\.sigec_publish_process.*from public, anon, authenticated",
+        "process_close_rpc_service_only": r"revoke all on function public\.sigec_close_process.*from public, anon, authenticated",
+        "process_configuration_draft_lock": r"sigec_assert_draft_process_manager[\s\S]*?process_status <> 'draft'",
+        "modality_process_scope": r"sigec_upsert_process_modality[\s\S]*?modality\.process_id = p_process_id",
+        "vacancy_configuration_atomic_requirement": r"sigec_upsert_vacancy_configuration[\s\S]*?on conflict \(process_id, course_id\) do update",
+        "vacancy_configuration_rpc_service_only": r"revoke all on function public\.sigec_upsert_vacancy_configuration.*from public, anon, authenticated",
+        "vacancy_import_duplicate_gate": r"sigec_confirm_vacancy_import[\s\S]*?SIGEC_IMPORT_DUPLICATES",
+        "vacancy_import_existing_conflict_gate": r"SIGEC_IMPORT_CONFLICTS_EXISTING",
+        "vacancy_import_draft_lock": r"sigec_confirm_vacancy_import[\s\S]*?sigec_assert_draft_process_manager",
+        "vacancy_import_rpc_service_only": r"revoke all on function public\.sigec_confirm_vacancy_import.*from public, anon, authenticated",
+        "form_configuration_draft_lock": r"sigec_upsert_form_configuration[\s\S]*?sigec_assert_draft_process_manager",
+        "form_configuration_rpc_service_only": r"revoke all on function public\.sigec_upsert_form_configuration.*from public, anon, authenticated",
+        "form_configuration_delete_service_only": r"revoke all on function public\.sigec_delete_form_configuration.*from public, anon, authenticated",
+        "declaration_templates_service_only": r"revoke all on public\.sigec_declaration_templates from public, anon, authenticated",
+        "form_audience_allowlist": r"v_audience not in \('all', 'pcd', 'ppp', 'pcd_or_ppp'\)",
+        "document_mime_allowlist": r"mime_types.*?<@ array\['application/pdf', 'image/jpeg', 'image/png'\]",
+        "stage_configuration_draft_lock": r"sigec_upsert_stage_configuration[\s\S]*?sigec_assert_draft_process_manager",
+        "stage_configuration_rpc_service_only": r"revoke all on function public\.sigec_upsert_stage_configuration.*from public, anon, authenticated",
+        "stage_transition_rpc_service_only": r"revoke all on function public\.sigec_upsert_stage_transition.*from public, anon, authenticated",
+        "stage_transition_table_service_only": r"revoke all on public\.sigec_process_stage_transitions from public, anon, authenticated",
+        "stage_transition_process_scope": r"foreign key \(process_id, from_stage_id\)[\s\S]*?sigec_process_stages\(process_id, id\)",
+        "stage_template_placeholder_allowlist": r"nome\|processo\|status\|link\|prazo",
+        "terminal_stage_has_no_outgoing_transition": r"SIGEC_TERMINAL_STAGE_HAS_OUTGOING_TRANSITION",
+        "stage_publication_reachability_gate": r"reachable_stages[\s\S]*?reachability_ready",
+        "scoring_version_tables_service_only": r"revoke all on public\.sigec_scoring_rule_versions from public, anon, authenticated",
+        "scoring_version_draft_lock": r"sigec_upsert_scoring_version[\s\S]*?sigec_assert_draft_process_manager",
+        "scoring_version_immutability": r"SIGEC_SCORING_VERSION_IMMUTABLE",
+        "scoring_official_requires_normative_decisions": r"p_target_status = 'official'[\s\S]*?sigec_official_rules_are_confirmed",
+        "scoring_total_must_match": r"SIGEC_SCORING_TOTAL_MISMATCH",
+        "scoring_confirmation_trigger_defense": r"guard_scoring_rule_immutability[\s\S]*?sigec_assert_draft_process_manager\(new\.process_id, new\.confirmed_by\)",
+        "scoring_publication_requires_official": r"sigec_latest_scoring_is_official[\s\S]*?version\.status = 'official' and not version\.is_provisional",
+        "scoring_rpcs_service_only": r"revoke all on function public\.sigec_confirm_scoring_version.*from public, anon, authenticated",
+        "document_hash_is_required": r"alter column sha256 set not null",
+        "document_version_chain": r"supersedes_document_id uuid references public\.sigec_application_documents",
+        "document_rpc_security_invoker": r"sigec_register_candidate_document[\s\S]*?security invoker",
+        "document_rpc_service_only": r"revoke all on function public\.sigec_register_candidate_document.*from public, anon, authenticated",
+        "document_metadata_direct_insert_revoked": r"revoke insert on public\.sigec_application_documents from authenticated",
+        "document_direct_storage_insert_removed": r"drop policy if exists sigec_storage_candidate_insert on storage\.objects",
+        "staff_document_read_requires_clean_scan": r"sigec_storage_candidate_read[\s\S]*?malware_status = 'clean'",
+        "validated_document_requires_sanitization": r"technical_status = 'validated' and sanitized_at is not null",
+        "malware_scan_rpc_security_invoker": r"sigec_record_document_malware_scan[\s\S]*?security invoker",
+        "malware_scan_rpc_service_only": r"revoke all on function public\.sigec_record_document_malware_scan.*from public, anon, authenticated",
+        "malware_scan_hash_binding": r"target\.sha256 <> p_sha256",
+        "malware_scan_result_constraint": r"sigec_document_malware_result_check",
+        "all_storage_reads_require_clean_scan": r"sigec_storage_candidate_read[\s\S]*?document\.malware_status = 'clean'[\s\S]*?application\.candidate_id",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):
             findings.append({"severity": "high", "check": name, "detail": "Required control not found."})
 
     profile_grants = re.findall(
-        r"grant\s+(?:insert|update)\s*\((.*?)\)\s*on public\.sigec_candidate_profiles",
+        r"grant\s+(?:insert|update)\s*\(([^;]*?)\)\s*on public\.sigec_candidate_profiles",
         normalized,
         flags=re.IGNORECASE,
     )
@@ -93,6 +160,40 @@ def audit(sql: str) -> dict[str, object]:
             "severity": "critical",
             "check": "candidate_cannot_self_verify",
             "detail": "Candidate-writable grants include server-controlled verification fields.",
+        })
+
+    education_update_grants = re.findall(
+        r"grant\s+update\s*\(([^;]*?)\)\s*on public\.sigec_candidate_education",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    education_update_columns = {
+        column.strip()
+        for grant in education_update_grants
+        for column in grant.split(",")
+    }
+    if education_update_columns & {"id", "candidate_id", "created_at"}:
+        findings.append({
+            "severity": "critical",
+            "check": "candidate_education_identity_grants",
+            "detail": "Candidate-writable grants include immutable education identity fields.",
+        })
+
+    experience_update_grants = re.findall(
+        r"grant\s+update\s*\(([^;]*?)\)\s*on public\.sigec_candidate_experience",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    experience_update_columns = {
+        column.strip()
+        for grant in experience_update_grants
+        for column in grant.split(",")
+    }
+    if experience_update_columns & {"id", "candidate_id", "created_at"}:
+        findings.append({
+            "severity": "critical",
+            "check": "candidate_experience_identity_grants",
+            "detail": "Candidate-writable grants include immutable experience identity fields.",
         })
 
     return {

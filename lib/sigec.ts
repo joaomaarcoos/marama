@@ -5,74 +5,9 @@ export const SIGEC_DOCUMENT_BUCKET = 'sigec-candidate-documents'
 export const SIGEC_ALLOWED_DOCUMENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png'] as const
 export const SIGEC_MAX_DOCUMENT_SIZE = 10 * 1024 * 1024
 
-export const SIGEC_DEFAULT_STAGES = [
-  {
-    code: 'documentacao_pendente',
-    label: 'Documentação pendente',
-    color: '#d97706',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Sua candidatura em {{processo}} possui pendências. Acesse {{link}} para verificar os itens solicitados.',
-  },
-  {
-    code: 'em_analise',
-    label: 'Em análise',
-    color: '#2563eb',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Sua candidatura em {{processo}} está em análise. Acompanhe pelo SIGEC Processos: {{link}}.',
-  },
-  {
-    code: 'habilitado',
-    label: 'Habilitado',
-    color: '#059669',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Sua documentação foi validada e você está habilitado em {{processo}}. Acompanhe: {{link}}.',
-  },
-  {
-    code: 'classificado',
-    label: 'Classificado',
-    color: '#15803d',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Você foi classificado em {{processo}}. Consulte os detalhes no SIGEC Processos: {{link}}.',
-  },
-  {
-    code: 'convocado',
-    label: 'Convocado',
-    color: '#7c3aed',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Você foi convocado em {{processo}}. Acesse {{link}} para consultar a vaga e o prazo de resposta.',
-  },
-  {
-    code: 'desclassificado',
-    label: 'Desclassificado',
-    color: '#dc2626',
-    allowsAppeal: true,
-    terminal: true,
-    whatsappTemplate: 'Olá, {{nome}}. Houve uma atualização na sua candidatura em {{processo}}. Consulte o resultado e o prazo de recurso: {{link}}.',
-  },
-  {
-    code: 'recurso',
-    label: 'Recurso',
-    color: '#0891b2',
-    allowsAppeal: false,
-    terminal: false,
-    whatsappTemplate: 'Olá, {{nome}}. Seu recurso em {{processo}} foi registrado. Acompanhe a análise em {{link}}.',
-  },
-  {
-    code: 'desistente',
-    label: 'Desistente',
-    color: '#64748b',
-    allowsAppeal: false,
-    terminal: true,
-    whatsappTemplate: 'Olá, {{nome}}. Sua desistência em {{processo}} foi registrada. Consulte o comprovante em {{link}}.',
-  },
-] as const
-
-export type SigecStageCode = (typeof SIGEC_DEFAULT_STAGES)[number]['code']
+/* Stage presets live in a dependency-free module so client configuration UI
+ * does not bundle the Zod schemas from this file. */
+export { SIGEC_DEFAULT_STAGES, type SigecStageCode } from './sigec-stages'
 
 export function normalizeCpf(value: string) {
   return value.replace(/\D/g, '')
@@ -122,8 +57,99 @@ export const CandidateProfileSchema = z.object({
   district: z.string().trim().min(2).max(120),
   city: z.string().trim().min(2).max(160),
   state: z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/),
-  availability: z.string().trim().max(1000).optional(),
+  availability: z.string().trim().min(2, 'Informe sua disponibilidade').max(1000),
   professionalSummary: z.string().trim().max(5000).optional(),
+})
+
+export const SIGEC_EDUCATION_LEVELS = [
+  'tecnico',
+  'licenciatura',
+  'bacharelado',
+  'tecnologo',
+  'especializacao',
+  'mestrado',
+  'doutorado',
+  'formacao_pedagogica',
+  'complementacao_pedagogica',
+  'outro',
+] as const
+
+const OptionalPastDateSchema = z.preprocess(
+  (value) => value === '' || value === null ? undefined : value,
+  z.coerce.date().max(new Date(), 'A data não pode estar no futuro').optional(),
+)
+
+const OptionalPositiveIntegerSchema = z.preprocess(
+  (value) => value === '' || value === null ? undefined : value,
+  z.coerce.number().int().min(1).max(20000).optional(),
+)
+
+export const CandidateEducationSchema = z.object({
+  id: z.preprocess(
+    (value) => value === '' || value === null ? undefined : value,
+    z.string().uuid().optional(),
+  ),
+  level: z.enum(SIGEC_EDUCATION_LEVELS),
+  courseName: z.string().trim().min(2).max(200),
+  institution: z.string().trim().min(2).max(200),
+  startedOn: OptionalPastDateSchema,
+  completionDate: OptionalPastDateSchema,
+  isCompleted: z.boolean(),
+  workloadHours: OptionalPositiveIntegerSchema,
+}).superRefine((data, context) => {
+  if (data.isCompleted && !data.completionDate) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['completionDate'],
+      message: 'Informe a data de conclusão',
+    })
+  }
+  if (data.startedOn && data.completionDate && data.startedOn > data.completionDate) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['completionDate'],
+      message: 'A conclusão deve ocorrer depois do início',
+    })
+  }
+  if (
+    (data.level === 'formacao_pedagogica' || data.level === 'complementacao_pedagogica')
+    && !data.workloadHours
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['workloadHours'],
+      message: 'Informe a carga horária da formação pedagógica',
+    })
+  }
+})
+
+export const SIGEC_EMPLOYMENT_TYPES = [
+  'servidor_publico',
+  'contratado_publico',
+  'empregado_privado',
+  'bolsista',
+  'outro',
+] as const
+
+export const CandidateExperienceSchema = z.object({
+  id: z.preprocess(
+    (value) => value === '' || value === null ? undefined : value,
+    z.string().uuid().optional(),
+  ),
+  employmentType: z.enum(SIGEC_EMPLOYMENT_TYPES),
+  institution: z.string().trim().min(2).max(200),
+  roleTitle: z.string().trim().min(2).max(200),
+  startsOn: z.coerce.date().max(new Date(), 'A data de início não pode estar no futuro'),
+  endsOn: OptionalPastDateSchema,
+  isTeaching: z.boolean(),
+}).superRefine((data, context) => {
+  if (data.endsOn && data.endsOn < data.startsOn) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['endsOn'],
+      message: 'O término deve ocorrer depois do início',
+    })
+  }
 })
 
 export const ProcessInputSchema = z.object({

@@ -2,6 +2,8 @@ version: '3.8'
 
 services:
   sistemamara:
+    depends_on:
+      - clamav
     build:
       context: .
       args:
@@ -35,6 +37,9 @@ services:
       SIGEC_RATE_LIMIT_SECRET: ${SIGEC_RATE_LIMIT_SECRET}
       SIGEC_WHATSAPP_OTP_SECRET: ${SIGEC_WHATSAPP_OTP_SECRET}
       SIGEC_CANDIDATE_REGISTRATION_ENABLED: ${SIGEC_CANDIDATE_REGISTRATION_ENABLED:-false}
+      SIGEC_CLAMAV_HOST: ${SIGEC_CLAMAV_HOST:-clamav}
+      SIGEC_CLAMAV_PORT: ${SIGEC_CLAMAV_PORT:-3310}
+      SIGEC_CLAMAV_TIMEOUT_MS: ${SIGEC_CLAMAV_TIMEOUT_MS:-20000}
       NEXT_PUBLIC_EVOLUTION_INSTANCE: ${NEXT_PUBLIC_EVOLUTION_INSTANCE:-marav2}
       NEXT_PUBLIC_INSTANCE_NAME: ${NEXT_PUBLIC_INSTANCE_NAME:-marav2}
     restart: unless-stopped
@@ -43,3 +48,18 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  clamav:
+    image: clamav/clamav:1.5.4
+    restart: unless-stopped
+    volumes:
+      - clamav_data:/var/lib/clamav
+    deploy:
+      resources:
+        reservations:
+          memory: 768M
+        limits:
+          memory: 2G
+
+volumes:
+  clamav_data:

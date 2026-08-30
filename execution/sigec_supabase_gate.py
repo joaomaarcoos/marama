@@ -10,10 +10,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from urllib.parse import quote, unquote
 
@@ -57,6 +59,15 @@ def credential_args(values: dict[str, str]) -> tuple[list[str], str]:
         if EXPECTED_PROJECT_REF not in f"{username} {destination}":
             raise ValueError("POSTGRES connection string does not match the approved project")
         normalized_password = quote(unquote(password), safe="")
+        # The session pooler on 5432 has repeatedly terminated short-lived
+        # migration connections. Supabase's transaction pooler is the stable
+        # equivalent for these non-interactive, single-transaction commands.
+        destination = re.sub(
+            r"(\.pooler\.supabase\.com):5432(?=/|$)",
+            r"\1:6543",
+            destination,
+            count=1,
+        )
         normalized = f"{scheme}://{username}:{normalized_password}@{destination}"
         return ["--db-url", normalized], normalized
 
@@ -65,6 +76,16 @@ def credential_args(values: dict[str, str]) -> tuple[list[str], str]:
 
 def sanitized(text: str, secret: str) -> str:
     return text.replace(secret, "[REDACTED]") if secret else text
+
+
+def validation_sql(contents: str) -> str:
+    """Remove migration-level transaction controls before the outer rollback.
+
+    A COMMIT inside a migration would otherwise escape the validation
+    transaction and persist objects while still reporting ``rolledBack``.
+    PL/pgSQL blocks use ``begin`` without a semicolon and are preserved.
+    """
+    return re.sub(r"(?im)^\s*(?:begin|commit|rollback)\s*;\s*$", "", contents)
 
 
 def main() -> int:
@@ -90,6 +111,46 @@ def main() -> int:
     npx = shutil.which("npx.cmd" if os.name == "nt" else "npx")
     if not npx:
         raise SystemExit("npx was not found")
+
+    if args.action == "verify":
+        verification_sql = (ROOT / "execution" / "sigec_remote_verify.sql").read_text(encoding="utf-8")
+        last_error: Exception | None = None
+        for attempt in range(3):
+            connection = None
+            try:
+                import psycopg2
+
+                connection = psycopg2.connect(secret, connect_timeout=15)
+                connection.autocommit = False
+                with connection.cursor() as cursor:
+                    cursor.execute(verification_sql)
+                    result = cursor.fetchone()[0]
+                connection.rollback()
+                print(json.dumps({
+                    "ok": True,
+                    "action": args.action,
+                    "projectRef": EXPECTED_PROJECT_REF,
+                    "exitCode": 0,
+                    "verification": result,
+                    "attempts": attempt + 1,
+                }, ensure_ascii=False, indent=2, default=str))
+                return 0
+            except Exception as error:
+                last_error = error
+                if attempt < 2:
+                    time.sleep(1 + attempt)
+            finally:
+                if connection is not None:
+                    connection.close()
+        print(json.dumps({
+            "ok": False,
+            "action": args.action,
+            "projectRef": EXPECTED_PROJECT_REF,
+            "exitCode": 1,
+            "error": sanitized(str(last_error), secret),
+            "attempts": 3,
+        }, ensure_ascii=False, indent=2))
+        return 1
 
     temporary_directory: tempfile.TemporaryDirectory[str] | None = None
     preliminary_output = ""
@@ -146,7 +207,8 @@ def main() -> int:
                 validation_file = workdir / "sigec_pending_validation.sql"
                 validation_parts = ["begin;"]
                 for migration_name in expected:
-                    validation_parts.append((migration_dir / migration_name).read_text(encoding="utf-8"))
+                    migration_sql = (migration_dir / migration_name).read_text(encoding="utf-8")
+                    validation_parts.append(validation_sql(migration_sql))
                 validation_parts.append("rollback;")
                 validation_file.write_text("\n\n".join(validation_parts), encoding="utf-8")
                 if not secret.startswith(("postgres://", "postgresql://")):
@@ -195,15 +257,26 @@ def main() -> int:
                     if connection is not None:
                         connection.close()
             elif args.action == "isolated-apply":
-                dry_run_result = subprocess.run(
-                    dry_run_command,
-                    cwd=ROOT,
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    check=False,
-                )
+                for dry_run_attempt in range(3):
+                    dry_run_result = subprocess.run(
+                        dry_run_command,
+                        cwd=ROOT,
+                        capture_output=True,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        check=False,
+                    )
+                    raw_dry_run_output = f"{dry_run_result.stdout}\n{dry_run_result.stderr}".lower()
+                    transient_dry_run_failure = any(marker in raw_dry_run_output for marker in (
+                        "connection terminated unexpectedly",
+                        "timeout expired",
+                        "connection reset by peer",
+                        "temporary failure in name resolution",
+                    ))
+                    if dry_run_result.returncode == 0 or not transient_dry_run_failure or dry_run_attempt == 2:
+                        break
+                    time.sleep(1 + dry_run_attempt)
                 dry_run_output = sanitized(
                     "\n".join(part for part in (dry_run_result.stdout, dry_run_result.stderr) if part), secret
                 ).strip()
@@ -240,22 +313,38 @@ def main() -> int:
     elif args.action in ("advisors", "advisors-sigec"):
         command = [npx, "--no-install", "supabase", "db", "advisors", *connection_args,
                    "--type", "all", "--level", "info", "--fail-on", "error"]
-    elif args.action == "verify":
-        command = [npx, "--no-install", "supabase", "db", "query", *connection_args,
-                   "--file", str(ROOT / "execution" / "sigec_remote_verify.sql")]
     else:
         command = [npx, "--no-install", "supabase", "db", "push", *connection_args,
                    "--skip-vault", "--dry-run"]
 
-    result = subprocess.run(
-        command,
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
+    # The Session pooler can terminate a third immediate connection after the
+    # history fetch and dry-run. Give it a brief recovery window before apply.
+    if args.action == "isolated-apply" and preliminary_output:
+        time.sleep(10)
+
+    max_attempts = 3 if args.action in ("verify", "advisors", "advisors-sigec", "history") else 1
+    attempts_used = 0
+    for attempt in range(max_attempts):
+        attempts_used = attempt + 1
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        raw_output = f"{result.stdout}\n{result.stderr}".lower()
+        transient_connection_failure = any(marker in raw_output for marker in (
+            "connection terminated unexpectedly",
+            "timeout expired",
+            "connection reset by peer",
+            "temporary failure in name resolution",
+        ))
+        if result.returncode == 0 or not transient_connection_failure or attempt + 1 == max_attempts:
+            break
+        time.sleep(1 + attempt)
     output = sanitized("\n".join(part for part in (result.stdout, result.stderr) if part), secret).strip()
     if preliminary_output:
         output = f"{preliminary_output}\n{output}".strip()
@@ -266,6 +355,8 @@ def main() -> int:
         "exitCode": result.returncode,
         "output": output,
     }
+    if attempts_used > 1:
+        response["attempts"] = attempts_used
     if args.action == "advisors-sigec" and result.returncode == 0:
         advisor_results: list[dict[str, object]] = []
         for line in result.stdout.splitlines():

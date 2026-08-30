@@ -45,7 +45,7 @@ export default async function PublicProcessDetailPage({ params }: { params: { sl
           <p className="mt-5 text-base leading-7 text-slate-300">{process.summary || process.description}</p>
           <div className="mt-7 flex flex-wrap gap-3 text-xs text-slate-300">
             {process.applications_close_at && <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2"><CalendarDays className="h-3.5 w-3.5 text-emerald-400" /> Até {new Date(process.applications_close_at).toLocaleString('pt-BR')}</span>}
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400" /> Até {process.max_preferences} preferências</span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400" /> {process.max_preferences === 1 ? 'Uma opção de vaga' : `Até ${process.max_preferences} preferências`}</span>
           </div>
         </header>
 

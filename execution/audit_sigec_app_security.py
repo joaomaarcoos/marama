@@ -44,6 +44,114 @@ def main() -> int:
             "app/(candidate)/minha-area/layout.tsx",
             "role !== 'candidato'",
         ),
+        "candidate_profile_server_validation": (
+            "app/(candidate)/minha-area/perfil/actions.ts",
+            "CandidateProfileSchema.safeParse",
+        ),
+        "candidate_profile_role_guard": (
+            "app/(candidate)/minha-area/perfil/actions.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "candidate_profile_owner_scope": (
+            "app/(candidate)/minha-area/perfil/actions.ts",
+            ".eq('user_id', user.id)",
+        ),
+        "candidate_profile_avoids_service_role": (
+            "app/(candidate)/minha-area/perfil/actions.ts",
+            "const supabase = await createClient()",
+        ),
+        "candidate_profile_whatsapp_reverification": (
+            "app/(candidate)/minha-area/perfil/actions.ts",
+            "Confirme o novo número de WhatsApp",
+        ),
+        "candidate_education_server_validation": (
+            "app/(candidate)/minha-area/formacao/actions.ts",
+            "CandidateEducationSchema.safeParse",
+        ),
+        "candidate_education_role_guard": (
+            "app/(candidate)/minha-area/formacao/actions.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "candidate_education_owner_scope": (
+            "app/(candidate)/minha-area/formacao/actions.ts",
+            ".eq('candidate_id', auth.user.id)",
+        ),
+        "candidate_education_avoids_service_role": (
+            "app/(candidate)/minha-area/formacao/actions.ts",
+            "const supabase = await createClient()",
+        ),
+        "candidate_experience_server_validation": (
+            "app/(candidate)/minha-area/experiencia/actions.ts",
+            "CandidateExperienceSchema.safeParse",
+        ),
+        "candidate_experience_role_guard": (
+            "app/(candidate)/minha-area/experiencia/actions.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "candidate_experience_owner_scope": (
+            "app/(candidate)/minha-area/experiencia/actions.ts",
+            ".eq('candidate_id', auth.user.id)",
+        ),
+        "candidate_experience_avoids_service_role": (
+            "app/(candidate)/minha-area/experiencia/actions.ts",
+            "const supabase = await createClient()",
+        ),
+        "candidate_document_role_guard": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "candidate_document_owner_scope": (
+            "app/api/sigec/candidate-documents/route.ts",
+            ".eq('candidate_id', user.id)",
+        ),
+        "candidate_document_server_processing": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "processCandidateDocument(file)",
+        ),
+        "candidate_document_validated_backend_upload": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "adminClient.storage.from(SIGEC_DOCUMENT_BUCKET).upload",
+        ),
+        "candidate_document_storage_is_append_only": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "upsert: false",
+        ),
+        "candidate_document_orphan_cleanup": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "remove([path])",
+        ),
+        "candidate_document_safe_error_log": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "console.error('[SIGEC candidate document] upload failed', { stage })",
+        ),
+        "candidate_document_runs_antimalware_before_release": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "scanBufferWithClamAv(processed.buffer)",
+        ),
+        "document_rescan_staff_guard": (
+            "app/api/sigec/document-scan/route.ts",
+            "role !== 'admin' && role !== 'gerente'",
+        ),
+        "document_rescan_verifies_storage_hash": (
+            "app/api/sigec/document-scan/route.ts",
+            "digest !== document.sha256",
+        ),
+        "document_rescan_only_quarantined_states": (
+            "app/api/sigec/document-scan/route.ts",
+            "['pending', 'error'].includes(document.malware_status)",
+        ),
+        "clamav_is_internal_compose_service": (
+            "docker-compose.yml",
+            "image: clamav/clamav:1.5.4",
+        ),
+        "clamav_runtime_is_server_only": (
+            "docker-compose.yml",
+            "SIGEC_CLAMAV_HOST: ${SIGEC_CLAMAV_HOST:-clamav}",
+        ),
+        "supabase_supported_node_runtime": (
+            "Dockerfile",
+            "FROM node:22-alpine AS base",
+        ),
         "documents_role_guard": (
             "app/api/documentos/route.ts",
             "requireApiUser(['admin', 'gerente'])",
@@ -63,6 +171,102 @@ def main() -> int:
         "draft_only_process_edit": (
             "app/(dashboard)/sigec-processos/actions.ts",
             ".eq('status', 'draft')",
+        ),
+        "process_publication_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_publish_process'",
+        ),
+        "process_close_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_close_process'",
+        ),
+        "process_publication_has_readiness_panel": (
+            "app/(dashboard)/sigec-processos/[id]/page.tsx",
+            "SigecProcessPublicationPanel",
+        ),
+        "process_publication_button_fails_closed": (
+            "components/sigec-process-publication-panel.tsx",
+            "disabled={!canPublish || isPending}",
+        ),
+        "process_preference_limit_is_server_validated": (
+            "lib/sigec.ts",
+            "maxPreferences: z.coerce.number().int().min(1).max(SIGEC_MAX_PREFERENCES)",
+        ),
+        "process_preference_ui_mentions_normative_gate": (
+            "components/sigec-process-form.tsx",
+            "SIGEC-DEC-04",
+        ),
+        "vacancy_configuration_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_vacancy_configuration'",
+        ),
+        "modality_configuration_uses_scoped_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_process_modality'",
+        ),
+        "vacancy_configuration_is_draft_only": (
+            "supabase/migrations/20260828200406_sigec_vacancy_configuration.sql",
+            "SIGEC_PROCESS_CONFIGURATION_LOCKED",
+        ),
+        "vacancy_import_server_revalidates_payload": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "VacancyImportSchema.safeParse",
+        ),
+        "vacancy_import_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_confirm_vacancy_import'",
+        ),
+        "vacancy_import_requires_clean_preview": (
+            "components/sigec-vacancy-import-review.tsx",
+            "disabled={isPending || analysis.flagged.length > 0}",
+        ),
+        "form_configuration_server_revalidates_input": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "FormConfigurationInputSchema.safeParse",
+        ),
+        "form_configuration_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_form_configuration'",
+        ),
+        "form_configuration_is_draft_only": (
+            "supabase/migrations/20260828223251_sigec_form_configuration.sql",
+            "private.sigec_assert_draft_process_manager",
+        ),
+        "declaration_read_requires_manager_rls_first": (
+            "app/(dashboard)/sigec-processos/[id]/page.tsx",
+            "role !== 'admin' && role !== 'gerente'",
+        ),
+        "stage_configuration_server_revalidates_input": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "StageInputSchema.safeParse",
+        ),
+        "stage_configuration_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_stage_configuration'",
+        ),
+        "stage_transition_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_stage_transition'",
+        ),
+        "stage_ui_is_draft_only": (
+            "components/sigec-stage-configuration.tsx",
+            "O processo já saiu do rascunho",
+        ),
+        "scoring_configuration_server_revalidates_input": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "ScoringVersionInputSchema.safeParse",
+        ),
+        "scoring_configuration_uses_scoped_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_upsert_scoring_version'",
+        ),
+        "scoring_confirmation_uses_database_gate": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "adminClient.rpc('sigec_confirm_scoring_version'",
+        ),
+        "scoring_ui_marks_provisional_block": (
+            "components/sigec-scoring-configuration.tsx",
+            "bloqueia confirmação e publicação oficial",
         ),
         "candidate_registration_feature_flag": (
             "app/(public)/cadastro-candidato/actions.ts",
@@ -275,6 +479,15 @@ def main() -> int:
             "severity": "high",
             "check": "server_redirect_url_must_not_use_build_time_public_env",
             "detail": "Server redirect URL resolver must not depend on a NEXT_PUBLIC build-time value.",
+        })
+
+    compose = read("docker-compose.yml")
+    clamav_section = compose.split("  clamav:", 1)[1] if "  clamav:" in compose else ""
+    if "ports:" in clamav_section:
+        findings.append({
+            "severity": "critical",
+            "check": "clamav_tcp_not_published",
+            "detail": "ClamAV TCP must remain internal to the container network.",
         })
 
     result = {"ok": not findings, "checks": len(checks) + 4, "findings": findings}

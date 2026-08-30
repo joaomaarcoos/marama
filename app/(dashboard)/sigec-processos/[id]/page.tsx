@@ -1,10 +1,33 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, BookOpenCheck, CalendarDays, CircleDot, FileStack, FlaskConical, ListChecks } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { adminClient } from '@/lib/supabase/admin'
+import { extractRole } from '@/lib/roles'
 import { SigecProcessForm } from '@/components/sigec-process-form'
 import { SigecArchiveButton } from '@/components/sigec-archive-button'
-import { SIGEC_PROVISIONAL_SCORING } from '@/lib/sigec-scoring'
+import { SigecProcessPublicationPanel, type SigecPublicationReadiness } from '@/components/sigec-process-publication-panel'
+import {
+  SigecVacancyConfiguration,
+  type SigecModalityRow,
+  type SigecVacancyRow,
+} from '@/components/sigec-vacancy-configuration'
+import { SigecVacancyImportReview } from '@/components/sigec-vacancy-import-review'
+import {
+  SigecFormConfiguration,
+  type SigecDeclarationRow,
+  type SigecDocumentRow,
+  type SigecQuestionRow,
+} from '@/components/sigec-form-configuration'
+import {
+  SigecStageConfiguration,
+  type SigecStageRow,
+  type SigecStageTransitionRow,
+} from '@/components/sigec-stage-configuration'
+import {
+  SigecScoringConfiguration, type SigecScoringItemRow,
+  type SigecScoringVersionRow, type SigecTieBreakRow,
+} from '@/components/sigec-scoring-configuration'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +41,7 @@ type ProcessDetail = {
   edital_version: string
   applications_open_at: string | null
   applications_close_at: string | null
+  published_at: string | null
   max_preferences: number
   updated_at: string
 }
@@ -31,23 +55,60 @@ const statusLabels: Record<ProcessDetail['status'], string> = {
 
 export default async function SigecProcessDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser()
+  const role = extractRole(user)
+  if (!user || (role !== 'admin' && role !== 'gerente')) notFound()
+  const processResult = await supabase
     .from('sigec_processes')
-    .select('id, title, slug, summary, description, status, edital_version, applications_open_at, applications_close_at, max_preferences, updated_at')
+    .select('id, title, slug, summary, description, status, edital_version, applications_open_at, applications_close_at, published_at, max_preferences, updated_at')
     .eq('id', params.id)
     .maybeSingle()
+  if (processResult.error || !processResult.data) notFound()
 
-  if (error || !data) notFound()
-  const process = data as ProcessDetail
+  // Papel e RLS são confirmados antes de qualquer leitura com o cliente service-only.
+  const [readinessResult, modalitiesResult, vacanciesResult, requirementsResult, questionsResult, documentsResult, declarationsResult, stagesResult, transitionsResult, scoringVersionsResult] = await Promise.all([
+    adminClient.rpc('sigec_get_process_publication_readiness', { p_process_id: params.id }),
+    supabase.from('sigec_modalities').select('id, name, slug, description').eq('process_id', params.id).order('position'),
+    supabase.from('sigec_vacancies').select('id, modality_id, course_id, municipality, vacancy_kind, vacancy_count, active, course:sigec_courses(canonical_name)').eq('process_id', params.id).order('municipality'),
+    supabase.from('sigec_process_course_requirements').select('course_id, accepted_education, proof_instructions').eq('process_id', params.id),
+    adminClient.from('sigec_process_questions').select('id, code, label, help_text, question_type, required, config, position').eq('process_id', params.id).order('position'),
+    adminClient.from('sigec_document_requirements').select('id, code, label, instructions, required, accepted_mime_types, max_file_size_bytes, condition_config, position').eq('process_id', params.id).order('position'),
+    adminClient.from('sigec_declaration_templates').select('id, code, label, content, version, audience, required, position').eq('process_id', params.id).eq('active', true).order('position'),
+    adminClient.from('sigec_process_stages').select('id, code, label, public_description, color, position, is_initial, is_terminal, allows_appeal, whatsapp_template').eq('process_id', params.id).order('position'),
+    adminClient.from('sigec_process_stage_transitions').select('id, from_stage_id, to_stage_id, requires_reason, blocks_on_pending, active').eq('process_id', params.id).order('created_at'),
+    adminClient.from('sigec_scoring_rule_versions').select('id, version, label, status, is_provisional, total_max_points, source_reference, recorded_at, confirmed_at').eq('process_id', params.id).order('version', { ascending: false }),
+  ])
+
+  const process = processResult.data as ProcessDetail
   const editable = process.status === 'draft'
-
-  const readiness = [
-    { label: 'Cronograma', ready: Boolean(process.applications_open_at && process.applications_close_at), icon: CalendarDays },
-    { label: 'Vagas e requisitos', ready: false, icon: ListChecks },
-    { label: 'Documentos', ready: false, icon: FileStack },
-    { label: 'Avaliação e etapas', ready: false, icon: BookOpenCheck },
-  ]
-  const readyCount = readiness.filter((item) => item.ready).length
+  const readiness = readinessResult.error
+    ? [{ code: 'readiness_unavailable', label: 'Validação indisponível', ready: false, detail: 'Aplique a migração da Fase 2 antes de publicar.' }]
+    : (readinessResult.data ?? []) as SigecPublicationReadiness[]
+  const modalities = (modalitiesResult.data ?? []) as SigecModalityRow[]
+  const requirements = new Map((requirementsResult.data ?? []).map((item) => [item.course_id, item]))
+  const vacancies = (vacanciesResult.data ?? []).map((item) => ({
+    id: item.id,
+    modality_id: item.modality_id,
+    municipality: item.municipality,
+    vacancy_kind: item.vacancy_kind,
+    vacancy_count: item.vacancy_count,
+    active: item.active,
+    course: Array.isArray(item.course) ? item.course[0] ?? null : item.course,
+    requirement: requirements.get(item.course_id) ?? null,
+  })) as SigecVacancyRow[]
+  const questions = (questionsResult.data ?? []) as SigecQuestionRow[]
+  const documents = (documentsResult.data ?? []) as SigecDocumentRow[]
+  const declarations = (declarationsResult.data ?? []) as SigecDeclarationRow[]
+  const stages = (stagesResult.data ?? []) as SigecStageRow[]
+  const transitions = (transitionsResult.data ?? []) as SigecStageTransitionRow[]
+  const scoringVersions = (scoringVersionsResult.data ?? []) as SigecScoringVersionRow[]
+  const scoringVersionIds = scoringVersions.map((version) => version.id)
+  const [loadedScoringItems, loadedTieBreaks] = scoringVersionIds.length ? await Promise.all([
+    adminClient.from('sigec_scoring_rule_items').select('id, rule_version_id, code, label, instructions, max_points, position').in('rule_version_id', scoringVersionIds).order('position'),
+    adminClient.from('sigec_tie_break_rules').select('id, rule_version_id, code, label, value_source, direction, position').in('rule_version_id', scoringVersionIds).order('position'),
+  ]) : [{ data: [] }, { data: [] }]
+  const scoringItems = (loadedScoringItems.data ?? []) as SigecScoringItemRow[]
+  const tieBreaks = (loadedTieBreaks.data ?? []) as SigecTieBreakRow[]
 
   return (
     <>
@@ -57,7 +118,9 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
             <ArrowLeft className="h-3.5 w-3.5" /> Processos
           </Link>
           <h1 className="truncate">{process.title}</h1>
-          <p className="app-subtitle">Edital {process.edital_version} · atualizado em {new Date(process.updated_at).toLocaleDateString('pt-BR')}</p>
+          <p className="app-subtitle">
+            Edital {process.edital_version} · {process.published_at ? `publicado em ${new Date(process.published_at).toLocaleDateString('pt-BR')}` : `atualizado em ${new Date(process.updated_at).toLocaleDateString('pt-BR')}`}
+          </p>
         </div>
         <div className="flex items-start gap-3">
           <span className="rounded-full px-3 py-1.5 text-xs font-bold uppercase" style={{ background: 'hsl(var(--muted))', color: 'hsl(var(--fg2))' }}>
@@ -67,7 +130,7 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
         </div>
       </div>
 
-      <div className="app-content animate-fade-up">
+      <div className="app-content animate-fade-up space-y-5">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_330px] xl:items-start">
           <section className="rounded-xl p-5 sm:p-6" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
             <div className="mb-6 flex items-start justify-between gap-4">
@@ -92,77 +155,46 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
               }}
             />
 
-            <div className="mt-8 border-t pt-7" style={{ borderColor: 'hsl(var(--border))' }}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="rounded-lg p-2" style={{ background: 'hsl(var(--accent-amber) / .10)', color: 'hsl(var(--accent-amber))' }}>
-                    <FlaskConical className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <h2 className="font-semibold" style={{ color: 'hsl(var(--fg1))' }}>{SIGEC_PROVISIONAL_SCORING.groupLabel}</h2>
-                    <p className="mt-1 text-xs leading-5" style={{ color: 'hsl(var(--fg3))' }}>
-                      Rubrica {SIGEC_PROVISIONAL_SCORING.version} aprovada para testes internos. Não autoriza publicação oficial.
-                    </p>
-                  </div>
-                </div>
-                <span className="self-start rounded-full px-3 py-1 text-xs font-bold" style={{ background: 'hsl(var(--accent-amber) / .12)', color: 'hsl(var(--accent-amber))' }}>
-                  máximo {SIGEC_PROVISIONAL_SCORING.maxPoints} pontos
-                </span>
-              </div>
-
-              <div className="mt-5 overflow-hidden rounded-xl border" style={{ borderColor: 'hsl(var(--border))' }}>
-                {SIGEC_PROVISIONAL_SCORING.categories.map((category, index) => (
-                  <div
-                    key={category.code}
-                    className="grid gap-1 px-4 py-3 text-xs sm:grid-cols-[minmax(0,1fr)_130px_80px] sm:items-center"
-                    style={{
-                      borderTop: index ? '1px solid hsl(var(--border))' : undefined,
-                      background: index % 2 ? 'hsl(var(--muted) / .28)' : 'transparent',
-                    }}
-                  >
-                    <span className="font-medium" style={{ color: 'hsl(var(--fg2))' }}>{category.label}</span>
-                    <span style={{ color: 'hsl(var(--fg3))' }}>
-                      {category.pointsPerUnit} pt{category.pointsPerUnit === 1 ? '' : 's'} / {category.unitSize} {category.unit === 'hours' ? 'horas' : 'item'}
-                    </span>
-                    <span className="font-data font-semibold sm:text-right" style={{ color: 'hsl(var(--fg1))' }}>até {category.maxPoints}</span>
-                  </div>
-                ))}
-              </div>
-
-              <p className="mt-4 text-xs leading-5" style={{ color: 'hsl(var(--fg3))' }}>
-                Somente comprovantes validados e relacionados à vaga pontuam. O mesmo documento não pode ser contado duas vezes e requisitos obrigatórios não geram pontuação adicional.
-              </p>
-            </div>
           </section>
 
           <aside className="space-y-5 xl:sticky xl:top-5">
-            <section className="rounded-xl p-5" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold" style={{ color: 'hsl(var(--fg1))' }}>Prontidão</h2>
-                <span className="font-data text-sm" style={{ color: 'hsl(var(--accent-green))' }}>{readyCount}/{readiness.length}</span>
-              </div>
-              <div className="mt-4 h-1.5 overflow-hidden rounded-full" style={{ background: 'hsl(var(--muted))' }}>
-                <div className="h-full rounded-full transition-all" style={{ width: `${(readyCount / readiness.length) * 100}%`, background: 'hsl(var(--accent-green))' }} />
-              </div>
-              <div className="mt-5 space-y-3">
-                {readiness.map(({ label, ready, icon: Icon }) => (
-                  <div key={label} className="flex items-center gap-3 text-xs" style={{ color: ready ? 'hsl(var(--fg2))' : 'hsl(var(--fg3))' }}>
-                    <Icon className="h-4 w-4" style={{ color: ready ? 'hsl(var(--accent-green))' : 'hsl(var(--fg3))' }} />
-                    <span className="flex-1">{label}</span>
-                    <CircleDot className="h-3 w-3" />
-                  </div>
-                ))}
-              </div>
-            </section>
+            <SigecProcessPublicationPanel processId={process.id} status={process.status} readiness={readiness} />
 
             <section className="rounded-xl border p-5" style={{ borderColor: 'hsl(var(--accent-amber) / .35)', background: 'hsl(var(--accent-amber) / .06)' }}>
               <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'hsl(var(--accent-amber))' }}>Publicação protegida</p>
               <p className="mt-3 text-xs leading-5" style={{ color: 'hsl(var(--fg2))' }}>
-                A rubrica provisória pode ser testada, mas pontuação e classificação continuam bloqueadas para publicação até a confirmação normativa. Este módulo ainda não publica processos.
+                A transição é atômica e auditada. Enquanto as decisões normativas estiverem pendentes, o banco rejeita a publicação mesmo que a interface seja contornada.
               </p>
             </section>
           </aside>
         </div>
+        <SigecVacancyImportReview processId={process.id} editable={editable} />
+        <SigecVacancyConfiguration
+          processId={process.id}
+          editable={editable}
+          modalities={modalities}
+          vacancies={vacancies}
+        />
+        <SigecFormConfiguration
+          processId={process.id}
+          editable={editable}
+          questions={questions}
+          documents={documents}
+          declarations={declarations}
+        />
+        <SigecStageConfiguration
+          processId={process.id}
+          editable={editable}
+          stages={stages}
+          transitions={transitions}
+        />
+        <SigecScoringConfiguration
+          processId={process.id}
+          editable={editable}
+          versions={scoringVersions}
+          items={scoringItems}
+          tieBreaks={tieBreaks}
+        />
       </div>
     </>
   )

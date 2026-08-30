@@ -5,6 +5,8 @@ with expected(table_name) as (
     ('sigec_candidate_experience'), ('sigec_processes'), ('sigec_modalities'),
     ('sigec_courses'), ('sigec_process_course_requirements'), ('sigec_vacancies'),
     ('sigec_process_questions'), ('sigec_document_requirements'),
+    ('sigec_declaration_templates'),
+    ('sigec_process_stage_transitions'),
     ('sigec_process_stages'), ('sigec_scoring_criteria'), ('sigec_applications'),
     ('sigec_application_preferences'), ('sigec_application_answers'),
     ('sigec_application_documents'), ('sigec_application_status_history'),
@@ -13,6 +15,8 @@ with expected(table_name) as (
     ('sigec_convocations'), ('sigec_consents'), ('sigec_notification_outbox'),
     ('sigec_whatsapp_verifications'), ('sigec_audit_events'),
     ('sigec_process_decisions'), ('sigec_quota_rule_versions'),
+    ('sigec_scoring_rule_versions'), ('sigec_scoring_rule_items'),
+    ('sigec_tie_break_rules'),
     ('sigec_ranking_snapshots'), ('sigec_ranking_snapshot_entries'),
     ('sigec_ranking_snapshot_approvals'), ('sigec_ranking_snapshot_publications')
 ), actual as (
@@ -35,7 +39,7 @@ with expected(table_name) as (
       where i.indrelid = c.conrelid and i.indkey[0] = a.attnum
     )
 )
-select json_build_object(
+select jsonb_build_object(
   'expected_tables', (select count(*) from expected),
   'actual_tables', (select count(*) from actual),
   'missing_tables', coalesce((
@@ -105,6 +109,254 @@ select json_build_object(
   'whatsapp_replay_migration_applied', exists (
     select 1 from supabase_migrations.schema_migrations
     where version = '20260827225813'
+  ),
+  'process_publication_gate_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828175634'
+  ),
+  'process_publication_functions_present', (
+    select count(*) = 3
+    from pg_proc procedure
+    join pg_namespace namespace on namespace.oid = procedure.pronamespace
+    where namespace.nspname = 'public'
+      and procedure.proname in (
+        'sigec_get_process_publication_readiness',
+        'sigec_publish_process',
+        'sigec_close_process'
+      )
+  ),
+  'process_publication_functions_server_only', (
+    not has_function_privilege('anon', 'public.sigec_get_process_publication_readiness(uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_get_process_publication_readiness(uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_publish_process(uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_publish_process(uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_close_process(uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_close_process(uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_get_process_publication_readiness(uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_publish_process(uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_close_process(uuid,uuid)', 'EXECUTE')
+  ),
+  'vacancy_configuration_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828200406'
+  ),
+  'vacancy_configuration_functions_server_only', (
+    not has_function_privilege('anon', 'public.sigec_upsert_process_modality(uuid,uuid,text,text,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_process_modality(uuid,uuid,text,text,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_delete_process_modality(uuid,uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_delete_process_modality(uuid,uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_upsert_vacancy_configuration(uuid,uuid,uuid,text,text,text,text,text,integer,boolean,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_vacancy_configuration(uuid,uuid,uuid,text,text,text,text,text,integer,boolean,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_process_modality(uuid,uuid,text,text,text,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_delete_process_modality(uuid,uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_vacancy_configuration(uuid,uuid,uuid,text,text,text,text,text,integer,boolean,uuid)', 'EXECUTE')
+  ),
+  'vacancy_import_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828202054'
+  ),
+  'vacancy_import_function_server_only', (
+    not has_function_privilege('anon', 'public.sigec_confirm_vacancy_import(uuid,uuid,text,jsonb)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_confirm_vacancy_import(uuid,uuid,text,jsonb)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_confirm_vacancy_import(uuid,uuid,text,jsonb)', 'EXECUTE')
+  ),
+  'form_configuration_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828223251'
+  ),
+  'form_configuration_functions_server_only', (
+    not has_function_privilege('anon', 'public.sigec_upsert_form_configuration(uuid,uuid,text,text,text,text,boolean,integer,jsonb,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_form_configuration(uuid,uuid,text,text,text,text,boolean,integer,jsonb,uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_delete_form_configuration(uuid,uuid,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_delete_form_configuration(uuid,uuid,text,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_form_configuration(uuid,uuid,text,text,text,text,boolean,integer,jsonb,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_delete_form_configuration(uuid,uuid,text,uuid)', 'EXECUTE')
+  ),
+  'declaration_templates_service_only', not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public'
+      and table_name = 'sigec_declaration_templates'
+      and grantee in ('anon', 'authenticated')
+  ),
+  'stage_configuration_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828225319'
+  ),
+  'stage_transition_indexes_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260828230158'
+  ),
+  'stage_configuration_functions_server_only', (
+    not has_function_privilege('anon', 'public.sigec_upsert_stage_configuration(uuid,uuid,text,text,text,text,integer,boolean,boolean,boolean,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_stage_configuration(uuid,uuid,text,text,text,text,integer,boolean,boolean,boolean,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_stage_transition(uuid,uuid,uuid,uuid,boolean,boolean,boolean,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_delete_stage_transition(uuid,uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_stage_configuration(uuid,uuid,text,text,text,text,integer,boolean,boolean,boolean,text,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_delete_stage_configuration(uuid,uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_stage_transition(uuid,uuid,uuid,uuid,boolean,boolean,boolean,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_delete_stage_transition(uuid,uuid,uuid)', 'EXECUTE')
+  ),
+  'stage_transitions_service_only', not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public'
+      and table_name = 'sigec_process_stage_transitions'
+      and grantee in ('anon', 'authenticated')
+  ),
+  'scoring_configuration_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829134055'
+  ),
+  'scoring_latest_version_gate_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829135432'
+  ),
+  'scoring_confirmation_trigger_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829135829'
+  ),
+  'process_preference_limit_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829140413'
+  ),
+  'candidate_profile_management_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829201635'
+  ),
+  'candidate_profile_management_triggers_present', (
+    select count(*) = 2
+    from pg_trigger trigger
+    join pg_class relation on relation.oid = trigger.tgrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'public'
+      and relation.relname = 'sigec_candidate_profiles'
+      and trigger.tgname in ('sigec_candidate_profile_prepare', 'sigec_candidate_profile_audit')
+      and not trigger.tgisinternal
+  ),
+  'candidate_profile_column_grants_safe', (
+    has_column_privilege('authenticated', 'public.sigec_candidate_profiles', 'whatsapp', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_profiles', 'cpf', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_profiles', 'profile_completed_at', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_profiles', 'whatsapp_verified_at', 'UPDATE')
+  )
+) || jsonb_build_object(
+  'candidate_education_management_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260829205525'
+  ),
+  'candidate_education_management_triggers_present', (
+    select count(*) = 2
+    from pg_trigger trigger
+    join pg_class relation on relation.oid = trigger.tgrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'public'
+      and relation.relname = 'sigec_candidate_education'
+      and trigger.tgname in ('sigec_candidate_education_prepare', 'sigec_candidate_education_audit')
+      and not trigger.tgisinternal
+  ),
+  'candidate_education_column_grants_safe', (
+    has_column_privilege('authenticated', 'public.sigec_candidate_education', 'course_name', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_education', 'candidate_id', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_education', 'id', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_education', 'created_at', 'UPDATE')
+  ),
+  'candidate_experience_management_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations where version = '20260829220824'
+  ),
+  'candidate_experience_management_triggers_present', (
+    select count(*) = 2
+    from pg_trigger trigger
+    join pg_class relation on relation.oid = trigger.tgrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'public'
+      and relation.relname = 'sigec_candidate_experience'
+      and trigger.tgname in ('sigec_candidate_experience_prepare', 'sigec_candidate_experience_audit')
+      and not trigger.tgisinternal
+  ),
+  'candidate_experience_summary_permissions_safe', (
+    not has_function_privilege('anon', 'public.sigec_candidate_teaching_experience_summary(uuid)', 'EXECUTE')
+    and has_function_privilege('authenticated', 'public.sigec_candidate_teaching_experience_summary(uuid)', 'EXECUTE')
+  ),
+  'candidate_experience_column_grants_safe', (
+    has_column_privilege('authenticated', 'public.sigec_candidate_experience', 'role_title', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_experience', 'candidate_id', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_experience', 'id', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.sigec_candidate_experience', 'created_at', 'UPDATE')
+  ),
+  'candidate_document_processing_migrations_applied', (
+    select count(*) = 2 from supabase_migrations.schema_migrations
+    where version in ('20260829225014', '20260829230009')
+  ),
+  'candidate_document_malware_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations where version = '20260829234758'
+  ),
+  'candidate_document_columns_safe', (
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'sigec_application_documents'
+        and column_name = 'sha256' and is_nullable = 'NO'
+    )
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'sigec_application_documents'
+        and column_name in ('technical_status', 'malware_status', 'sanitized_at', 'supersedes_document_id')
+      group by table_schema, table_name having count(*) = 4
+    )
+  ),
+  'candidate_document_rpc_safe', (
+    not has_function_privilege('anon', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)', 'EXECUTE')
+    and not (
+      select procedure.prosecdef from pg_proc procedure
+      join pg_namespace namespace on namespace.oid = procedure.pronamespace
+      where namespace.nspname = 'public' and procedure.proname = 'sigec_register_candidate_document'
+    )
+  ),
+  'candidate_document_malware_rpc_safe', (
+    not has_function_privilege('anon', 'public.sigec_record_document_malware_scan(uuid,text,text,text,text,text)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_record_document_malware_scan(uuid,text,text,text,text,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_record_document_malware_scan(uuid,text,text,text,text,text)', 'EXECUTE')
+    and not (
+      select procedure.prosecdef from pg_proc procedure
+      join pg_namespace namespace on namespace.oid = procedure.pronamespace
+      where namespace.nspname = 'public' and procedure.proname = 'sigec_record_document_malware_scan'
+    )
+  ),
+  'candidate_document_direct_insert_absent', (
+    not has_table_privilege('authenticated', 'public.sigec_application_documents', 'INSERT')
+    and not exists (
+      select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects'
+        and cmd = 'INSERT' and policyname like 'sigec_storage_candidate%'
+    )
+  ),
+  'staff_document_storage_requires_clean_scan', exists (
+    select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects'
+      and policyname = 'sigec_storage_candidate_read'
+      and coalesce(qual, '') like '%malware_status%clean%'
+  ),
+  'process_preference_limit_trigger_present', exists (
+    select 1 from pg_trigger trigger
+    join pg_class relation on relation.oid = trigger.tgrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'public'
+      and relation.relname = 'sigec_application_preferences'
+      and trigger.tgname = 'sigec_application_preference_limit_guard'
+      and not trigger.tgisinternal
+  ),
+  'scoring_configuration_functions_server_only', (
+    not has_function_privilege('anon', 'public.sigec_upsert_scoring_version(uuid,uuid,text,numeric,text,boolean,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_scoring_version(uuid,uuid,text,numeric,text,boolean,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_scoring_item(uuid,uuid,uuid,text,text,text,numeric,jsonb,integer,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_upsert_tie_break_rule(uuid,uuid,uuid,text,text,text,text,jsonb,integer,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_confirm_scoring_version(uuid,uuid,uuid,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_upsert_scoring_version(uuid,uuid,text,numeric,text,boolean,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_confirm_scoring_version(uuid,uuid,uuid,text)', 'EXECUTE')
+  ),
+  'scoring_configuration_tables_server_only', not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public'
+      and table_name in ('sigec_scoring_rule_versions', 'sigec_scoring_rule_items', 'sigec_tie_break_rules')
+      and grantee in ('anon', 'authenticated')
   ),
   'consent_migrations_applied', (
     select count(*) = 3 from supabase_migrations.schema_migrations
