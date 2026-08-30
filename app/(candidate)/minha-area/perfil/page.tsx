@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, CheckCircle2, CircleDashed } from 'lucide-react'
 import { CandidateProfileForm } from '@/components/candidate-profile-form'
+import { CandidateProfileCompleteness } from '@/components/candidate-profile-completeness'
 import { createClient } from '@/lib/supabase/server'
 import { formatCpf } from '@/lib/utils'
 
@@ -55,7 +56,9 @@ export default async function CandidateProfilePage() {
         </span>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-8"><CandidateProfileCompleteness profile={profile} /></div>
+
+      <div className="mt-6">
         <CandidateProfileForm initial={{
           fullName: profile.full_name,
           cpf: formatCpf(profile.cpf),

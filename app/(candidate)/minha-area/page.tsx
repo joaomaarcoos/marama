@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { AlertCircle, ArrowRight, BriefcaseBusiness, Clock3, FileCheck2, GraduationCap, MessageCircleMore, UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { CandidateProfileCompleteness } from '@/components/candidate-profile-completeness'
+import type { SigecProfileCompletenessSource } from '@/lib/sigec-profile-completeness'
 
-type CandidateProfile = { full_name: string; profile_completed_at: string | null; whatsapp_verified_at: string | null }
+type CandidateProfile = SigecProfileCompletenessSource
 type CandidateApplication = {
   id: string
   application_state: string
@@ -18,7 +20,7 @@ export default async function CandidateHomePage() {
   if (!user) return null
 
   const [profileResult, applicationsResult] = await Promise.all([
-    supabase.from('sigec_candidate_profiles').select('full_name, profile_completed_at, whatsapp_verified_at').eq('user_id', user.id).maybeSingle(),
+    supabase.from('sigec_candidate_profiles').select('full_name, birth_date, whatsapp, whatsapp_verified_at, postal_code, street, address_number, district, city, state, availability, profile_completed_at').eq('user_id', user.id).maybeSingle(),
     supabase
       .from('sigec_applications')
       .select('id, application_state, submitted_at, updated_at, sigec_processes(title, slug), sigec_process_stages(label, color)')
@@ -48,7 +50,9 @@ export default async function CandidateHomePage() {
         </div>
       )}
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {profile && <div className="mt-8"><CandidateProfileCompleteness profile={profile} /></div>}
+
+      <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Link href="/minha-area/perfil" className="rounded-2xl border border-[#d9e0e7] bg-[#ffffff] p-5 text-[#172033] transition hover:-translate-y-0.5 hover:border-[#8bcbb4] hover:shadow-md">
           <UserRound className="h-5 w-5 text-[#16845f]" />
           <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#657084]">Perfil</p>

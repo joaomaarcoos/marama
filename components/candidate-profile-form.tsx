@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   CheckCircle2,
@@ -58,6 +59,7 @@ function formatPhone(value: string) {
 }
 
 export function CandidateProfileForm({ initial }: { initial: CandidateProfileFormData }) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [phone, setPhone] = useState(formatPhone(initial.whatsapp))
   const [postalCode, setPostalCode] = useState(formatPostalCode(initial.postalCode))
@@ -79,6 +81,7 @@ export function CandidateProfileForm({ initial }: { initial: CandidateProfileFor
         message: result.message,
         requiresWhatsappVerification: result.requiresWhatsappVerification,
       })
+      if (result.status === 'success') router.refresh()
     } catch {
       setFeedback({ type: 'error', message: 'Não foi possível salvar seu perfil agora.' })
     } finally {
