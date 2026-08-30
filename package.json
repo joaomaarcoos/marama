@@ -22,6 +22,7 @@
     "sigec:test:remote-candidate-experience": "py execution/test_sigec_candidate_experience.py",
     "sigec:test:remote-candidate-documents": "py execution/test_sigec_candidate_documents.py",
     "sigec:test:document-processing": "tsx execution/test_sigec_document_processing.ts",
+    "sigec:test:malware-scan": "tsx execution/test_sigec_malware_scan.ts",
     "sigec:test:vacancy-import": "py execution/test_sigec_vacancy_import.py",
     "sigec:test:role-redirects": "node execution/test_sigec_role_redirects.mjs",
     "sigec:test:captcha-config": "py execution/test_sigec_captcha_configuration.py",

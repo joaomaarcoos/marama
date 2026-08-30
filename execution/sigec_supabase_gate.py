@@ -320,7 +320,7 @@ def main() -> int:
     # The Session pooler can terminate a third immediate connection after the
     # history fetch and dry-run. Give it a brief recovery window before apply.
     if args.action == "isolated-apply" and preliminary_output:
-        time.sleep(3)
+        time.sleep(10)
 
     max_attempts = 3 if args.action in ("verify", "advisors", "advisors-sigec", "history") else 1
     attempts_used = 0

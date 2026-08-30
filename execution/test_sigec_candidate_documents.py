@@ -155,6 +155,18 @@ def main() -> int:
         )
         expect("new_version_supersedes_previous_and_is_quarantined", cursor.fetchone() == (document_one, "validated", "pending", True, True))
 
+        scan_rpc = "select * from public.sigec_record_document_malware_scan(%s,%s,%s,%s,%s,%s)"
+        cursor.execute(scan_rpc, (document_one, "a" * 64, "clean", "clamav-test", None, None))
+        expect("clean_scan_releases_first_document", cursor.fetchone() == (document_one, "clean", 1))
+        cursor.execute(scan_rpc, (document_two, "b" * 64, "infected", "clamav-test", "Eicar-Signature", None))
+        expect("infected_scan_quarantines_second_document", cursor.fetchone() == (document_two, "infected", 1))
+        cursor.execute(scan_rpc, (document_two, "b" * 64, "error", "clamav-test", None, "scanner_timeout"))
+        expect("scanner_error_keeps_document_quarantined", cursor.fetchone() == (document_two, "error", 2))
+        cursor.execute(scan_rpc, (document_two, "b" * 64, "infected", "clamav-test", "Eicar-Signature", None))
+        expect("rescan_is_audited_and_restores_infected_verdict", cursor.fetchone() == (document_two, "infected", 3))
+        expect_error(cursor, "scan_hash_mismatch_is_rejected", scan_rpc,
+                     (document_one, "f" * 64, "clean", "clamav-test", None, None), {"23503"})
+
         expect_error(cursor, "wrong_candidate_is_rejected", rpc,
                      (application_id, requirement_id, path_two + "x", "x.pdf", "application/pdf", 100, "c" * 64, candidate_b), {"42501"})
         expect_error(cursor, "mime_outside_requirement_is_rejected", rpc,
@@ -166,8 +178,9 @@ def main() -> int:
         expect("document_rpc_uses_security_invoker", cursor.fetchone() == (False,))
         cursor.execute("""select
           not has_function_privilege('authenticated','public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)','EXECUTE'),
+          not has_function_privilege('authenticated','public.sigec_record_document_malware_scan(uuid,text,text,text,text,text)','EXECUTE'),
           not has_table_privilege('authenticated','public.sigec_application_documents','INSERT')""")
-        expect("candidate_cannot_bypass_document_backend", cursor.fetchone() == (True, True))
+        expect("candidate_cannot_bypass_document_backend", cursor.fetchone() == (True, True, True))
 
         authenticate(cursor, candidate_a, "candidato")
         cursor.execute("select count(*) from public.sigec_application_documents where application_id=%s", (application_id,))
@@ -187,13 +200,20 @@ def main() -> int:
         cursor.execute("""select coalesce(qual,'') from pg_policies
           where schemaname='storage' and tablename='objects' and policyname='sigec_storage_candidate_read'""")
         storage_qual = cursor.fetchone()[0]
-        expect("staff_storage_read_requires_clean_scan", "malware_status" in storage_qual and "clean" in storage_qual)
+        expect("all_authenticated_storage_read_requires_clean_scan", "malware_status" in storage_qual and "clean" in storage_qual and "candidate_id" in storage_qual)
         cursor.execute("""select metadata from public.sigec_audit_events
-          where entity_type='application_document' and entity_id in (%s,%s) order by id""", (str(document_one), str(document_two)))
+          where action='candidate_document_uploaded' and entity_type='application_document'
+            and entity_id in (%s,%s) order by id""", (str(document_one), str(document_two)))
         events = cursor.fetchall()
         serialized = json.dumps(events, ensure_ascii=False)
         expect("document_versions_are_audited_without_sensitive_metadata",
                len(events) == 2 and "diploma.pdf" not in serialized and str(candidate_a) not in serialized and "aaaa" not in serialized)
+        cursor.execute("""select metadata from public.sigec_audit_events
+          where action='candidate_document_malware_scanned' and entity_id in (%s,%s) order by id""",
+                       (str(document_one), str(document_two)))
+        scan_events = cursor.fetchall()
+        expect("every_malware_scan_attempt_is_audited_without_signature",
+               len(scan_events) == 4 and "Eicar-Signature" not in json.dumps(scan_events, ensure_ascii=False))
 
         connection.rollback()
         connection.close()

@@ -124,6 +124,34 @@ def main() -> int:
             "app/api/sigec/candidate-documents/route.ts",
             "console.error('[SIGEC candidate document] upload failed', { stage })",
         ),
+        "candidate_document_runs_antimalware_before_release": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "scanBufferWithClamAv(processed.buffer)",
+        ),
+        "document_rescan_staff_guard": (
+            "app/api/sigec/document-scan/route.ts",
+            "role !== 'admin' && role !== 'gerente'",
+        ),
+        "document_rescan_verifies_storage_hash": (
+            "app/api/sigec/document-scan/route.ts",
+            "digest !== document.sha256",
+        ),
+        "document_rescan_only_quarantined_states": (
+            "app/api/sigec/document-scan/route.ts",
+            "['pending', 'error'].includes(document.malware_status)",
+        ),
+        "clamav_is_internal_compose_service": (
+            "docker-compose.yml",
+            "image: clamav/clamav:1.5.4",
+        ),
+        "clamav_runtime_is_server_only": (
+            "docker-compose.yml",
+            "SIGEC_CLAMAV_HOST: ${SIGEC_CLAMAV_HOST:-clamav}",
+        ),
+        "supabase_supported_node_runtime": (
+            "Dockerfile",
+            "FROM node:22-alpine AS base",
+        ),
         "documents_role_guard": (
             "app/api/documentos/route.ts",
             "requireApiUser(['admin', 'gerente'])",
@@ -451,6 +479,15 @@ def main() -> int:
             "severity": "high",
             "check": "server_redirect_url_must_not_use_build_time_public_env",
             "detail": "Server redirect URL resolver must not depend on a NEXT_PUBLIC build-time value.",
+        })
+
+    compose = read("docker-compose.yml")
+    clamav_section = compose.split("  clamav:", 1)[1] if "  clamav:" in compose else ""
+    if "ports:" in clamav_section:
+        findings.append({
+            "severity": "critical",
+            "check": "clamav_tcp_not_published",
+            "detail": "ClamAV TCP must remain internal to the container network.",
         })
 
     result = {"ok": not findings, "checks": len(checks) + 4, "findings": findings}

@@ -140,6 +140,11 @@ def audit(sql: str) -> dict[str, object]:
         "document_direct_storage_insert_removed": r"drop policy if exists sigec_storage_candidate_insert on storage\.objects",
         "staff_document_read_requires_clean_scan": r"sigec_storage_candidate_read[\s\S]*?malware_status = 'clean'",
         "validated_document_requires_sanitization": r"technical_status = 'validated' and sanitized_at is not null",
+        "malware_scan_rpc_security_invoker": r"sigec_record_document_malware_scan[\s\S]*?security invoker",
+        "malware_scan_rpc_service_only": r"revoke all on function public\.sigec_record_document_malware_scan.*from public, anon, authenticated",
+        "malware_scan_hash_binding": r"target\.sha256 <> p_sha256",
+        "malware_scan_result_constraint": r"sigec_document_malware_result_check",
+        "all_storage_reads_require_clean_scan": r"sigec_storage_candidate_read[\s\S]*?document\.malware_status = 'clean'[\s\S]*?application\.candidate_id",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

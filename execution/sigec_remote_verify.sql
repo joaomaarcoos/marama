@@ -286,6 +286,9 @@ select jsonb_build_object(
     select count(*) = 2 from supabase_migrations.schema_migrations
     where version in ('20260829225014', '20260829230009')
   ),
+  'candidate_document_malware_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations where version = '20260829234758'
+  ),
   'candidate_document_columns_safe', (
     exists (
       select 1 from information_schema.columns
@@ -307,6 +310,16 @@ select jsonb_build_object(
       select procedure.prosecdef from pg_proc procedure
       join pg_namespace namespace on namespace.oid = procedure.pronamespace
       where namespace.nspname = 'public' and procedure.proname = 'sigec_register_candidate_document'
+    )
+  ),
+  'candidate_document_malware_rpc_safe', (
+    not has_function_privilege('anon', 'public.sigec_record_document_malware_scan(uuid,text,text,text,text,text)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_record_document_malware_scan(uuid,text,text,text,text,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_record_document_malware_scan(uuid,text,text,text,text,text)', 'EXECUTE')
+    and not (
+      select procedure.prosecdef from pg_proc procedure
+      join pg_namespace namespace on namespace.oid = procedure.pronamespace
+      where namespace.nspname = 'public' and procedure.proname = 'sigec_record_document_malware_scan'
     )
   ),
   'candidate_document_direct_insert_absent', (

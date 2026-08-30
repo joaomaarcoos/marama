@@ -5,6 +5,7 @@ import { adminClient } from '@/lib/supabase/admin'
 import { extractRole } from '@/lib/roles'
 import { SIGEC_DOCUMENT_BUCKET, SIGEC_MAX_DOCUMENT_SIZE } from '@/lib/sigec'
 import { candidateDocumentPath, DocumentValidationError, processCandidateDocument } from '@/lib/sigec-document-processing'
+import { MalwareScannerError, scanBufferWithClamAv } from '@/lib/sigec-malware'
 
 export const runtime = 'nodejs'
 
@@ -63,7 +64,48 @@ export async function POST(request: Request) {
     }
     const result = registered as { document_id: string; document_version: number }
 
-    return NextResponse.json({ ok: true, documentId: result.document_id, version: result.document_version })
+    try {
+      const scan = await scanBufferWithClamAv(processed.buffer)
+      const { error: scanRecordError } = await adminClient.rpc('sigec_record_document_malware_scan', {
+        p_document_id: result.document_id,
+        p_sha256: processed.sha256,
+        p_status: scan.status,
+        p_engine: scan.engine,
+        p_signature: scan.status === 'infected' ? scan.signature : null,
+        p_error_code: null,
+      })
+      if (scanRecordError) throw new Error('scan_record_failed')
+      return NextResponse.json({
+        ok: true,
+        documentId: result.document_id,
+        version: result.document_version,
+        malwareStatus: scan.status,
+        message: scan.status === 'clean'
+          ? 'Documento enviado e aprovado na verificação antimalware.'
+          : 'O arquivo foi bloqueado pela verificação antimalware. Envie uma nova versão segura.',
+      })
+    } catch (scanError) {
+      const code = scanError instanceof MalwareScannerError ? scanError.code : 'scanner_internal_error'
+      const { error: scanRecordError } = await adminClient.rpc('sigec_record_document_malware_scan', {
+        p_document_id: result.document_id,
+        p_sha256: processed.sha256,
+        p_status: 'error',
+        p_engine: 'clamav',
+        p_signature: null,
+        p_error_code: code,
+      })
+      console.error('[SIGEC candidate document] malware scan unavailable', {
+        stage: scanRecordError ? 'scan_record' : 'scanner',
+        code,
+      })
+      return NextResponse.json({
+        ok: true,
+        documentId: result.document_id,
+        version: result.document_version,
+        malwareStatus: scanRecordError ? 'pending' : 'error',
+        message: 'Documento recebido e mantido em quarentena. A equipe poderá repetir a verificação antes da análise.',
+      }, { status: 202 })
+    }
   } catch (error) {
     if (error instanceof DocumentValidationError) return NextResponse.json({ error: error.message }, { status: 400 })
     const stage = error instanceof Error && error.message.startsWith('storage:')
