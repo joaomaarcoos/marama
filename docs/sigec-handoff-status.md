@@ -1,8 +1,8 @@
 # SIGEC Processos — Handoff, status e plano de execução
 
 **Última atualização:** 30/08/2026
-**Estado geral:** fundação, classificação auditável, Gate P1 e configuração administrativa da Fase 2 implementados; cadastro público permanece fechado até existir processo real pronto para publicação
-**Fase atual:** Fase 3 em implementação na branch `codex/sigec-fase-3-perfil-candidato`; Gate P2 permanece adiado com observações registradas
+**Estado geral:** fundação, Gate P1, configuração administrativa da Fase 2 e perfil/documentos até P3-05 promovidos para `master` como candidato de deploy; cadastro público permanece fechado até existir processo real pronto para publicação
+**Fase atual:** Fase 3 em implementação na `master` por autorização do responsável para deploy e smoke; Gate P2 permanece adiado e Gate P3 ainda aguarda P3-06 e smoke real do ClamAV
 **Progresso auditado:** 32 de 88 tarefas concluídas; 56 pendentes
 **Última auditoria automática:** aprovada em 30/08/2026, sem achados locais ou remotos acionáveis
 **Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
@@ -401,6 +401,7 @@ Ao concluir uma tarefa:
 | 29/08/2026 | SIGEC-P3-03 | migração `sigec_candidate_experience_management`; rota `/minha-area/experiencia`; função de união de intervalos; teste transacional remoto | três vínculos testados, inclusive dois docentes sobrepostos e um não docente; total correto de 120 dias únicos/4 meses, isolamento candidato A/B, consulta gerencial sem mutação, auditoria sem empregador/função e privilégios mínimos; 21 controles remotos com rollback e limpeza, 95 controles da aplicação, 40/40 tabelas RLS, zero fixtures, zero Advisors acionáveis, TypeScript e build de 53 páginas aprovados |
 | 29/08/2026 | SIGEC-P3-04 | migrações `sigec_candidate_document_processing` e `sigec_candidate_document_requirement_columns_fix`; processador Sharp/PDF; API e central de documentos; gate do pooler reforçado; testes local e remoto | seis cenários locais validaram conteúdo, hash, limite, MIME forjado e remoção de metadados; 18 controles remotos confirmaram versionamento, encadeamento, quarentena, bloqueios, RLS e auditoria com rollback e limpeza. RPC `SECURITY INVOKER` somente no backend, insert direto removido, Storage append-only e comissão bloqueada até antimalware limpo; 102 controles da aplicação, 40/40 tabelas RLS, zero Advisors acionáveis, zero fixtures, TypeScript e build de 55 páginas aprovados. |
 | 30/08/2026 | SIGEC-P3-05 | migração `sigec_candidate_document_malware_scan`; cliente ClamAV `INSTREAM`; varredura imediata e reprocessamento gerencial; ClamAV interno no Compose; Node 22 | quatro testes locais cobriram limpo, EICAR, erro e configuração ausente; 24 controles remotos validaram transições, hash, tentativas, quarentena, permissões e auditoria com rollback e limpeza. 109 controles da aplicação, 40/40 tabelas RLS, zero Advisors acionáveis, zero fixtures, TypeScript e build de 56 páginas aprovados. Smoke limpo/EICAR no Portainer permanece obrigatório antes do Gate P3. |
+| 30/08/2026 | Promoção para deploy | merge `e96a313` na `master`, autorizado pelo responsável | Fases 2 e 3 até P3-05 reunidas na principal para deploy e smoke. A promoção não homologa os Gates P2/P3, não publica processo real e não remove as decisões normativas pendentes. |
 
 ## 9. Próxima ação recomendada
 
