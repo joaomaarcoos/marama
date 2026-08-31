@@ -30,6 +30,15 @@ def audit(sql: str) -> dict[str, object]:
             "detail": f"Tables without RLS: {', '.join(missing_rls)}",
         })
 
+    # The application draft RPC had one historical public definer definition
+    # immediately replaced by an invoker wrapper. Ignore only those versioned
+    # blocks here and require the hardened final structure below.
+    forbidden_sql = re.sub(
+        r"create(?: or replace)? function public\.sigec_create_application_draft\b[\s\S]*?\$\$;",
+        "",
+        sql,
+        flags=re.IGNORECASE,
+    )
     forbidden_patterns = {
         "user_metadata_authorization": r"user_metadata[^\n]*(role|permission|admin)",
         "broad_public_revoke": r"revoke all on all tables in schema public",
@@ -39,7 +48,7 @@ def audit(sql: str) -> dict[str, object]:
         "candidate_storage_delete": r"create policy sigec_storage_candidate_delete",
     }
     for name, pattern in forbidden_patterns.items():
-        if re.search(pattern, sql, flags=re.IGNORECASE):
+        if re.search(pattern, forbidden_sql, flags=re.IGNORECASE):
             findings.append({"severity": "critical", "check": name, "detail": "Forbidden pattern found."})
 
     required_patterns = {
@@ -49,6 +58,13 @@ def audit(sql: str) -> dict[str, object]:
         "preference_process_limit_trigger": r"sigec_enforce_application_preference_limit[\s\S]*?new\.position > allowed_preferences",
         "submitted_preferences_immutable": r"target_state <> 'draft'",
         "application_owner_policy": r"sigec_applications_owner_(read|insert)",
+        "application_draft_public_wrapper_invoker": r"function public\.sigec_create_application_draft[\s\S]*?security invoker",
+        "application_draft_private_implementation": r"function private\.sigec_create_application_draft_impl[\s\S]*?security definer",
+        "application_draft_role_guard": r"actor_role <> 'candidato'",
+        "application_draft_profile_gate": r"SIGEC_APPLICATION_PROFILE_INCOMPLETE",
+        "application_draft_process_gate": r"SIGEC_APPLICATION_PROCESS_UNAVAILABLE",
+        "application_draft_direct_insert_revoked": r"revoke insert on public\.sigec_applications from authenticated",
+        "application_draft_concurrency_lock": r"pg_advisory_xact_lock",
         "storage_owner_prefix": r"storage\.foldername\(name\)\)\[1\].*auth\.uid",
         "document_application_path": r"storage_path like \(select auth\.uid\(\)\)::text \|\| '/' \|\| application_id::text \|\| '/%'",
         "diligence_deadline": r"request\.due_at is null or request\.due_at > now\(\)",

@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import { ArrowLeft, CalendarDays, MapPin, ShieldCheck } from 'lucide-react'
+import { AlertCircle, ArrowLeft, CalendarDays, CheckCircle2, MapPin, ShieldCheck } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { extractRole, roleHome } from '@/lib/roles'
+import { startSigecApplication } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ type Vacancy = {
   sigec_modalities: { name: string } | null
 }
 
-export default async function PublicProcessDetailPage({ params }: { params: { slug: string } }) {
+export default async function PublicProcessDetailPage({ params, searchParams }: { params: { slug: string }; searchParams: { inscricao?: string } }) {
   const supabase = await createClient()
   const [userResult, processResult] = await Promise.all([
     supabase.auth.getUser(),
@@ -41,6 +42,14 @@ export default async function PublicProcessDetailPage({ params }: { params: { sl
     .order('municipality')
     .limit(500)
   const vacancies = (vacanciesResult.data ?? []) as unknown as Vacancy[]
+  const [profileResult, applicationResult] = role === 'candidato' && user
+    ? await Promise.all([
+        supabase.from('sigec_candidate_profiles').select('profile_completed_at, whatsapp_verified_at').eq('user_id', user.id).maybeSingle(),
+        supabase.from('sigec_applications').select('id, application_state').eq('process_id', process.id).eq('candidate_id', user.id).maybeSingle(),
+      ])
+    : [{ data: null }, { data: null }]
+  const candidateReady = Boolean(profileResult.data?.profile_completed_at && profileResult.data?.whatsapp_verified_at)
+  const application = applicationResult.data as { id: string; application_state: string } | null
 
   return (
     <main className="h-screen overflow-y-auto bg-slate-950 text-white">
@@ -75,9 +84,17 @@ export default async function PublicProcessDetailPage({ params }: { params: { sl
           )}
         </section>
 
+        {searchParams.inscricao && <div className="mt-10 flex items-start gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-50"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />{searchParams.inscricao === 'cadastro' ? 'Complete seus dados e confirme o WhatsApp antes de iniciar a inscrição.' : 'Não foi possível iniciar a inscrição. Confira se o prazo ainda está aberto.'}</div>}
+
         <section className="my-12 rounded-3xl border border-emerald-400/25 bg-emerald-400/10 p-6 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-7">
-          <div><h2 className="font-display text-xl font-bold">{user ? 'Sua sessão continua ativa.' : 'Interessado neste processo?'}</h2><p className="mt-2 text-sm text-emerald-50/80">{user ? 'Volte à sua área para acompanhar candidaturas e documentos.' : 'Crie seu acesso para preencher o perfil e preparar os documentos.'}</p></div>
-          <Link href={user ? accountHref : '/cadastro-candidato'} className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-300 sm:mt-0">{user ? accountLabel : 'Criar cadastro'}</Link>
+          <div><h2 className="font-display text-xl font-bold">{application ? 'Sua inscrição já foi iniciada.' : user ? 'Pronto para participar?' : 'Interessado neste processo?'}</h2><p className="mt-2 text-sm text-emerald-50/80">{application ? 'Continue o preenchimento pela sua área.' : role === 'candidato' ? (candidateReady ? 'Inicie agora e continue o preenchimento com calma.' : 'Complete seu cadastro e confirme o WhatsApp para começar.') : user ? 'Acesse seu painel para administrar os processos.' : 'Crie seu acesso para preencher o perfil e preparar os documentos.'}</p></div>
+          {application ? (
+            <Link href="/minha-area" className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-300 sm:mt-0"><CheckCircle2 className="h-4 w-4" /> Continuar inscrição</Link>
+          ) : role === 'candidato' && candidateReady ? (
+            <form action={startSigecApplication} className="mt-5 sm:mt-0"><input type="hidden" name="processId" value={process.id} /><input type="hidden" name="slug" value={params.slug} /><button className="inline-flex min-h-12 items-center rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-300">Iniciar inscrição</button></form>
+          ) : (
+            <Link href={role === 'candidato' ? '/minha-area' : user ? accountHref : '/cadastro-candidato'} className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-300 sm:mt-0">{role === 'candidato' ? 'Completar cadastro' : user ? accountLabel : 'Criar cadastro'}</Link>
+          )}
         </section>
       </div>
     </main>

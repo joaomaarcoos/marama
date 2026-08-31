@@ -1,10 +1,10 @@
 # SIGEC Processos — Handoff, status e plano de execução
 
-**Última atualização:** 30/08/2026
-**Estado geral:** fundação, Gate P1, configuração administrativa da Fase 2 e Fase 3 concluídos; upload e ClamAV foram homologados em produção, enquanto o cadastro público permanece fechado até existir processo real pronto para publicação
-**Fase atual:** Gate P3 aprovado na branch `codex/sigec-p3-06-completude`; Gate P2 permanece adiado pelas confirmações normativas e pela importação oficial; próxima implementação prevista é a Fase 4
-**Progresso auditado:** 33 de 88 tarefas concluídas; 55 pendentes
-**Última auditoria automática:** aprovada em 30/08/2026, sem achados locais ou remotos acionáveis
+**Última atualização:** 31/08/2026
+**Estado geral:** fundação, Gate P1, configuração administrativa da Fase 2 e Fase 3 concluídos; Fase 4 iniciada com inscrição em rascunho segura; cadastro público permanece fechado até existir processo real pronto para publicação
+**Fase atual:** `SIGEC-P4-01` concluída na branch `codex/sigec-p4-01-inscricao-rascunho`; Gate P2 permanece adiado pelas confirmações normativas e pela importação oficial
+**Progresso auditado:** 34 de 88 tarefas concluídas; 54 pendentes
+**Última auditoria automática:** aprovada em 31/08/2026, sem achados locais ou remotos acionáveis
 **Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
 
 ## 1. Objetivo deste arquivo
@@ -222,7 +222,7 @@ Fórmula aceita como direção e pendente de fechamento: `nota_final = titulacao
 
 ### Fase 4 — Inscrição
 
-- [ ] SIGEC-P4-01 — Criar inscrição em rascunho vinculada ao processo e ao candidato.
+- [x] SIGEC-P4-01 — Criar inscrição em rascunho vinculada ao processo e ao candidato. Concluída em 31/08/2026 com ação contextual na página pública do processo, retorno claro para cadastro incompleto, continuidade de rascunho existente e confirmação na área do candidato. A criação é idempotente, serializada por candidato/processo, exige perfil completo, WhatsApp confirmado, processo publicado e janela aberta; inserção direta foi revogada e a implementação privilegiada ficou no schema `private`, acessada por wrapper público `SECURITY INVOKER`.
 - [ ] SIGEC-P4-02 — Implementar opção única ou preferências ordenadas conforme configuração do processo.
 - [ ] SIGEC-P4-03 — Implementar perguntas e anexos condicionais.
 - [ ] SIGEC-P4-04 — Validar requisitos obrigatórios no servidor e no banco antes do envio.
@@ -409,7 +409,8 @@ Ao concluir uma tarefa:
 | 30/08/2026 | Homologação produtiva do ClamAV | versões 1 e 3 da candidatura sintética; status remoto antes da limpeza; utilitários de geração e limpeza idempotente | a versão limpa ficou `technical_status = validated`, `malware_status = clean`; a versão EICAR final ficou `technical_status = validated`, `malware_status = infected`; ambas tiveram uma tentativa de scan. Uma versão EICAR preliminar não representativa ficou `clean`, levando à correção do artefato para stream PDF não comprimido. A fixture e os objetos foram eliminados e o status final confirmou ambiente limpo. |
 | 30/08/2026 | Simplificação da central de documentos | tela `/minha-area/documentos`; remoção lógica; migrations `sigec_candidate_document_removal` e `sigec_candidate_document_removed_by_index`; API candidato | termos técnicos foram retirados da experiência do candidato; um único processo não exibe seletor desnecessário; arquivos enviados aparecem em lista com estados simples, data, remoção confirmada e novo envio. O banco mantém histórico e auditoria sem expor nome/caminho, restringe remoção ao proprietário em rascunho, torna o registro removido imutável e revoga leitura no Storage. 33 controles remotos com rollback, 15 cenários HTTP por papel, 115 controles estáticos, 40/40 tabelas RLS, nenhum FK sem índice, zero fixtures e zero Advisors acionáveis foram aprovados. |
 | 30/08/2026 | SIGEC-P3-06 e Gate P3 | indicador de completude em `/minha-area` e `/minha-area/perfil`; cálculo determinístico; proteção existente de colunas e trigger | quatro etapas simples mostram dados pessoais, endereço, disponibilidade e confirmação do WhatsApp; progresso vazio, parcial e completo foi testado; o candidato não recebe controle para marcar verificação. Dez verificações locais, 19 controles remotos de perfil, 15 cenários HTTP por papel, 116 controles estáticos, 40/40 tabelas RLS, nenhum FK sem índice, zero fixtures, zero Advisors acionáveis, TypeScript e build de 57 páginas foram aprovados. |
+| 31/08/2026 | SIGEC-P4-01 | migrations `sigec_application_draft_creation` e `sigec_application_draft_private_implementation`; Server Action na página do processo; retorno na área do candidato | função transacional cria um único rascunho por candidato/processo, devolve o existente em repetição, bloqueia perfil incompleto, papel interno, processo fechado e inserção direta, e registra um único evento de auditoria. A rotina privilegiada foi removida do schema exposto e mantida em `private`, com wrapper `SECURITY INVOKER`. Doze controles remotos com rollback, 15 cenários HTTP por papel, 116 controles estáticos, 40/40 tabelas RLS, nenhum FK sem índice, zero fixtures, zero Advisors acionáveis, TypeScript e build de 57 páginas foram aprovados. |
 
 ## 9. Próxima ação recomendada
 
-Iniciar `SIGEC-P4-01`, criando a inscrição em rascunho vinculada ao processo e ao candidato. Para fechar posteriormente o Gate P2, ainda será necessário revisar a prévia real, importar as 364 linhas prontas, corrigir ou excluir as 25 pendentes, finalizar e registrar as seis decisões exigidas pelo gate e confirmar a versão oficial de pontuação/desempates. Até lá, o banco rejeita corretamente a publicação e a classificação automática permanece fechada.
+Prosseguir com `SIGEC-P4-02`, implementando opção única ou preferências ordenadas conforme a configuração do processo. Para fechar posteriormente o Gate P2, ainda será necessário revisar a prévia real, importar as 364 linhas prontas, corrigir ou excluir as 25 pendentes, finalizar e registrar as seis decisões exigidas pelo gate e confirmar a versão oficial de pontuação/desempates. Até lá, o banco rejeita corretamente a publicação e a classificação automática permanece fechada.

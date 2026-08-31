@@ -14,7 +14,7 @@ type CandidateApplication = {
   sigec_process_stages: { label: string; color: string } | null
 }
 
-export default async function CandidateHomePage() {
+export default async function CandidateHomePage({ searchParams }: { searchParams?: { inscricao?: string } }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -51,6 +51,8 @@ export default async function CandidateHomePage() {
       )}
 
       {profile && <div className="mt-8"><CandidateProfileCompleteness profile={profile} /></div>}
+
+      {searchParams?.inscricao === 'rascunho' && <div className="mt-5 flex items-start gap-3 rounded-2xl border border-[#a5d9c5] bg-[#ebf8f2] p-4 text-sm font-semibold text-[#116c4e]"><FileCheck2 className="mt-0.5 h-5 w-5 shrink-0" /> Inscrição iniciada. Você pode continuar o preenchimento quando quiser.</div>}
 
       <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Link href="/minha-area/perfil" className="rounded-2xl border border-[#d9e0e7] bg-[#ffffff] p-5 text-[#172033] transition hover:-translate-y-0.5 hover:border-[#8bcbb4] hover:shadow-md">

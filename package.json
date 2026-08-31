@@ -19,6 +19,7 @@
     "sigec:test:remote-process-management": "py execution/test_sigec_process_management.py",
     "sigec:test:remote-candidate-profile": "py execution/test_sigec_candidate_profile.py",
     "sigec:test:profile-completeness": "tsx execution/test_sigec_profile_completeness.ts",
+    "sigec:test:remote-application-draft": "py execution/test_sigec_application_draft.py",
     "sigec:test:remote-candidate-education": "py execution/test_sigec_candidate_education.py",
     "sigec:test:remote-candidate-experience": "py execution/test_sigec_candidate_experience.py",
     "sigec:test:remote-candidate-documents": "py execution/test_sigec_candidate_documents.py",
