@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { extractRole } from '@/lib/roles'
+import { getConsentEvidenceDigests } from '@/lib/sigec-abuse-server'
 
 const payloadSchema = z.object({
   applicationId: z.string().uuid(),
@@ -55,4 +56,26 @@ export async function saveApplicationAnswers(applicationId: string, answers: Rec
   revalidatePath(`/minha-area/inscricoes/${parsed.data.applicationId}`)
   revalidatePath('/minha-area/documentos')
   return { type: 'success' as const, message: 'Respostas salvas. Seus documentos solicitados também foram atualizados.' }
+}
+
+const submitSchema = z.object({
+  applicationId: z.string().uuid(), edital: z.literal('on'), truthfulness: z.literal('on'),
+  requirements: z.literal('on'), lgpd: z.literal('on'),
+})
+
+export async function submitApplication(formData: FormData) {
+  const parsed = submitSchema.safeParse({ applicationId: formData.get('applicationId'), edital: formData.get('edital'), truthfulness: formData.get('truthfulness'), requirements: formData.get('requirements'), lgpd: formData.get('lgpd') })
+  if (!parsed.success) return { type: 'error' as const, message: 'Confirme todos os quatro itens antes de enviar.' }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || extractRole(user) !== 'candidato') return { type: 'error' as const, message: 'Sua sessão expirou.' }
+  let evidence
+  try { evidence = await getConsentEvidenceDigests() } catch { return { type: 'error' as const, message: 'A confirmação está temporariamente indisponível.' } }
+  const { data, error } = await supabase.rpc('sigec_submit_application', { p_application_id: parsed.data.applicationId, p_ip_hash: evidence.ipHash, p_user_agent_hash: evidence.userAgentHash }).single()
+  if (error || !data) {
+    console.error('[SIGEC submit] transaction rejected', { code: error?.code })
+    return { type: 'error' as const, message: 'Não foi possível enviar. Atualize a página e confira os itens obrigatórios.' }
+  }
+  revalidatePath(`/minha-area/inscricoes/${parsed.data.applicationId}`); revalidatePath('/minha-area')
+  return { type: 'success' as const, message: 'Inscrição enviada com sucesso.', protocol: String((data as any).protocol) }
 }

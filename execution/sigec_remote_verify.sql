@@ -9,6 +9,7 @@ with expected(table_name) as (
     ('sigec_process_stage_transitions'),
     ('sigec_process_stages'), ('sigec_scoring_criteria'), ('sigec_applications'),
     ('sigec_application_preferences'), ('sigec_application_answers'),
+    ('sigec_application_submissions'),
     ('sigec_application_documents'), ('sigec_application_status_history'),
     ('sigec_internal_notes'), ('sigec_information_requests'), ('sigec_appeals'),
     ('sigec_application_scores'), ('sigec_convocation_batches'),

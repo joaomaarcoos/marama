@@ -144,6 +144,18 @@ def main() -> int:
             "app/(candidate)/minha-area/inscricoes/[id]/page.tsx",
             "sigec_get_application_submission_readiness",
         ),
+        "candidate_submit_requires_all_consents": (
+            "app/(candidate)/minha-area/inscricoes/[id]/actions.ts",
+            "lgpd: z.literal('on')",
+        ),
+        "candidate_submit_uses_guarded_rpc": (
+            "app/(candidate)/minha-area/inscricoes/[id]/actions.ts",
+            "sigec_submit_application",
+        ),
+        "candidate_submit_hashes_request_evidence": (
+            "app/(candidate)/minha-area/inscricoes/[id]/actions.ts",
+            "getConsentEvidenceDigests()",
+        ),
         "candidate_document_remove_uses_guarded_rpc": (
             "app/api/sigec/candidate-documents/route.ts",
             "sigec_remove_candidate_document",
