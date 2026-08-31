@@ -458,5 +458,15 @@ select jsonb_build_object(
   'synthetic_storage_objects', (
     select count(*) from storage.objects
     where bucket_id = 'sigec-candidate-documents' and name like '%/proof-%'
+  ),
+  'p4_concurrency_fixtures_absent', (
+    not exists (
+      select 1 from public.sigec_processes
+      where slug like 'sigec-p4-gate-%'
+    )
+    and not exists (
+      select 1 from auth.users
+      where email like 'sigec-p4-gate-%@example.invalid'
+    )
   )
 ) as sigec_remote_verification;
