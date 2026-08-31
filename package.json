@@ -22,6 +22,7 @@
     "sigec:test:remote-application-draft": "py execution/test_sigec_application_draft.py",
     "sigec:test:application-conditions": "tsx execution/test_sigec_application_conditions.ts",
     "sigec:test:remote-application-conditions": "py execution/test_sigec_application_conditions.py",
+    "sigec:test:remote-application-readiness": "py execution/test_sigec_application_readiness.py",
     "sigec:test:remote-candidate-education": "py execution/test_sigec_candidate_education.py",
     "sigec:test:remote-candidate-experience": "py execution/test_sigec_candidate_experience.py",
     "sigec:test:remote-candidate-documents": "py execution/test_sigec_candidate_documents.py",

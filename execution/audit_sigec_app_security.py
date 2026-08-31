@@ -140,6 +140,10 @@ def main() -> int:
             "components/candidate-application-questions.tsx",
             "if (!visibleIds.has(id)) return false",
         ),
+        "candidate_readiness_uses_database_rpc": (
+            "app/(candidate)/minha-area/inscricoes/[id]/page.tsx",
+            "sigec_get_application_submission_readiness",
+        ),
         "candidate_document_remove_uses_guarded_rpc": (
             "app/api/sigec/candidate-documents/route.ts",
             "sigec_remove_candidate_document",
