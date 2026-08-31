@@ -232,6 +232,12 @@ def main() -> int:
                                    prefer="return=representation")
         expect_status("seed_application", status, {201}, checks)
         application_id = body[0]["id"]
+        status, body = api.request("POST", "/rest/v1/sigec_document_requirements", service=True, body={
+            "process_id": process_id, "code": "diligencia", "label": "Documento de diligência",
+            "required": False, "condition_config": {"audience": "all"},
+        }, prefer="return=representation")
+        expect_status("seed_diligence_requirement", status, {201}, checks)
+        diligence_requirement_id = body[0]["id"]
 
         process_filter = f"id=eq.{process_id}&select=id"
         expect_rows("anon_reads_published_process", *api.request("GET", f"/rest/v1/sigec_processes?{process_filter}"), 1, checks)
@@ -290,16 +296,20 @@ def main() -> int:
 
         status, body = api.request("POST", "/rest/v1/sigec_information_requests", service=True, body={
             "application_id": application_id, "message": "Comprovação adicional sintética",
-            "requested_fields": ["document"], "due_at": (now + timedelta(hours=1)).isoformat(),
+            "requested_fields": [{"kind": "document", "id": diligence_requirement_id}],
+            "created_at": (now - timedelta(hours=2)).isoformat(),
+            "due_at": (now + timedelta(hours=1)).isoformat(),
             "requested_by": manager,
         }, prefer="return=representation")
-        expect_status("open_diligence", status, {201}, checks)
+        if status != 201:
+            raise AssertionError(f"open_diligence: expected HTTP [201], got {status}, body={body}")
+        checks.append("open_diligence")
         request_id = body[0]["id"]
         status, _ = api.request("POST", f"/storage/v1/object/{BUCKET}/{diligence_path}", token=token_a,
                                 body=pdf, content_type="application/pdf")
         expect_status("diligence_does_not_enable_direct_storage_bypass", status, {400, 401, 403}, checks)
         status, _ = api.request("PATCH", f"/rest/v1/sigec_information_requests?id=eq.{request_id}",
-                                service=True, body={"due_at": (now - timedelta(minutes=1)).isoformat()})
+                                service=True, body={"due_at": (now - timedelta(hours=1)).isoformat()})
         expect_status("expire_diligence", status, {204}, checks)
         status, _ = api.request("POST", f"/storage/v1/object/{BUCKET}/{expired_path}", token=token_a,
                                 body=pdf, content_type="application/pdf")

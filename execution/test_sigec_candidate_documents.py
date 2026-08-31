@@ -119,8 +119,8 @@ def main() -> int:
 
         cursor.execute(
             """insert into public.sigec_processes
-               (title,slug,status,applications_open_at,applications_close_at,created_by)
-               values (%s,%s,'draft',now() - interval '1 hour',now() + interval '1 day',%s)
+               (title,slug,status,published_at,applications_open_at,applications_close_at,created_by)
+               values (%s,%s,'open',now() - interval '1 hour',now() - interval '1 hour',now() + interval '1 day',%s)
                returning id""",
             (f"Processo documentos {run_id}", f"processo-documentos-{run_id}", manager),
         )
@@ -203,10 +203,10 @@ def main() -> int:
         cursor.execute("select count(*) from public.sigec_application_documents where application_id=%s and removed_at is null", (application_id,))
         expect("only_active_documents_remain_visible_in_product_queries", cursor.fetchone()[0] == 2)
 
-        cursor.execute("select prosecdef from pg_proc where oid='public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)'::regprocedure")
+        cursor.execute("select prosecdef from pg_proc where oid='public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid,uuid)'::regprocedure")
         expect("document_rpc_uses_security_invoker", cursor.fetchone() == (False,))
         cursor.execute("""select
-          not has_function_privilege('authenticated','public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)','EXECUTE'),
+          not has_function_privilege('authenticated','public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid,uuid)','EXECUTE'),
           not has_function_privilege('authenticated','public.sigec_record_document_malware_scan(uuid,text,text,text,text,text)','EXECUTE'),
           not has_function_privilege('authenticated','public.sigec_remove_candidate_document(uuid,uuid)','EXECUTE'),
           not has_table_privilege('authenticated','public.sigec_application_documents','INSERT')""")

@@ -109,3 +109,31 @@ export async function startApplicationCorrection(formData: FormData) {
   revalidatePath('/minha-area/documentos')
   return { type: 'success' as const, message: 'Agora você pode corrigir sua inscrição.' }
 }
+
+export async function answerInformationRequest(requestId: string, answers: Record<string, unknown>) {
+  const parsed = z.object({ requestId: z.string().uuid(), answers: answersSchema }).safeParse({ requestId, answers })
+  if (!parsed.success) return { type: 'error' as const, message: 'Revise as informações solicitadas.' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || extractRole(user) !== 'candidato') {
+    return { type: 'error' as const, message: 'Sua sessão expirou.' }
+  }
+
+  const { data, error } = await supabase.rpc('sigec_submit_information_request_answers', {
+    p_request_id: parsed.data.requestId,
+    p_answers: parsed.data.answers,
+  }).single()
+  if (error || !data) {
+    console.error('[SIGEC diligence] answer rejected', { code: error?.code })
+    return { type: 'error' as const, message: 'Não foi possível salvar. Confira os campos e o prazo informado.' }
+  }
+
+  revalidatePath(`/minha-area/inscricoes`)
+  revalidatePath('/minha-area')
+  revalidatePath('/minha-area/documentos')
+  return {
+    type: 'success' as const,
+    message: (data as any).request_completed ? 'Informações enviadas para análise.' : 'Respostas salvas. Envie também os documentos solicitados, se houver.',
+  }
+}

@@ -59,7 +59,7 @@ export function CandidateApplicationQuestions({ applicationId, questions, initia
     <div className="space-y-6 p-5 sm:p-7">{visible.map((question, index) => <fieldset key={question.id} className="min-w-0">
       <legend className="text-sm font-extrabold leading-6 text-[#24334a]"><span className="mr-2 text-[#6d7b8e]">{index + 1}.</span>{question.label}{question.required && <span className="ml-2 text-[#a23a32]" aria-label="obrigatória">*</span>}</legend>
       {question.helpText && <p className="mt-1 text-sm leading-6 text-[#647287]">{question.helpText}</p>}
-      <QuestionInput question={question} value={answers[question.id]} locked={locked} onChange={(value) => setAnswer(question.id, value)} />
+      <CandidateQuestionInput question={question} value={answers[question.id]} locked={locked} onChange={(value) => setAnswer(question.id, value)} />
     </fieldset>)}</div>
     <div className="border-t border-[#dce5ea] bg-[#f7fafb] p-5 sm:flex sm:items-center sm:justify-between sm:gap-5 sm:px-7">
       <div aria-live="polite">{feedback && <p className={`flex items-start gap-2 text-sm font-bold ${feedback.type === 'success' ? 'text-[#116c4e]' : 'text-[#9a3030]'}`}>{feedback.type === 'success' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />}{feedback.message}</p>}</div>
@@ -68,7 +68,7 @@ export function CandidateApplicationQuestions({ applicationId, questions, initia
   </section>
 }
 
-function QuestionInput({ question, value, locked, onChange }: { question: CandidateQuestion; value: unknown; locked: boolean; onChange: (value: unknown) => void }) {
+export function CandidateQuestionInput({ question, value, locked, onChange }: { question: CandidateQuestion; value: unknown; locked: boolean; onChange: (value: unknown) => void }) {
   const inputClass = 'mt-3 min-h-12 w-full rounded-xl border border-[#afbecb] bg-white px-3.5 py-3 text-base font-medium text-[#172033] outline-none transition focus:border-[#2867a8] focus:ring-4 focus:ring-[#2867a8]/10 disabled:bg-[#eef2f5] disabled:text-[#6d7888]'
   if (question.type === 'long_text') return <textarea disabled={locked} required={question.required} value={String(value || '')} onChange={(event) => onChange(event.target.value)} className={`${inputClass} min-h-32 resize-y`} maxLength={10000} />
   if (question.type === 'single_choice') return <select disabled={locked} required={question.required} value={String(value || '')} onChange={(event) => onChange(event.target.value)} className={inputClass}><option value="">Selecione uma opção</option>{(question.config.options || []).map((option) => <option key={option} value={option}>{option}</option>)}</select>

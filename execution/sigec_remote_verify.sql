@@ -304,9 +304,9 @@ select jsonb_build_object(
     )
   ),
   'candidate_document_rpc_safe', (
-    not has_function_privilege('anon', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)', 'EXECUTE')
-    and not has_function_privilege('authenticated', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)', 'EXECUTE')
-    and has_function_privilege('service_role', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid)', 'EXECUTE')
+    not has_function_privilege('anon', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_register_candidate_document(uuid,uuid,text,text,text,bigint,text,uuid,uuid)', 'EXECUTE')
     and not (
       select procedure.prosecdef from pg_proc procedure
       join pg_namespace namespace on namespace.oid = procedure.pronamespace
@@ -366,6 +366,45 @@ select jsonb_build_object(
   'application_correction_migration_applied', exists (
     select 1 from supabase_migrations.schema_migrations
     where version = '20260831154756'
+  ),
+  'application_diligence_migrations_applied', (
+    select count(*) = 2 from supabase_migrations.schema_migrations
+    where version in ('20260831232727', '20260831233955')
+  ),
+  'application_diligence_document_link_present', (
+    exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'sigec_application_documents'
+        and column_name = 'information_request_id'
+    )
+    and exists (
+      select 1 from pg_indexes
+      where schemaname = 'public'
+        and tablename = 'sigec_application_documents'
+        and indexname = 'sigec_application_documents_information_request_idx'
+    )
+  ),
+  'application_diligence_functions_safe', (
+    has_function_privilege('authenticated', 'public.sigec_submit_information_request_answers(uuid,jsonb)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_submit_information_request_answers(uuid,jsonb)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_finalize_information_request_if_complete(uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_finalize_information_request_if_complete(uuid,uuid)', 'EXECUTE')
+    and not (
+      select procedure.prosecdef from pg_proc procedure
+      join pg_namespace namespace on namespace.oid = procedure.pronamespace
+      where namespace.nspname = 'public'
+        and procedure.proname = 'sigec_submit_information_request_answers'
+    )
+  ),
+  'application_diligence_trigger_hardened', exists (
+    select 1 from pg_proc procedure
+    join pg_namespace namespace on namespace.oid = procedure.pronamespace
+    where namespace.nspname = 'private'
+      and procedure.proname = 'sigec_validate_information_request'
+      and procedure.prosecdef
+      and coalesce(array_to_string(procedure.proconfig, ','), '') in ('search_path=', 'search_path=""')
+      and not has_function_privilege('authenticated', procedure.oid, 'EXECUTE')
   ),
   'application_correction_function_safe', (
     has_function_privilege('authenticated', 'public.sigec_start_application_correction(uuid)', 'EXECUTE')

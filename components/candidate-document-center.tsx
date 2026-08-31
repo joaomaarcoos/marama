@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { CheckCircle2, CircleAlert, FileCheck2, FileText, LoaderCircle, Plus, Trash2, UploadCloud } from 'lucide-react'
 
 type Application = { id: string; processId: string; state: string; title: string }
-type Requirement = { id: string; processId: string; applicableApplicationIds: string[]; label: string; description: string; required: boolean; mimeTypes: string[]; maxSizeBytes: number }
+type Requirement = { id: string; processId: string; applicableApplicationIds: string[]; label: string; description: string; required: boolean; mimeTypes: string[]; maxSizeBytes: number; informationRequests: { applicationId: string; id: string; dueAt: string }[] }
 type Document = { id: string; applicationId: string; requirementId: string; version: number; originalName: string; technicalStatus: string; malwareStatus: string; createdAt: string }
 
 function documentStatus(document: Document) {
@@ -39,6 +39,8 @@ export function CandidateDocumentCenter({ applications, requirements, documents 
     const form = new FormData()
     form.set('applicationId', applicationId)
     form.set('requirementId', requirement.id)
+    const informationRequest = requirement.informationRequests.find((item) => item.applicationId === applicationId)
+    if (informationRequest) form.set('informationRequestId', informationRequest.id)
     form.set('file', file)
     try {
       const response = await fetch('/api/sigec/candidate-documents', { method: 'POST', body: form, credentials: 'same-origin' })
@@ -93,6 +95,9 @@ export function CandidateDocumentCenter({ applications, requirements, documents 
     <div className="space-y-4">{visibleRequirements.map(requirement => {
       const sentDocuments = documents.filter(item => item.applicationId === applicationId && item.requirementId === requirement.id)
       const uploadBusy = busyId === requirement.id
+      const informationRequest = requirement.informationRequests.find((item) => item.applicationId === applicationId)
+      const diligenceOpen = Boolean(informationRequest)
+      const canUpload = application?.state === 'draft' || diligenceOpen
       return <section key={requirement.id} className="overflow-hidden rounded-[22px] border border-[#ccd8e1] bg-white shadow-[0_20px_48px_-40px_rgba(18,34,51,.72)]">
         <div className="p-4 sm:p-6">
           <div className="flex flex-col items-start gap-2 min-[430px]:flex-row min-[430px]:justify-between">
@@ -100,12 +105,13 @@ export function CandidateDocumentCenter({ applications, requirements, documents 
             {requirement.required && <span className="shrink-0 rounded-full border border-[#e8c879] bg-[#fff4d9] px-2.5 py-1 text-[10px] font-extrabold uppercase text-[#744b00]">Obrigatório</span>}
           </div>
 
-          <label className={`mt-5 flex min-h-14 items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3.5 text-center text-sm font-extrabold transition focus-within:ring-4 focus-within:ring-[#2867a8]/10 ${application?.state === 'draft' ? 'cursor-pointer border-[#6f96c2] bg-[#eef5fc] text-[#1f568f] hover:border-[#376fae] hover:bg-[#e2eef9]' : 'cursor-not-allowed border-[#c8d1d8] bg-[#f1f4f6] text-[#6c7886]'}`}>
-            <input type="file" className="sr-only" accept={requirement.mimeTypes.join(',')} disabled={uploadBusy || application?.state !== 'draft'} onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void upload(requirement, file) }} />
+          {informationRequest && <div className="mt-5 rounded-xl border border-[#dfbd65] bg-[#fff7df] px-4 py-3 text-sm font-bold leading-6 text-[#704c00]">A equipe pediu este documento até {new Date(informationRequest.dueAt).toLocaleString('pt-BR')}.</div>}
+          <label className={`mt-5 flex min-h-14 items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3.5 text-center text-sm font-extrabold transition focus-within:ring-4 focus-within:ring-[#2867a8]/10 ${canUpload ? 'cursor-pointer border-[#6f96c2] bg-[#eef5fc] text-[#1f568f] hover:border-[#376fae] hover:bg-[#e2eef9]' : 'cursor-not-allowed border-[#c8d1d8] bg-[#f1f4f6] text-[#6c7886]'}`}>
+            <input type="file" className="sr-only" accept={requirement.mimeTypes.join(',')} disabled={uploadBusy || !canUpload} onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void upload(requirement, file) }} />
             {uploadBusy ? <LoaderCircle className="h-5 w-5 shrink-0 animate-spin" /> : sentDocuments.length ? <Plus className="h-5 w-5 shrink-0" /> : <UploadCloud className="h-5 w-5 shrink-0" />}
-            {uploadBusy ? 'Enviando...' : application?.state !== 'draft' ? 'Inicie uma correção para alterar' : sentDocuments.length ? 'Adicionar outro documento' : 'Adicionar documento'}
+            {uploadBusy ? 'Enviando...' : !canUpload ? 'Inicie uma correção para alterar' : diligenceOpen ? 'Enviar documento solicitado' : sentDocuments.length ? 'Adicionar outro documento' : 'Adicionar documento'}
           </label>
-          {application && application.state !== 'draft' && <p className="mt-3 text-center text-sm font-semibold text-[#526177]">Sua inscrição já foi enviada. <Link href={`/minha-area/inscricoes/${application.id}`} className="text-[#1f568f] underline underline-offset-2">Abra a inscrição para corrigir.</Link></p>}
+          {application && application.state !== 'draft' && !diligenceOpen && <p className="mt-3 text-center text-sm font-semibold text-[#526177]">Sua inscrição já foi enviada. <Link href={`/minha-area/inscricoes/${application.id}`} className="text-[#1f568f] underline underline-offset-2">Abra a inscrição para corrigir.</Link></p>}
           <p className="mt-2.5 text-center text-xs font-semibold text-[#657388]">PDF, foto JPG ou PNG · até {Math.floor(Math.min(requirement.maxSizeBytes, 10485760) / 1048576)} MB</p>
         </div>
 

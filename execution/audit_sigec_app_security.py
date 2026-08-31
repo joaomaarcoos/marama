@@ -204,6 +204,38 @@ def main() -> int:
             "app/api/sigec/candidate-documents/route.ts",
             "console.error('[SIGEC candidate document] upload failed', { stage })",
         ),
+        "candidate_document_passes_diligence_scope": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "p_information_request_id: parsed.data.informationRequestId || null",
+        ),
+        "candidate_document_finalizes_only_after_scan": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "sigec_finalize_information_request_if_complete",
+        ),
+        "candidate_diligence_answer_role_guard": (
+            "app/(candidate)/minha-area/inscricoes/[id]/actions.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "candidate_diligence_answers_use_guarded_rpc": (
+            "app/(candidate)/minha-area/inscricoes/[id]/actions.ts",
+            "sigec_submit_information_request_answers",
+        ),
+        "candidate_diligence_page_filters_open_unexpired": (
+            "app/(candidate)/minha-area/inscricoes/[id]/page.tsx",
+            ".eq('status', 'open').gt('due_at', new Date().toISOString())",
+        ),
+        "candidate_diligence_document_page_filters_open_unexpired": (
+            "app/(candidate)/minha-area/documentos/page.tsx",
+            ".eq('status', 'open').gt('due_at', new Date().toISOString())",
+        ),
+        "candidate_diligence_ui_shows_deadline": (
+            "components/candidate-information-request.tsx",
+            "Prazo:",
+        ),
+        "candidate_diligence_ui_lists_exact_documents": (
+            "components/candidate-information-request.tsx",
+            "request.documentLabels.join(', ')",
+        ),
         "candidate_document_runs_antimalware_before_release": (
             "app/api/sigec/candidate-documents/route.ts",
             "scanBufferWithClamAv(processed.buffer)",

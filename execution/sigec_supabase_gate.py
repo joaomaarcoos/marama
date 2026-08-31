@@ -126,6 +126,21 @@ def main() -> int:
                     cursor.execute(verification_sql)
                     result = cursor.fetchone()[0]
                 connection.rollback()
+                false_controls = sorted(
+                    name for name, value in result.items()
+                    if isinstance(value, bool) and not value
+                )
+                if false_controls:
+                    print(json.dumps({
+                        "ok": False,
+                        "action": args.action,
+                        "projectRef": EXPECTED_PROJECT_REF,
+                        "exitCode": 1,
+                        "verification": result,
+                        "failedControls": false_controls,
+                        "attempts": attempt + 1,
+                    }, ensure_ascii=False, indent=2, default=str))
+                    return 1
                 print(json.dumps({
                     "ok": True,
                     "action": args.action,

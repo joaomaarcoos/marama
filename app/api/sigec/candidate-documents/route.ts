@@ -9,7 +9,11 @@ import { MalwareScannerError, scanBufferWithClamAv } from '@/lib/sigec-malware'
 
 export const runtime = 'nodejs'
 
-const InputSchema = z.object({ applicationId: z.string().uuid(), requirementId: z.string().uuid() })
+const InputSchema = z.object({
+  applicationId: z.string().uuid(),
+  requirementId: z.string().uuid(),
+  informationRequestId: z.string().uuid().optional(),
+})
 const RemoveInputSchema = z.object({ documentId: z.string().uuid() })
 
 export async function POST(request: Request) {
@@ -22,7 +26,11 @@ export async function POST(request: Request) {
 
   try {
     const form = await request.formData()
-    const parsed = InputSchema.safeParse({ applicationId: form.get('applicationId'), requirementId: form.get('requirementId') })
+    const parsed = InputSchema.safeParse({
+      applicationId: form.get('applicationId'),
+      requirementId: form.get('requirementId'),
+      informationRequestId: form.get('informationRequestId') || undefined,
+    })
     const file = form.get('file')
     if (!parsed.success || !(file instanceof File)) return NextResponse.json({ error: 'Dados do documento inválidos.' }, { status: 400 })
 
@@ -33,7 +41,7 @@ export async function POST(request: Request) {
     if (!application || !requirement || application.process_id !== requirement.process_id) {
       return NextResponse.json({ error: 'Candidatura ou documento obrigatório inválido.' }, { status: 404 })
     }
-    if (application.application_state !== 'draft') {
+    if (application.application_state !== 'draft' && !parsed.data.informationRequestId) {
       return NextResponse.json({ error: 'Inicie uma correção na inscrição antes de alterar documentos.' }, { status: 409 })
     }
 
@@ -61,11 +69,18 @@ export async function POST(request: Request) {
       p_size_bytes: processed.buffer.length,
       p_sha256: processed.sha256,
       p_actor_id: user.id,
+      p_information_request_id: parsed.data.informationRequestId || null,
     }).single()
     if (registerError || !registered) {
       await adminClient.storage.from(SIGEC_DOCUMENT_BUCKET).remove([path])
       if (registerError?.message.includes('SIGEC_DOCUMENT_REQUIREMENT_HIDDEN')) {
         return NextResponse.json({ error: 'Este documento não é necessário para as respostas atuais.' }, { status: 403 })
+      }
+      if (registerError?.message.includes('SIGEC_DILIGENCE_')) {
+        return NextResponse.json({ error: 'Esta solicitação não está aberta para este documento.' }, { status: 409 })
+      }
+      if (registerError?.message.includes('SIGEC_DOCUMENT_APPLICATION_LOCKED')) {
+        return NextResponse.json({ error: 'O prazo terminou e não há solicitação aberta para este documento.' }, { status: 409 })
       }
       throw new Error(`register:${registerError?.code || 'missing_result'}`)
     }
@@ -82,6 +97,13 @@ export async function POST(request: Request) {
         p_error_code: null,
       })
       if (scanRecordError) throw new Error('scan_record_failed')
+      if (scan.status === 'clean' && parsed.data.informationRequestId) {
+        const { error: finalizeError } = await adminClient.rpc('sigec_finalize_information_request_if_complete', {
+          p_request_id: parsed.data.informationRequestId,
+          p_actor_id: user.id,
+        })
+        if (finalizeError) console.error('[SIGEC candidate document] diligence finalize failed', { stage: 'diligence_finalize' })
+      }
       return NextResponse.json({
         ok: true,
         documentId: result.document_id,
@@ -115,6 +137,9 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     if (error instanceof DocumentValidationError) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error instanceof Error && error.message.includes('SIGEC_DILIGENCE_')) {
+      return NextResponse.json({ error: 'Esta solicitação não está aberta para este documento.' }, { status: 409 })
+    }
     const stage = error instanceof Error && error.message.startsWith('storage:')
       ? 'storage'
       : error instanceof Error && error.message.startsWith('register:')
