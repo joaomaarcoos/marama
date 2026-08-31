@@ -20,6 +20,8 @@
     "sigec:test:remote-candidate-profile": "py execution/test_sigec_candidate_profile.py",
     "sigec:test:profile-completeness": "tsx execution/test_sigec_profile_completeness.ts",
     "sigec:test:remote-application-draft": "py execution/test_sigec_application_draft.py",
+    "sigec:test:application-conditions": "tsx execution/test_sigec_application_conditions.ts",
+    "sigec:test:remote-application-conditions": "py execution/test_sigec_application_conditions.py",
     "sigec:test:remote-candidate-education": "py execution/test_sigec_candidate_education.py",
     "sigec:test:remote-candidate-experience": "py execution/test_sigec_candidate_experience.py",
     "sigec:test:remote-candidate-documents": "py execution/test_sigec_candidate_documents.py",

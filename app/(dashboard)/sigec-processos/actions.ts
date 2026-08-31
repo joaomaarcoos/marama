@@ -81,6 +81,7 @@ const FormConfigurationInputSchema = z.object({
   position: z.coerce.number().int().min(0).max(10_000),
   audience: FormAudienceSchema,
   questionType: z.enum(['short_text', 'long_text', 'single_choice', 'multiple_choice', 'boolean', 'number', 'date']).optional(),
+  audienceMarker: z.enum(['pcd', 'ppp']).optional(),
   options: z.string().trim().max(10_000).optional().default(''),
   acceptedMimeTypes: z.array(z.enum(['application/pdf', 'image/jpeg', 'image/png'])).max(3).optional(),
   maxFileSizeMb: z.coerce.number().int().min(1).max(50).optional(),
@@ -94,6 +95,9 @@ const FormConfigurationInputSchema = z.object({
     if (options.length < 2 || new Set(options).size !== options.length) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ['options'], message: 'Informe ao menos duas opções diferentes, uma por linha.' })
     }
+  }
+  if (input.audienceMarker && (input.kind !== 'question' || input.questionType !== 'boolean' || input.audience !== 'all')) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['audienceMarker'], message: 'A pergunta que identifica o público deve ser do tipo Sim ou não e aparecer para todos.' })
   }
   if (input.kind === 'document' && (!input.acceptedMimeTypes?.length || !input.maxFileSizeMb)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['acceptedMimeTypes'], message: 'Informe formatos aceitos e tamanho máximo.' })
@@ -521,6 +525,7 @@ export async function upsertSigecFormConfiguration(formData: FormData): Promise<
     position: formData.get('position'),
     audience: formData.get('audience'),
     questionType: formData.get('questionType') || undefined,
+    audienceMarker: formData.get('audienceMarker') || undefined,
     options: formData.get('options') || '',
     acceptedMimeTypes: formData.getAll('acceptedMimeTypes'),
     maxFileSizeMb: formData.get('maxFileSizeMb') || undefined,
@@ -532,6 +537,7 @@ export async function upsertSigecFormConfiguration(formData: FormData): Promise<
   const config: Record<string, unknown> = { audience: input.audience }
   if (input.kind === 'question') {
     config.questionType = input.questionType
+    if (input.audienceMarker) config.audienceMarker = input.audienceMarker
     if (['single_choice', 'multiple_choice'].includes(input.questionType || '')) {
       config.options = input.options.split(/\r?\n/).map((option) => option.trim()).filter(Boolean)
     }

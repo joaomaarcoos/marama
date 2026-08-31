@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { CheckCircle2, CircleAlert, FileCheck2, FileText, LoaderCircle, Plus, Trash2, UploadCloud } from 'lucide-react'
 
 type Application = { id: string; processId: string; state: string; title: string }
-type Requirement = { id: string; processId: string; label: string; description: string; required: boolean; mimeTypes: string[]; maxSizeBytes: number }
+type Requirement = { id: string; processId: string; applicableApplicationIds: string[]; label: string; description: string; required: boolean; mimeTypes: string[]; maxSizeBytes: number }
 type Document = { id: string; applicationId: string; requirementId: string; version: number; originalName: string; technicalStatus: string; malwareStatus: string; createdAt: string }
 
 function documentStatus(document: Document) {
@@ -29,7 +29,7 @@ export function CandidateDocumentCenter({ applications, requirements, documents 
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{ type: 'error' | 'success' | 'warning'; message: string } | null>(null)
   const application = applications.find(item => item.id === applicationId)
-  const visibleRequirements = requirements.filter(item => item.processId === application?.processId)
+  const visibleRequirements = requirements.filter(item => item.processId === application?.processId && item.applicableApplicationIds.includes(applicationId))
 
   async function upload(requirement: Requirement, file: File | undefined) {
     if (!file || !applicationId) return
@@ -121,6 +121,6 @@ export function CandidateDocumentCenter({ applications, requirements, documents 
           {application?.state !== 'draft' && <p className="mt-3 text-xs leading-5 text-[#657388]">A candidatura já foi enviada. Para corrigir um arquivo, adicione outro documento.</p>}
         </div>}
       </section>
-    })}</div>
+    })}{visibleRequirements.length === 0 && <div className="rounded-[22px] border border-[#ccd8e1] bg-white px-5 py-10 text-center"><FileCheck2 className="mx-auto h-8 w-8 text-[#6e7d90]" /><p className="mt-3 font-extrabold text-[#243248]">Nenhum documento solicitado agora</p><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#59687c]">Responda às perguntas da inscrição. Se alguma resposta exigir comprovação, o documento aparecerá aqui.</p></div>}</div>
   </div>
 }

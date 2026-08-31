@@ -124,6 +124,22 @@ def main() -> int:
             "app/api/sigec/candidate-documents/route.ts",
             "remove([path])",
         ),
+        "candidate_document_condition_fails_closed": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "SIGEC_DOCUMENT_REQUIREMENT_HIDDEN",
+        ),
+        "candidate_answers_use_guarded_rpc": (
+            "app/(candidate)/minha-area/inscricoes/[id]/actions.ts",
+            "sigec_replace_application_answers",
+        ),
+        "candidate_answers_role_guard": (
+            "app/(candidate)/minha-area/inscricoes/[id]/actions.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "candidate_hidden_answers_omitted_client_side": (
+            "components/candidate-application-questions.tsx",
+            "if (!visibleIds.has(id)) return false",
+        ),
         "candidate_document_remove_uses_guarded_rpc": (
             "app/api/sigec/candidate-documents/route.ts",
             "sigec_remove_candidate_document",

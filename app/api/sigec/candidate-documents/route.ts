@@ -61,6 +61,9 @@ export async function POST(request: Request) {
     }).single()
     if (registerError || !registered) {
       await adminClient.storage.from(SIGEC_DOCUMENT_BUCKET).remove([path])
+      if (registerError?.message.includes('SIGEC_DOCUMENT_REQUIREMENT_HIDDEN')) {
+        return NextResponse.json({ error: 'Este documento não é necessário para as respostas atuais.' }, { status: 403 })
+      }
       throw new Error(`register:${registerError?.code || 'missing_result'}`)
     }
     const result = registered as { document_id: string; document_version: number }

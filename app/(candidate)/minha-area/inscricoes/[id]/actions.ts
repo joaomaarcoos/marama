@@ -33,3 +33,26 @@ export async function saveApplicationPreferences(formData: FormData) {
   revalidatePath('/minha-area')
   return { status: 'success' as const, message: 'Suas opções foram salvas.' }
 }
+
+const answersSchema = z.record(z.string().uuid(), z.unknown()).refine((answers) => Object.keys(answers).length <= 200)
+
+export async function saveApplicationAnswers(applicationId: string, answers: Record<string, unknown>) {
+  const parsed = z.object({ applicationId: z.string().uuid(), answers: answersSchema }).safeParse({ applicationId, answers })
+  if (!parsed.success) return { type: 'error' as const, message: 'Revise as respostas informadas.' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || extractRole(user) !== 'candidato') return { type: 'error' as const, message: 'Sua sessão expirou.' }
+
+  const { error } = await supabase.rpc('sigec_replace_application_answers', {
+    p_application_id: parsed.data.applicationId,
+    p_answers: parsed.data.answers,
+  })
+  if (error) {
+    console.error('[SIGEC answers] update rejected', { code: error.code })
+    return { type: 'error' as const, message: 'Não foi possível salvar. Responda aos campos obrigatórios que estão visíveis.' }
+  }
+  revalidatePath(`/minha-area/inscricoes/${parsed.data.applicationId}`)
+  revalidatePath('/minha-area/documentos')
+  return { type: 'success' as const, message: 'Respostas salvas. Seus documentos solicitados também foram atualizados.' }
+}
