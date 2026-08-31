@@ -269,15 +269,14 @@ def main() -> int:
 
         status, _ = api.request("POST", f"/storage/v1/object/{BUCKET}/{own_path}", token=token_a,
                                 body=pdf, content_type="application/pdf")
-        expect_status("candidate_uploads_own_application", status, {200}, checks)
-        object_paths.append(own_path)
+        expect_status("candidate_cannot_bypass_document_backend", status, {400, 401, 403}, checks)
         status, _ = api.request("POST", f"/storage/v1/object/{BUCKET}/{forged_path}", token=token_a,
                                 body=pdf, content_type="application/pdf")
         expect_status("candidate_cannot_forge_storage_owner", status, {400, 401, 403}, checks)
         status, _ = api.request("GET", f"/storage/v1/object/authenticated/{BUCKET}/{own_path}", token=token_b)
         expect_status("candidate_b_cannot_read_a_object", status, {400, 401, 403, 404}, checks)
         status, _ = api.request("GET", f"/storage/v1/object/authenticated/{BUCKET}/{own_path}", token=token_manager)
-        expect_status("manager_reads_candidate_object", status, {200}, checks)
+        expect_status("manager_cannot_read_unregistered_object", status, {400, 401, 403, 404}, checks)
         status, _ = api.request("POST", f"/storage/v1/object/{BUCKET}/{own_path}", token=token_a,
                                 body=pdf, content_type="application/pdf", prefer=None)
         expect_status("candidate_cannot_overwrite_immutable_object", status, {400, 401, 403, 409}, checks)
@@ -298,8 +297,7 @@ def main() -> int:
         request_id = body[0]["id"]
         status, _ = api.request("POST", f"/storage/v1/object/{BUCKET}/{diligence_path}", token=token_a,
                                 body=pdf, content_type="application/pdf")
-        expect_status("candidate_uploads_during_diligence", status, {200}, checks)
-        object_paths.append(diligence_path)
+        expect_status("diligence_does_not_enable_direct_storage_bypass", status, {400, 401, 403}, checks)
         status, _ = api.request("PATCH", f"/rest/v1/sigec_information_requests?id=eq.{request_id}",
                                 service=True, body={"due_at": (now - timedelta(minutes=1)).isoformat()})
         expect_status("expire_diligence", status, {204}, checks)

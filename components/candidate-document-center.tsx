@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { CheckCircle2, CircleAlert, FileCheck2, FileText, LoaderCircle, Plus, Trash2, UploadCloud } from 'lucide-react'
 
 type Application = { id: string; processId: string; state: string; title: string }
@@ -99,11 +100,12 @@ export function CandidateDocumentCenter({ applications, requirements, documents 
             {requirement.required && <span className="shrink-0 rounded-full border border-[#e8c879] bg-[#fff4d9] px-2.5 py-1 text-[10px] font-extrabold uppercase text-[#744b00]">Obrigatório</span>}
           </div>
 
-          <label className="mt-5 flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#6f96c2] bg-[#eef5fc] px-4 py-3.5 text-center text-sm font-extrabold text-[#1f568f] transition hover:border-[#376fae] hover:bg-[#e2eef9] focus-within:ring-4 focus-within:ring-[#2867a8]/10">
-            <input type="file" className="sr-only" accept={requirement.mimeTypes.join(',')} disabled={uploadBusy} onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void upload(requirement, file) }} />
+          <label className={`mt-5 flex min-h-14 items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3.5 text-center text-sm font-extrabold transition focus-within:ring-4 focus-within:ring-[#2867a8]/10 ${application?.state === 'draft' ? 'cursor-pointer border-[#6f96c2] bg-[#eef5fc] text-[#1f568f] hover:border-[#376fae] hover:bg-[#e2eef9]' : 'cursor-not-allowed border-[#c8d1d8] bg-[#f1f4f6] text-[#6c7886]'}`}>
+            <input type="file" className="sr-only" accept={requirement.mimeTypes.join(',')} disabled={uploadBusy || application?.state !== 'draft'} onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void upload(requirement, file) }} />
             {uploadBusy ? <LoaderCircle className="h-5 w-5 shrink-0 animate-spin" /> : sentDocuments.length ? <Plus className="h-5 w-5 shrink-0" /> : <UploadCloud className="h-5 w-5 shrink-0" />}
-            {uploadBusy ? 'Enviando...' : sentDocuments.length ? 'Adicionar outro documento' : 'Adicionar documento'}
+            {uploadBusy ? 'Enviando...' : application?.state !== 'draft' ? 'Inicie uma correção para alterar' : sentDocuments.length ? 'Adicionar outro documento' : 'Adicionar documento'}
           </label>
+          {application && application.state !== 'draft' && <p className="mt-3 text-center text-sm font-semibold text-[#526177]">Sua inscrição já foi enviada. <Link href={`/minha-area/inscricoes/${application.id}`} className="text-[#1f568f] underline underline-offset-2">Abra a inscrição para corrigir.</Link></p>}
           <p className="mt-2.5 text-center text-xs font-semibold text-[#657388]">PDF, foto JPG ou PNG · até {Math.floor(Math.min(requirement.maxSizeBytes, 10485760) / 1048576)} MB</p>
         </div>
 
@@ -118,7 +120,7 @@ export function CandidateDocumentCenter({ applications, requirements, documents 
               {application?.state === 'draft' && <div className="mt-3 shrink-0 sm:mt-0">{confirming ? <div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold text-[#6d3840]">Remover?</span><button type="button" disabled={removing} onClick={() => void removeDocument(document)} className="min-h-10 rounded-lg bg-[#a53030] px-3 text-xs font-extrabold text-white hover:bg-[#8f2727] disabled:opacity-60">{removing ? 'Removendo...' : 'Sim, remover'}</button><button type="button" disabled={removing} onClick={() => setConfirmingId(null)} className="min-h-10 rounded-lg border border-[#b9c6d1] bg-white px-3 text-xs font-extrabold text-[#415168] hover:bg-[#f2f6f8]">Cancelar</button></div> : <button type="button" onClick={() => setConfirmingId(document.id)} className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-bold text-[#9a3030] hover:bg-[#fff0f0]"><Trash2 className="h-4 w-4" /> Remover</button>}</div>}
             </li>
           })}</ul>
-          {application?.state !== 'draft' && <p className="mt-3 text-xs leading-5 text-[#657388]">A candidatura já foi enviada. Para corrigir um arquivo, adicione outro documento.</p>}
+          {application?.state !== 'draft' && <p className="mt-3 text-xs leading-5 text-[#657388]">Os arquivos ficam bloqueados até você iniciar uma correção na inscrição.</p>}
         </div>}
       </section>
     })}{visibleRequirements.length === 0 && <div className="rounded-[22px] border border-[#ccd8e1] bg-white px-5 py-10 text-center"><FileCheck2 className="mx-auto h-8 w-8 text-[#6e7d90]" /><p className="mt-3 font-extrabold text-[#243248]">Nenhum documento solicitado agora</p><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#59687c]">Responda às perguntas da inscrição. Se alguma resposta exigir comprovação, o documento aparecerá aqui.</p></div>}</div>

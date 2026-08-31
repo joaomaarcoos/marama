@@ -77,5 +77,35 @@ export async function submitApplication(formData: FormData) {
     return { type: 'error' as const, message: 'Não foi possível enviar. Atualize a página e confira os itens obrigatórios.' }
   }
   revalidatePath(`/minha-area/inscricoes/${parsed.data.applicationId}`); revalidatePath('/minha-area')
-  return { type: 'success' as const, message: 'Inscrição enviada com sucesso.', protocol: String((data as any).protocol) }
+  return {
+    type: 'success' as const,
+    message: Number((data as any).submission_version) > 1 ? 'Correção enviada com sucesso.' : 'Inscrição enviada com sucesso.',
+    protocol: String((data as any).protocol),
+  }
+}
+
+const correctionSchema = z.object({ applicationId: z.string().uuid() })
+
+export async function startApplicationCorrection(formData: FormData) {
+  const parsed = correctionSchema.safeParse({ applicationId: formData.get('applicationId') })
+  if (!parsed.success) return { type: 'error' as const, message: 'Candidatura inválida.' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || extractRole(user) !== 'candidato') {
+    return { type: 'error' as const, message: 'Sua sessão expirou.' }
+  }
+
+  const { error } = await supabase.rpc('sigec_start_application_correction', {
+    p_application_id: parsed.data.applicationId,
+  })
+  if (error) {
+    console.error('[SIGEC correction] start rejected', { code: error.code })
+    return { type: 'error' as const, message: 'Não foi possível iniciar a correção. Confira se o prazo ainda está aberto.' }
+  }
+
+  revalidatePath(`/minha-area/inscricoes/${parsed.data.applicationId}`)
+  revalidatePath('/minha-area')
+  revalidatePath('/minha-area/documentos')
+  return { type: 'success' as const, message: 'Agora você pode corrigir sua inscrição.' }
 }

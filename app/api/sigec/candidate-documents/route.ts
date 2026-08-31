@@ -27,11 +27,14 @@ export async function POST(request: Request) {
     if (!parsed.success || !(file instanceof File)) return NextResponse.json({ error: 'Dados do documento inválidos.' }, { status: 400 })
 
     const [{ data: application }, { data: requirement }] = await Promise.all([
-      supabase.from('sigec_applications').select('id, process_id, candidate_id').eq('id', parsed.data.applicationId).eq('candidate_id', user.id).maybeSingle(),
+      supabase.from('sigec_applications').select('id, process_id, candidate_id, application_state').eq('id', parsed.data.applicationId).eq('candidate_id', user.id).maybeSingle(),
       supabase.from('sigec_document_requirements').select('id, process_id, accepted_mime_types, max_file_size_bytes').eq('id', parsed.data.requirementId).maybeSingle(),
     ])
     if (!application || !requirement || application.process_id !== requirement.process_id) {
       return NextResponse.json({ error: 'Candidatura ou documento obrigatório inválido.' }, { status: 404 })
+    }
+    if (application.application_state !== 'draft') {
+      return NextResponse.json({ error: 'Inicie uma correção na inscrição antes de alterar documentos.' }, { status: 409 })
     }
 
     const processed = await processCandidateDocument(file)

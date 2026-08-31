@@ -363,6 +363,28 @@ select jsonb_build_object(
     select count(*) = 3 from supabase_migrations.schema_migrations
     where version in ('20260827224616', '20260827225219', '20260827225348')
   ),
+  'application_correction_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260831154756'
+  ),
+  'application_correction_function_safe', (
+    has_function_privilege('authenticated', 'public.sigec_start_application_correction(uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_start_application_correction(uuid)', 'EXECUTE')
+    and not (
+      select procedure.prosecdef from pg_proc procedure
+      join pg_namespace namespace on namespace.oid = procedure.pronamespace
+      where namespace.nspname = 'public'
+        and procedure.proname = 'sigec_start_application_correction'
+    )
+  ),
+  'application_submission_versions_security_invoker', exists (
+    select 1 from pg_class relation
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'public'
+      and relation.relname = 'sigec_application_submission_versions'
+      and relation.relkind = 'v'
+      and coalesce(relation.reloptions, '{}'::text[]) @> array['security_invoker=true']
+  ),
   'abuse_tables_server_only', not exists (
     select 1 from information_schema.role_table_grants
     where table_schema = 'public'

@@ -156,6 +156,26 @@ def main() -> int:
             "app/(candidate)/minha-area/inscricoes/[id]/actions.ts",
             "getConsentEvidenceDigests()",
         ),
+        "candidate_correction_uses_guarded_rpc": (
+            "app/(candidate)/minha-area/inscricoes/[id]/actions.ts",
+            "sigec_start_application_correction",
+        ),
+        "candidate_correction_revalidates_role": (
+            "app/(candidate)/minha-area/inscricoes/[id]/actions.ts",
+            "extractRole(user) !== 'candidato'",
+        ),
+        "candidate_submitted_document_precheck": (
+            "app/api/sigec/candidate-documents/route.ts",
+            "application.application_state !== 'draft'",
+        ),
+        "candidate_correction_explains_previous_validity": (
+            "components/candidate-application-submit.tsx",
+            "a versão anterior continua valendo",
+        ),
+        "candidate_protocol_history_uses_current_view": (
+            "app/(candidate)/minha-area/inscricoes/[id]/page.tsx",
+            "sigec_application_submission_versions",
+        ),
         "candidate_document_remove_uses_guarded_rpc": (
             "app/api/sigec/candidate-documents/route.ts",
             "sigec_remove_candidate_document",
