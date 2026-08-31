@@ -95,7 +95,7 @@ export default async function CandidateHomePage({ searchParams }: { searchParams
             <Link href="/processos" className="mt-3 inline-flex text-sm font-bold text-emerald-700">Consultar oportunidades</Link>
           </div>
         ) : applications.map((application) => (
-          <div key={application.id} className="flex flex-col items-start justify-between gap-3 border-b border-slate-100 px-5 py-5 last:border-0 sm:flex-row sm:items-center sm:px-6">
+          <Link href={`/minha-area/inscricoes/${application.id}`} key={application.id} className="flex flex-col items-start justify-between gap-3 border-b border-slate-100 px-5 py-5 transition hover:bg-[#f7faf9] last:border-0 sm:flex-row sm:items-center sm:px-6">
             <div className="min-w-0">
               <p className="font-semibold">{application.sigec_processes?.title || 'Processo seletivo'}</p>
               <p className="mt-1 text-xs text-slate-500">Atualizada em {new Date(application.updated_at).toLocaleDateString('pt-BR')}</p>
@@ -103,7 +103,7 @@ export default async function CandidateHomePage({ searchParams }: { searchParams
             <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ color: application.sigec_process_stages?.color || '#475569', background: `${application.sigec_process_stages?.color || '#475569'}18` }}>
               {application.sigec_process_stages?.label || (application.application_state === 'draft' ? 'Rascunho' : 'Recebida')}
             </span>
-          </div>
+          </Link>
         ))}
       </section>
     </main>
