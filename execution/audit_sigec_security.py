@@ -51,6 +51,14 @@ def audit(sql: str) -> dict[str, object]:
         if re.search(pattern, forbidden_sql, flags=re.IGNORECASE):
             findings.append({"severity": "critical", "check": name, "detail": "Forbidden pattern found."})
 
+    staff_helper = re.search(r"function private\.sigec_is_staff\(\)[\s\S]*?\$\$;", normalized)
+    if not staff_helper or "('admin', 'gerente')" not in staff_helper.group(0) or "atendente" in staff_helper.group(0):
+        findings.append({
+            "severity": "critical",
+            "check": "sigec_staff_excludes_attendant",
+            "detail": "The central SIGEC staff helper must authorize only admin and gerente.",
+        })
+
     required_patterns = {
         "private_bucket": r"'sigec-candidate-documents'\s*,\s*'sigec-candidate-documents'\s*,\s*false",
         "candidate_role_from_app_metadata": r"auth\.jwt\(\)\s*->\s*'app_metadata'\s*->>\s*'role'",
@@ -167,6 +175,9 @@ def audit(sql: str) -> dict[str, object]:
         "candidate_disqualification_private_definer": r"function private\.sigec_get_candidate_disqualification_impl[\s\S]*?security definer[\s\S]*?set search_path = ''",
         "candidate_disqualification_public_invoker": r"function public\.sigec_get_candidate_disqualification[\s\S]*?security invoker",
         "candidate_disqualification_anon_revoked": r"revoke all on function public\.sigec_get_candidate_disqualification\(uuid\) from public, anon",
+        "ranking_writes_require_manager_helper": r"sigec_snapshots_staff_insert[\s\S]*?private\.sigec_is_staff[\s\S]*?sigec_snapshot_publications_staff_insert[\s\S]*?private\.sigec_is_staff",
+        "convocation_batches_have_explicit_deny": r"policy sigec_convocation_batches_no_direct_access[\s\S]*?using \(false\) with check \(false\)",
+        "scores_are_read_only_to_authenticated": r"grant select on public\.sigec_applications[\s\S]*?public\.sigec_application_scores[\s\S]*?to authenticated",
         "immutable_audit_table": r"create table public\.sigec_audit_events",
         "notification_idempotency": r"idempotency_key\s+text\s+not null\s+unique",
         "ranking_decisions_append_only": r"sigec_decisions_reject_update",

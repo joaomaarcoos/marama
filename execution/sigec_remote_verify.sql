@@ -582,7 +582,8 @@ select jsonb_build_object(
   'application_advancement_fixtures_absent', not exists (
     select 1 from auth.users
     where email like 'sigec-p5-advance-%@example.invalid'
-  ),
+  )
+) || jsonb_build_object(
   'disqualification_migration_applied', exists (
     select 1 from supabase_migrations.schema_migrations
     where version = '20260901212822'
@@ -600,5 +601,24 @@ select jsonb_build_object(
   'disqualification_fixtures_absent', not exists (
     select 1 from auth.users
     where email like 'sigec-p5-disqualify-%@example.invalid'
+  ),
+  'attendant_authorization_contract_safe', (
+    position('atendente' in lower(pg_get_functiondef('private.sigec_is_staff()'::regprocedure))) = 0
+    and position('admin' in lower(pg_get_functiondef('private.sigec_is_staff()'::regprocedure))) > 0
+    and position('gerente' in lower(pg_get_functiondef('private.sigec_is_staff()'::regprocedure))) > 0
+    and not has_table_privilege('authenticated', 'public.sigec_application_scores', 'INSERT,UPDATE,DELETE')
+    and not has_table_privilege('authenticated', 'public.sigec_convocation_batches', 'INSERT,UPDATE,DELETE')
+    and not has_table_privilege('authenticated', 'public.sigec_convocations', 'INSERT,UPDATE,DELETE')
+    and (
+      select count(*) = 7 from pg_policies
+      where schemaname = 'public'
+        and tablename in ('sigec_ranking_snapshots', 'sigec_ranking_snapshot_entries', 'sigec_ranking_snapshot_approvals', 'sigec_ranking_snapshot_publications')
+        and cmd in ('INSERT', 'UPDATE', 'DELETE')
+        and coalesce(qual, '') || coalesce(with_check, '') like '%sigec_is_staff%'
+    )
+  ),
+  'attendant_gate_fixtures_absent', not exists (
+    select 1 from auth.users
+    where email like 'sigec-p5-attendant-%@example.invalid'
   )
 ) as sigec_remote_verification;

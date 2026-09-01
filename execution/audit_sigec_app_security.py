@@ -460,6 +460,22 @@ def main() -> int:
             "app/(public)/processos/page.tsx",
             "sigecPriority",
         ),
+        "attendant_excluded_from_sigec_process_routes": (
+            "lib/roles.ts",
+            "{ path: '/sigec-processos', allowed: ['admin', 'gerente'] }",
+        ),
+        "attendant_excluded_from_sigec_application_routes": (
+            "lib/roles.ts",
+            "{ path: '/sigec-candidaturas', allowed: ['admin', 'gerente'] }",
+        ),
+        "attendant_excluded_from_application_actions": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "return user && ['admin', 'gerente'].includes(extractRole(user)) ? user : null",
+        ),
+        "attendant_negative_remote_gate_registered": (
+            "package.json",
+            "sigec:test:remote-attendant-restrictions",
+        ),
         "process_publication_has_readiness_panel": (
             "app/(dashboard)/sigec-processos/[id]/page.tsx",
             "SigecProcessPublicationPanel",
