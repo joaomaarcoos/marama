@@ -340,6 +340,42 @@ def main() -> int:
             "components/sigec-application-review-detail.tsx",
             "Histórico de andamento",
         ),
+        "document_review_action_role_guard": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "['admin', 'gerente'].includes(extractRole(user))",
+        ),
+        "document_review_action_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "sigec_review_application_document",
+        ),
+        "document_rejection_requires_public_reason": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "Explique ao candidato por que o documento não foi aceito.",
+        ),
+        "document_review_notes_are_distinct_inputs": (
+            "components/sigec-document-review-controls.tsx",
+            "Nota interna, opcional",
+        ),
+        "document_view_api_role_guard": (
+            "app/api/sigec/review-documents/[id]/route.ts",
+            "requireApiUser(['admin', 'gerente'])",
+        ),
+        "document_view_api_requires_clean_file": (
+            "app/api/sigec/review-documents/[id]/route.ts",
+            "document.malware_status !== 'clean'",
+        ),
+        "document_view_api_requires_current_version": (
+            "app/api/sigec/review-documents/[id]/route.ts",
+            ".eq('supersedes_document_id', document.id).is('removed_at', null)",
+        ),
+        "document_view_api_rechecks_hash": (
+            "app/api/sigec/review-documents/[id]/route.ts",
+            "createHash('sha256').update(buffer).digest('hex')",
+        ),
+        "document_view_api_disables_cache": (
+            "app/api/sigec/review-documents/[id]/route.ts",
+            "private, no-store, max-age=0",
+        ),
         "process_publication_has_readiness_panel": (
             "app/(dashboard)/sigec-processos/[id]/page.tsx",
             "SigecProcessPublicationPanel",

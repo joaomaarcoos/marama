@@ -64,6 +64,15 @@ export type SigecApplicationDetail = {
   }>
 }
 
+export type SigecDocumentReview = {
+  id: number
+  document_id: string
+  decision: 'valid' | 'rejected'
+  public_reason: string | null
+  internal_note: string | null
+  created_at: string
+}
+
 export function formatSigecAnswer(answer: unknown) {
   if (answer === null || answer === undefined || answer === '') return 'Não informado'
   if (answer === true) return 'Sim'

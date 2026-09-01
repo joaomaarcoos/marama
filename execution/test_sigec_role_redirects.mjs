@@ -105,6 +105,8 @@ try {
   assert(response.status === 400, 'candidate_document_remove_api_reaches_route_guard', `HTTP ${response.status}`)
   response = await request('/api/sigec/document-scan', candidate, { method: 'POST' })
   assert(response.status === 403, 'candidate_document_rescan_stays_denied')
+  response = await request('/api/sigec/review-documents/00000000-0000-0000-0000-000000000000', candidate)
+  assert(response.status === 403, 'candidate_document_review_view_denied')
 
   response = await request('/minha-area', adminCookie)
   assert(response.status === 307 && locationPath(response) === '/dashboard', 'admin_candidate_area_redirect')
@@ -114,6 +116,10 @@ try {
   assert(response.status === 403, 'internal_candidate_document_api_denied')
   response = await request('/api/sigec/candidate-documents', adminCookie, { method: 'DELETE' })
   assert(response.status === 403, 'internal_candidate_document_remove_api_denied')
+  response = await request('/api/sigec/review-documents/00000000-0000-0000-0000-000000000000', adminCookie)
+  assert(response.status === 409, 'admin_document_review_view_reaches_resource_guard', `HTTP ${response.status}`)
+  response = await request('/api/sigec/review-documents/00000000-0000-0000-0000-000000000000', attendant)
+  assert(response.status === 403, 'attendant_document_review_view_denied')
 
   response = await request('/sigec-processos', manager)
   assert(response.status === 200, 'manager_sigec_access')
@@ -140,6 +146,8 @@ try {
 
   response = await request('/api/usuarios')
   assert(response.status === 401, 'anonymous_protected_api_denied')
+  response = await request('/api/sigec/review-documents/00000000-0000-0000-0000-000000000000')
+  assert(response.status === 401, 'anonymous_document_review_view_denied')
 } finally {
   for (const userId of createdUsers.reverse()) {
     await admin.auth.admin.deleteUser(userId)

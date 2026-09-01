@@ -10,7 +10,7 @@ with expected(table_name) as (
     ('sigec_process_stages'), ('sigec_scoring_criteria'), ('sigec_applications'),
     ('sigec_application_preferences'), ('sigec_application_answers'),
     ('sigec_application_submissions'),
-    ('sigec_application_documents'), ('sigec_application_status_history'),
+    ('sigec_application_documents'), ('sigec_document_reviews'), ('sigec_application_status_history'),
     ('sigec_internal_notes'), ('sigec_information_requests'), ('sigec_appeals'),
     ('sigec_application_scores'), ('sigec_convocation_batches'),
     ('sigec_convocations'), ('sigec_consents'), ('sigec_notification_outbox'),
@@ -506,5 +506,28 @@ select jsonb_build_object(
   'admin_application_detail_fixtures_absent', not exists (
     select 1 from auth.users
     where email like 'sigec-p5-detail-%@example.invalid'
+  ),
+  'document_review_migrations_applied', (
+    select count(*) = 2 from supabase_migrations.schema_migrations
+    where version in ('20260901142010', '20260901142154')
+  ),
+  'document_review_contract_safe', (
+    not has_function_privilege('anon', 'public.sigec_review_application_document(uuid,uuid,text,text,text)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_review_application_document(uuid,uuid,text,text,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_review_application_document(uuid,uuid,text,text,text)', 'EXECUTE')
+    and not has_table_privilege('authenticated', 'public.sigec_document_reviews', 'SELECT,INSERT,UPDATE,DELETE')
+    and exists (
+      select 1 from pg_trigger trigger
+      join pg_class relation on relation.oid = trigger.tgrelid
+      join pg_namespace namespace on namespace.oid = relation.relnamespace
+      where namespace.nspname = 'public'
+        and relation.relname = 'sigec_application_documents'
+        and trigger.tgname = 'sigec_document_review_state_guard'
+        and not trigger.tgisinternal
+    )
+  ),
+  'document_review_fixtures_absent', not exists (
+    select 1 from auth.users
+    where email like 'sigec-p5-review-%@example.invalid'
   )
 ) as sigec_remote_verification;

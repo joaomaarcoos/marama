@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getAdminClient } from '@/lib/supabase/admin'
 import { extractRole } from '@/lib/roles'
-import type { SigecApplicationDetail } from '@/lib/sigec-application-detail'
+import type { SigecApplicationDetail, SigecDocumentReview } from '@/lib/sigec-application-detail'
 import { SigecApplicationReviewDetail } from '@/components/sigec-application-review-detail'
 
 export const dynamic = 'force-dynamic'
@@ -18,17 +18,21 @@ export default async function SigecApplicationDetailPage({ params }: { params: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || !['admin', 'gerente'].includes(extractRole(user))) redirect('/acesso-negado')
 
-  const { data, error } = await getAdminClient().rpc('sigec_get_application_review_detail', {
+  const admin = getAdminClient()
+  const { data, error } = await admin.rpc('sigec_get_application_review_detail', {
     p_actor_id: user.id,
     p_application_id: parsedId.data,
   })
   if (error?.code === 'P0002') notFound()
+  const { data: reviews } = !error && data
+    ? await admin.from('sigec_document_reviews').select('id,document_id,decision,public_reason,internal_note,created_at').eq('application_id', parsedId.data).order('created_at', { ascending: false }).limit(500)
+    : { data: [] }
 
   return <>
     <div className="app-header"><div><h1>Análise da candidatura</h1><p className="app-subtitle">Consulta completa em modo somente leitura</p></div></div>
     <div className="app-content animate-fade-up space-y-5">
       <Link href="/sigec-candidaturas" className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold" style={{ color: 'hsl(var(--accent-blue))' }}><ArrowLeft className="h-4 w-4" /> Voltar para candidaturas</Link>
-      {error || !data ? <div className="rounded-xl p-5 text-sm" style={{ background: 'hsl(var(--accent-red) / .08)', border: '1px solid hsl(var(--accent-red) / .35)', color: 'hsl(var(--fg1))' }}>Não foi possível carregar esta candidatura. Tente novamente.</div> : <SigecApplicationReviewDetail detail={data as SigecApplicationDetail} />}
+      {error || !data ? <div className="rounded-xl p-5 text-sm" style={{ background: 'hsl(var(--accent-red) / .08)', border: '1px solid hsl(var(--accent-red) / .35)', color: 'hsl(var(--fg1))' }}>Não foi possível carregar esta candidatura. Tente novamente.</div> : <SigecApplicationReviewDetail detail={data as SigecApplicationDetail} reviews={(reviews || []) as SigecDocumentReview[]} />}
     </div>
   </>
 }
