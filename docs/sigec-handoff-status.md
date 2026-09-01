@@ -1,10 +1,10 @@
 # SIGEC Processos — Handoff, status e plano de execução
 
-**Última atualização:** 31/08/2026
+**Última atualização:** 01/09/2026
 **Estado geral:** fundação, Gate P1, configuração administrativa da Fase 2, Fase 3 e Fase 4 com Gate P4 concluídos; cadastro público permanece fechado até existir processo real pronto para publicação
-**Fase atual:** Gate P4 concluído na branch `codex/sigec-gate-p4-concorrencia`; próxima implementação é `SIGEC-P5-01`; Gate P2 permanece adiado pelas confirmações normativas e pela importação oficial
+**Fase atual:** Fase 4 e Gate P4 promovidos à `master` no commit `8a930be`; próxima implementação é `SIGEC-P5-01`; Gate P2 permanece adiado pelas confirmações normativas e pela importação oficial
 **Progresso auditado:** 40 de 88 tarefas concluídas; 48 pendentes
-**Última auditoria automática:** aprovada em 31/08/2026, sem achados locais ou remotos acionáveis
+**Última auditoria automática:** aprovada em 01/09/2026, sem achados locais ou remotos acionáveis
 **Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
 
 ## 1. Objetivo deste arquivo
@@ -417,6 +417,7 @@ Ao concluir uma tarefa:
 | 31/08/2026 | SIGEC-P4-06 | migration `sigec_application_correction_versions`; abertura de correção; reenvio versionado; histórico de protocolos | protocolo vigente permanece válido durante a edição; reenvio gera versão seguinte e encadeia o snapshot anterior; somente a maior versão é vigente. Trinta e dois controles transacionais, 33 de documentos e 36 de acesso passaram com rollback/limpeza; 129 controles da aplicação, 41/41 tabelas RLS, nenhum FK sem índice, zero fixtures, zero Advisors acionáveis e build de 57 páginas aprovados. O teste de acesso legado foi atualizado para refletir a proibição já vigente de upload direto no Storage. |
 | 31/08/2026 | SIGEC-P4-07 | migrations `sigec_application_deadline_diligence_gate` e `sigec_diligence_staff_trigger_security`; resposta de diligência na candidatura e central de documentos | encerrado o prazo, somente solicitação administrativa aberta, não vencida e com allowlist exata permite alteração. Respostas fora do escopo, documentos não pedidos, outra candidatura, solicitação vencida/respondida e uso sem submissão são rejeitados; fechamento exige respostas válidas e anexo limpo. Quarenta e cinco controles de prontidão/diligência, 37 de acesso e 33 de documentos passaram sequencialmente com rollback/limpeza; os testes compartilham fixtures sintéticas e não devem rodar em paralelo. Auditorias aprovaram 137 controles da aplicação, 41/41 tabelas RLS, nenhum FK sem índice, zero fixtures e zero Advisors acionáveis. O verificador remoto agora falha quando qualquer controle booleano retorna falso; TypeScript e build de 57 páginas aprovados. |
 | 31/08/2026 | Gate P4 | `execution/test_sigec_p4_concurrency.py`; duas conexões independentes por disputa; verificador remoto estrito | 28 controles aprovaram concorrência de rascunho, preferências, respostas, envio, correção, reenvio e diligência. Estado final permaneceu atômico, protocolos/auditorias não duplicaram e apenas uma versão ficou vigente. O primeiro ciclo funcional passou, mas o gate detectou limpeza incompleta dos snapshots imutáveis; o cleanup foi fortalecido com alvo sintético validado e lock `ACCESS EXCLUSIVE`, que impede qualquer acesso externo durante a desativação e reativação transacional do trigger. A repetição passou com limpeza confirmada; a verificação remota comprova ausência de processos e usuários do gate. TypeScript, build de 57 páginas, 137 controles da aplicação, 41/41 tabelas RLS e Advisors sem achados acionáveis foram aprovados. |
+| 01/09/2026 | Promoção e smoke pós-Gate P4 | fast-forward de `ec29453` até `8a930be` em `master`; teste concorrente e verificação remota | as oito entregas da Fase 4 foram promovidas sem conflito e `origin/master` ficou no mesmo commit. O smoke na principal repetiu os 28 controles concorrentes com limpeza confirmada; 41/41 tabelas mantêm RLS, não há índices FK ausentes nem fixtures P4, e os Advisors retornaram zero achados SIGEC acionáveis. Nenhum deploy foi executado; publicação permanece manual. |
 
 ## 9. Próxima ação recomendada
 
