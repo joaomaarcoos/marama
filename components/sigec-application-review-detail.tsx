@@ -1,6 +1,14 @@
 import { CheckCircle2, ClipboardList, Clock3, FileCheck2, FileText, History, MapPin, ShieldCheck } from 'lucide-react'
-import { formatSigecAnswer, formatSigecDate, type SigecApplicationDetail, type SigecDocumentReview } from '@/lib/sigec-application-detail'
+import {
+  formatSigecAnswer,
+  formatSigecDate,
+  type SigecApplicationDetail,
+  type SigecDiligenceOption,
+  type SigecDocumentReview,
+  type SigecInformationRequest,
+} from '@/lib/sigec-application-detail'
 import { SigecDocumentReviewControls } from '@/components/sigec-document-review-controls'
+import { SigecDiligenceManager } from '@/components/sigec-diligence-manager'
 
 const stateLabels = { draft: 'Em preenchimento', submitted: 'Enviada', withdrawn: 'Retirada' }
 const consentLabels: Record<string, string> = {
@@ -29,12 +37,20 @@ function DocumentStatus({ document }: { document: SigecApplicationDetail['docume
   return <span className="text-xs font-semibold" style={{ color: 'hsl(var(--accent-amber))' }}>Aguardando análise</span>
 }
 
-export function SigecApplicationReviewDetail({ detail, reviews }: { detail: SigecApplicationDetail; reviews: SigecDocumentReview[] }) {
+export function SigecApplicationReviewDetail({ detail, reviews, requests, diligenceQuestions, diligenceDocuments }: {
+  detail: SigecApplicationDetail
+  reviews: SigecDocumentReview[]
+  requests: SigecInformationRequest[]
+  diligenceQuestions: SigecDiligenceOption[]
+  diligenceDocuments: SigecDiligenceOption[]
+}) {
   const { application } = detail
   return <div className="space-y-5">
     <section className="rounded-2xl p-5 sm:p-7" style={{ background: 'linear-gradient(120deg, hsl(var(--card)), hsl(var(--accent-blue) / .07))', border: '1px solid hsl(var(--border))' }}>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-[.14em]" style={{ color: 'hsl(var(--accent-green))' }}>{application.processTitle}</p><h1 className="mt-2 break-words text-2xl font-semibold tracking-tight sm:text-3xl" style={{ color: 'hsl(var(--fg1))' }}>{application.candidateName}</h1><div className="mt-3 flex flex-wrap gap-2"><span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: 'hsl(var(--accent-blue) / .12)', color: 'hsl(var(--accent-blue))' }}>{stateLabels[application.applicationState]}</span><span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: 'hsl(var(--muted))', color: 'hsl(var(--fg2))' }}>{application.stageLabel || 'Sem etapa definida'}</span></div></div><div className="grid grid-cols-2 gap-3 sm:flex"><div className="min-w-32 rounded-xl px-4 py-3" style={{ background: 'hsl(var(--bg) / .7)', border: '1px solid hsl(var(--border))' }}><p className="text-[11px]" style={{ color: 'hsl(var(--fg3))' }}>Enviada em</p><p className="mt-1 text-sm font-semibold" style={{ color: 'hsl(var(--fg1))' }}>{formatSigecDate(application.submittedAt, true)}</p></div><div className="min-w-32 rounded-xl px-4 py-3" style={{ background: 'hsl(var(--bg) / .7)', border: '1px solid hsl(var(--border))' }}><p className="text-[11px]" style={{ color: 'hsl(var(--fg3))' }}>Pontuação atual</p><p className="mt-1 font-data text-lg" style={{ color: 'hsl(var(--fg1))' }}>{application.scoreTotal === null ? 'Não avaliada' : application.scoreTotal.toLocaleString('pt-BR')}</p></div></div></div>
     </section>
+
+    <SigecDiligenceManager applicationId={application.id} applicationState={application.applicationState} requests={requests} questions={diligenceQuestions} documents={diligenceDocuments} />
 
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.75fr)]">
       <div className="space-y-5">

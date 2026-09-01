@@ -529,5 +529,40 @@ select jsonb_build_object(
   'document_review_fixtures_absent', not exists (
     select 1 from auth.users
     where email like 'sigec-p5-review-%@example.invalid'
+  ),
+  'information_request_management_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260901145018'
+  ),
+  'information_request_management_contract_safe', (
+    not has_function_privilege('anon', 'public.sigec_create_information_request(uuid,uuid,text,jsonb,timestamp with time zone)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_create_information_request(uuid,uuid,text,jsonb,timestamp with time zone)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_create_information_request(uuid,uuid,text,jsonb,timestamp with time zone)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_close_information_request(uuid,uuid,text,text)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_close_information_request(uuid,uuid,text,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_close_information_request(uuid,uuid,text,text)', 'EXECUTE')
+    and not has_table_privilege('authenticated', 'public.sigec_information_requests', 'INSERT,UPDATE,DELETE')
+    and exists (
+      select 1 from pg_indexes
+      where schemaname = 'public'
+        and tablename = 'sigec_information_requests'
+        and indexname = 'sigec_information_requests_one_active_idx'
+    )
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'sigec_information_requests'
+        and column_name = 'closed_by'
+    )
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'sigec_information_requests'
+        and column_name = 'resolution_message'
+    )
+  ),
+  'information_request_management_fixtures_absent', not exists (
+    select 1 from auth.users
+    where email like 'sigec-p5-diligence-%@example.invalid'
   )
 ) as sigec_remote_verification;

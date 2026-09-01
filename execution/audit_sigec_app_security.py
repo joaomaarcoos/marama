@@ -328,9 +328,9 @@ def main() -> int:
             "app/(dashboard)/sigec-candidaturas/[id]/page.tsx",
             "sigec_get_application_review_detail",
         ),
-        "admin_application_detail_is_read_only": (
+        "admin_application_detail_has_safe_workbench_label": (
             "app/(dashboard)/sigec-candidaturas/[id]/page.tsx",
-            "Consulta completa em modo somente leitura",
+            "Documentos, respostas e solicitações da candidatura",
         ),
         "admin_application_detail_shows_versions": (
             "components/sigec-application-review-detail.tsx",
@@ -375,6 +375,34 @@ def main() -> int:
         "document_view_api_disables_cache": (
             "app/api/sigec/review-documents/[id]/route.ts",
             "private, no-store, max-age=0",
+        ),
+        "diligence_action_role_guard": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "async function staffActor()",
+        ),
+        "diligence_create_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "sigec_create_information_request",
+        ),
+        "diligence_close_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "sigec_close_information_request",
+        ),
+        "diligence_fields_are_strictly_validated": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "DiligenceFieldSchema = z.object",
+        ),
+        "diligence_deadline_preserves_browser_timezone": (
+            "components/sigec-diligence-manager.tsx",
+            "new Date(dueAt).toISOString()",
+        ),
+        "diligence_ui_uses_exact_process_items": (
+            "components/sigec-diligence-manager.tsx",
+            "Escolha exatamente o que precisa ser corrigido ou complementado",
+        ),
+        "diligence_ui_requires_resolution_message": (
+            "components/sigec-diligence-manager.tsx",
+            "Mensagem de encerramento",
         ),
         "process_publication_has_readiness_panel": (
             "app/(dashboard)/sigec-processos/[id]/page.tsx",

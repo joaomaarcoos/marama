@@ -73,6 +73,24 @@ export type SigecDocumentReview = {
   created_at: string
 }
 
+export type SigecInformationRequest = {
+  id: string
+  message: string
+  requested_fields: Array<{ kind: 'question' | 'document'; id: string }>
+  due_at: string
+  status: 'open' | 'answered' | 'accepted' | 'canceled'
+  answered_at: string | null
+  closed_at: string | null
+  resolution_message: string | null
+  created_at: string
+}
+
+export type SigecDiligenceOption = {
+  id: string
+  label: string
+  required: boolean
+}
+
 export function formatSigecAnswer(answer: unknown) {
   if (answer === null || answer === undefined || answer === '') return 'Não informado'
   if (answer === true) return 'Sim'
