@@ -316,6 +316,30 @@ def main() -> int:
             "components/sidebar.tsx",
             "href: '/sigec-candidaturas'",
         ),
+        "admin_application_detail_validates_id": (
+            "app/(dashboard)/sigec-candidaturas/[id]/page.tsx",
+            "z.string().uuid().safeParse(params.id)",
+        ),
+        "admin_application_detail_role_guard": (
+            "app/(dashboard)/sigec-candidaturas/[id]/page.tsx",
+            "['admin', 'gerente'].includes(extractRole(user))",
+        ),
+        "admin_application_detail_uses_server_only_rpc": (
+            "app/(dashboard)/sigec-candidaturas/[id]/page.tsx",
+            "sigec_get_application_review_detail",
+        ),
+        "admin_application_detail_is_read_only": (
+            "app/(dashboard)/sigec-candidaturas/[id]/page.tsx",
+            "Consulta completa em modo somente leitura",
+        ),
+        "admin_application_detail_shows_versions": (
+            "components/sigec-application-review-detail.tsx",
+            "Protocolos e versões",
+        ),
+        "admin_application_detail_shows_history": (
+            "components/sigec-application-review-detail.tsx",
+            "Histórico de andamento",
+        ),
         "process_publication_has_readiness_panel": (
             "app/(dashboard)/sigec-processos/[id]/page.tsx",
             "SigecProcessPublicationPanel",

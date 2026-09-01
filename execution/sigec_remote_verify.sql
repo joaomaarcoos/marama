@@ -487,5 +487,24 @@ select jsonb_build_object(
   'admin_application_list_fixtures_absent', not exists (
     select 1 from auth.users
     where email like 'sigec-p5-list-%@example.invalid'
+  ),
+  'admin_application_detail_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260901140949'
+  ),
+  'admin_application_detail_function_safe', (
+    not has_function_privilege('anon', 'public.sigec_get_application_review_detail(uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_get_application_review_detail(uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_get_application_review_detail(uuid,uuid)', 'EXECUTE')
+    and not (
+      select procedure.prosecdef from pg_proc procedure
+      join pg_namespace namespace on namespace.oid = procedure.pronamespace
+      where namespace.nspname = 'public'
+        and procedure.proname = 'sigec_get_application_review_detail'
+    )
+  ),
+  'admin_application_detail_fixtures_absent', not exists (
+    select 1 from auth.users
+    where email like 'sigec-p5-detail-%@example.invalid'
   )
 ) as sigec_remote_verification;

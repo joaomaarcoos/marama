@@ -25,6 +25,7 @@
     "sigec:test:remote-application-readiness": "py execution/test_sigec_application_readiness.py",
     "sigec:test:p4-concurrency": "py execution/test_sigec_p4_concurrency.py",
     "sigec:test:remote-admin-application-list": "py execution/test_sigec_admin_application_list.py",
+    "sigec:test:remote-admin-application-detail": "py execution/test_sigec_admin_application_detail.py",
     "sigec:test:remote-candidate-education": "py execution/test_sigec_candidate_education.py",
     "sigec:test:remote-candidate-experience": "py execution/test_sigec_candidate_experience.py",
     "sigec:test:remote-candidate-documents": "py execution/test_sigec_candidate_documents.py",
