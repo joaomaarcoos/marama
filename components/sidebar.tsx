@@ -28,6 +28,7 @@ import {
   Coins,
   ClipboardList,
   BriefcaseBusiness,
+  ClipboardCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/theme-provider'
@@ -102,6 +103,13 @@ const NAV_SECTIONS: NavSection[] = [
         label: 'Processos seletivos',
         sublabel: 'candidaturas e análise',
         icon: BriefcaseBusiness,
+        roles: ['admin', 'gerente'],
+      },
+      {
+        href: '/sigec-candidaturas',
+        label: 'Candidaturas',
+        sublabel: 'fila de análise',
+        icon: ClipboardCheck,
         roles: ['admin', 'gerente'],
       },
     ],

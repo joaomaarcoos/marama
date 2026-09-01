@@ -1,0 +1,24 @@
+import { AlertTriangle, CheckCircle2, Clock3, FileSearch, MapPin } from 'lucide-react'
+import type { SigecApplicationReviewRow } from '@/lib/sigec-application-list'
+
+const stateLabels = { draft: 'Rascunho', submitted: 'Enviada', withdrawn: 'Retirada' }
+const scopeLabels = { geral: 'Geral', pcd: 'PCD', ppp: 'PPP' }
+
+export function SigecApplicationReviewList({ rows, startIndex }: { rows: SigecApplicationReviewRow[]; startIndex: number }) {
+  if (!rows.length) return <div className="rounded-2xl px-5 py-16 text-center" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}><FileSearch className="mx-auto h-8 w-8" style={{ color: 'hsl(var(--fg3))' }} /><h2 className="mt-4 font-semibold" style={{ color: 'hsl(var(--fg1))' }}>Nenhuma candidatura encontrada</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6" style={{ color: 'hsl(var(--fg3))' }}>Tente remover alguns filtros ou buscar por outro nome ou protocolo.</p></div>
+
+  return <section className="overflow-hidden rounded-2xl" style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
+    <div className="hidden grid-cols-[54px_minmax(200px,1.1fr)_minmax(230px,1.3fr)_150px_170px] gap-4 px-5 py-3 text-[11px] font-bold uppercase tracking-[.08em] md:grid" style={{ color: 'hsl(var(--fg3))', borderBottom: '1px solid hsl(var(--border))' }}><span>#</span><span>Candidato</span><span>Processo e opção</span><span>Etapa</span><span>Pendências</span></div>
+    <div className="divide-y" style={{ borderColor: 'hsl(var(--border))' }}>{rows.map((row, index) => {
+      const firstPreference = row.preferences[0]
+      const pendingLabel = row.overdue_request_count > 0 ? `${row.overdue_request_count} prazo(s) vencido(s)` : row.open_request_count > 0 ? `${row.open_request_count} solicitação(ões)` : row.pending_document_count > 0 ? `${row.pending_document_count} documento(s)` : 'Sem pendência'
+      return <article key={row.application_id} className="grid gap-4 px-4 py-5 transition-colors hover:bg-white/[.018] sm:px-5 md:grid-cols-[54px_minmax(200px,1.1fr)_minmax(230px,1.3fr)_150px_170px] md:items-center">
+        <div className="hidden font-data text-xs md:block" style={{ color: 'hsl(var(--fg3))' }}>{String(startIndex + index).padStart(2, '0')}</div>
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="truncate font-semibold" style={{ color: 'hsl(var(--fg1))' }}>{row.candidate_name}</h2>{row.competition_scopes.map((scope) => <span key={scope} className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: 'hsl(var(--accent-blue) / .12)', color: 'hsl(var(--accent-blue))' }}>{scopeLabels[scope]}</span>)}</div><p className="mt-1 font-data text-[11px]" style={{ color: 'hsl(var(--fg3))' }}>{row.protocol || 'Sem protocolo · ainda em edição'}</p><span className="mt-2 inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase" style={{ background: 'hsl(var(--muted))', color: 'hsl(var(--fg2))' }}>{stateLabels[row.application_state]}</span></div>
+        <div className="min-w-0"><p className="truncate text-sm font-medium" style={{ color: 'hsl(var(--fg1))' }}>{row.process_title}</p>{firstPreference ? <><p className="mt-1 truncate text-xs" style={{ color: 'hsl(var(--fg2))' }}>{firstPreference.course} · {firstPreference.modality}</p><p className="mt-1 flex items-center gap-1 text-xs" style={{ color: 'hsl(var(--fg3))' }}><MapPin className="h-3.5 w-3.5" /> {firstPreference.municipality}{row.preferences.length > 1 ? ` +${row.preferences.length - 1} opção(ões)` : ''}</p></> : <p className="mt-1 text-xs" style={{ color: 'hsl(var(--fg3))' }}>Nenhuma opção selecionada</p>}</div>
+        <div><p className="text-xs font-semibold" style={{ color: 'hsl(var(--fg2))' }}>{row.stage_label || 'Não iniciada'}</p>{row.submitted_at && <p className="mt-1 flex items-center gap-1 text-[11px]" style={{ color: 'hsl(var(--fg3))' }}><Clock3 className="h-3 w-3" /> {new Date(row.submitted_at).toLocaleDateString('pt-BR')}</p>}</div>
+        <div className="flex items-start gap-2">{row.has_pending ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: row.overdue_request_count ? 'hsl(var(--accent-red))' : 'hsl(var(--accent-amber))' }} /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" style={{ color: 'hsl(var(--accent-green))' }} />}<div><p className="text-xs font-semibold" style={{ color: row.has_pending ? 'hsl(var(--fg1))' : 'hsl(var(--accent-green))' }}>{pendingLabel}</p>{row.has_pending && <p className="mt-1 text-[11px] leading-4" style={{ color: 'hsl(var(--fg3))' }}>{row.pending_document_count > 0 ? 'Há arquivo aguardando análise.' : 'Aguardando retorno do candidato.'}</p>}</div></div>
+      </article>
+    })}</div>
+  </section>
+}

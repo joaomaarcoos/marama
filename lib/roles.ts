@@ -34,6 +34,7 @@ const ROLE_RESTRICTED: { path: string; allowed: InternalUserRole[] }[] = [
   { path: '/relatorios', allowed: ['admin', 'gerente'] },
   { path: '/tarefas', allowed: ['admin', 'gerente', 'atendente'] },
   { path: '/sigec-processos', allowed: ['admin', 'gerente'] },
+  { path: '/sigec-candidaturas', allowed: ['admin', 'gerente'] },
 ]
 
 export function isInternalRole(role: ResolvedUserRole): role is InternalUserRole {

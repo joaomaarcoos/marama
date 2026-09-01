@@ -24,7 +24,7 @@ const internalPagePrefixes = [
   '/dashboard', '/prompt', '/disparos', '/conversas',
   '/documentos', '/usuarios', '/relatorios', '/contatos', '/logs',
   '/conexao', '/tutores', '/alunos', '/configuracoes',
-  '/suporte', '/tarefas', '/sigec-processos',
+  '/suporte', '/tarefas', '/sigec-processos', '/sigec-candidaturas',
 ]
 const candidatePagePrefixes = ['/minha-area']
 

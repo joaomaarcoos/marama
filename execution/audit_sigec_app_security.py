@@ -292,6 +292,30 @@ def main() -> int:
             "app/(dashboard)/sigec-processos/actions.ts",
             "adminClient.rpc('sigec_close_process'",
         ),
+        "admin_application_list_role_guard": (
+            "app/(dashboard)/sigec-candidaturas/page.tsx",
+            "['admin', 'gerente'].includes(extractRole(user))",
+        ),
+        "admin_application_list_uses_server_only_rpc": (
+            "app/(dashboard)/sigec-candidaturas/page.tsx",
+            "sigec_list_applications_for_review",
+        ),
+        "admin_application_list_validates_query": (
+            "lib/sigec-application-list.ts",
+            "FiltersSchema.parse",
+        ),
+        "admin_application_list_page_is_bounded": (
+            "app/(dashboard)/sigec-candidaturas/page.tsx",
+            "const PAGE_SIZE = 25",
+        ),
+        "admin_application_list_middleware_boundary": (
+            "middleware.ts",
+            "'/sigec-candidaturas'",
+        ),
+        "admin_application_list_sidebar_is_staff_only": (
+            "components/sidebar.tsx",
+            "href: '/sigec-candidaturas'",
+        ),
         "process_publication_has_readiness_panel": (
             "app/(dashboard)/sigec-processos/[id]/page.tsx",
             "SigecProcessPublicationPanel",

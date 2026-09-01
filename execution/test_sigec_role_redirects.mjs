@@ -117,8 +117,18 @@ try {
 
   response = await request('/sigec-processos', manager)
   assert(response.status === 200, 'manager_sigec_access')
+  response = await request('/sigec-candidaturas', manager)
+  assert(response.status === 200, 'manager_sigec_applications_access')
+  response = await request('/sigec-candidaturas', adminCookie)
+  assert(response.status === 200, 'admin_sigec_applications_access')
   response = await request('/sigec-processos', attendant)
   assert(response.status === 307 && locationPath(response) === '/dashboard', 'attendant_sigec_redirect')
+  response = await request('/sigec-candidaturas', attendant)
+  assert(response.status === 307 && locationPath(response) === '/dashboard', 'attendant_sigec_applications_redirect')
+  response = await request('/sigec-candidaturas', candidate)
+  assert(response.status === 307 && locationPath(response) === '/minha-area', 'candidate_sigec_applications_redirect')
+  response = await request('/sigec-candidaturas')
+  assert(response.status === 307 && locationPath(response) === '/login', 'anonymous_sigec_applications_redirect')
   response = await request('/dashboard', noRole)
   assert(response.status === 307 && locationPath(response) === '/acesso-negado', 'no_role_fails_closed')
 
