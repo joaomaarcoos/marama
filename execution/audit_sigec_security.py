@@ -271,6 +271,17 @@ def audit(sql: str) -> dict[str, object]:
         "malware_scan_hash_binding": r"target\.sha256 <> p_sha256",
         "malware_scan_result_constraint": r"sigec_document_malware_result_check",
         "all_storage_reads_require_clean_scan": r"sigec_storage_candidate_read[\s\S]*?document\.malware_status = 'clean'[\s\S]*?application\.candidate_id",
+        "postgraduate_reviews_service_only": r"revoke all on public\.sigec_postgraduate_evidence_reviews from public, anon, authenticated",
+        "postgraduate_reviews_append_only": r"sigec_postgraduate_reviews_immutable[\s\S]*?before update or delete",
+        "postgraduate_review_staff_gate": r"sigec_review_postgraduate_evidence[\s\S]*?in \('admin', 'gerente'\)",
+        "postgraduate_review_requires_submission": r"application\.application_state = 'submitted'",
+        "postgraduate_review_requires_completed_title": r"not target\.is_completed or target\.level not in \('especializacao', 'mestrado', 'doutorado'\)",
+        "postgraduate_review_requires_approved_document": r"technical_status = 'validated'[\s\S]*?malware_status = 'clean'[\s\S]*?review_status = 'valid'",
+        "postgraduate_score_exact_scale": r"target\.level = 'doutorado' then 30[\s\S]*?target\.level = 'mestrado' then 25[\s\S]*?else 20",
+        "postgraduate_score_latest_review_only": r"distinct on \(review\.education_id\)[\s\S]*?order by review\.education_id, review\.version desc",
+        "postgraduate_score_uses_maximum_only": r"select \* from eligible order by points_snapshot desc, education_id limit 1",
+        "postgraduate_audit_omits_reason_body": r"'haspublicreason', normalized_reason is not null",
+        "postgraduate_rpcs_service_only": r"revoke all on function public\.sigec_review_postgraduate_evidence.*?from public, anon, authenticated[\s\S]*?revoke all on function public\.sigec_get_postgraduate_score.*?from public, anon, authenticated",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

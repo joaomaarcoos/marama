@@ -116,6 +116,34 @@ export type SigecDisqualificationDecision = {
   decided_at: string
 }
 
+export type SigecPostgraduateEducation = {
+  id: string
+  level: 'especializacao' | 'mestrado' | 'doutorado'
+  course_name: string
+  institution: string
+  completion_date: string
+}
+
+export type SigecPostgraduateReview = {
+  id: string
+  education_id: string
+  document_id: string
+  version: number
+  decision: 'eligible' | 'rejected'
+  education_level: SigecPostgraduateEducation['level']
+  points_snapshot: number
+  public_reason: string | null
+  created_at: string
+}
+
+export type SigecPostgraduateScore = {
+  points: number
+  selected_level: SigecPostgraduateEducation['level'] | null
+  selected_education_id: string | null
+  selected_document_id: string | null
+  eligible_title_count: number
+}
+
 export function formatSigecAnswer(answer: unknown) {
   if (answer === null || answer === undefined || answer === '') return 'Não informado'
   if (answer === true) return 'Sim'

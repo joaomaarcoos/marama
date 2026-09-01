@@ -9,12 +9,16 @@ import {
   type SigecDisqualificationReason,
   type SigecDocumentReview,
   type SigecInformationRequest,
+  type SigecPostgraduateEducation,
+  type SigecPostgraduateReview,
+  type SigecPostgraduateScore,
   type SigecStageOption,
 } from '@/lib/sigec-application-detail'
 import { SigecDocumentReviewControls } from '@/components/sigec-document-review-controls'
 import { SigecDiligenceManager } from '@/components/sigec-diligence-manager'
 import { SigecStageAdvanceControls } from '@/components/sigec-stage-advance-controls'
 import { SigecDisqualificationControls } from '@/components/sigec-disqualification-controls'
+import { SigecPostgraduateScoringControls } from '@/components/sigec-postgraduate-scoring-controls'
 
 const stateLabels = { draft: 'Em preenchimento', submitted: 'Enviada', withdrawn: 'Retirada' }
 const consentLabels: Record<string, string> = {
@@ -43,7 +47,7 @@ function DocumentStatus({ document }: { document: SigecApplicationDetail['docume
   return <span className="text-xs font-semibold" style={{ color: 'hsl(var(--accent-amber))' }}>Aguardando análise</span>
 }
 
-export function SigecApplicationReviewDetail({ detail, reviews, requests, diligenceQuestions, diligenceDocuments, advancementReadiness, nextStages, disqualificationReasons, disqualificationDecision }: {
+export function SigecApplicationReviewDetail({ detail, reviews, requests, diligenceQuestions, diligenceDocuments, advancementReadiness, nextStages, disqualificationReasons, disqualificationDecision, postgraduateEducation, postgraduateReviews, postgraduateScore }: {
   detail: SigecApplicationDetail
   reviews: SigecDocumentReview[]
   requests: SigecInformationRequest[]
@@ -53,6 +57,9 @@ export function SigecApplicationReviewDetail({ detail, reviews, requests, dilige
   nextStages: SigecStageOption[]
   disqualificationReasons: SigecDisqualificationReason[]
   disqualificationDecision: SigecDisqualificationDecision | null
+  postgraduateEducation: SigecPostgraduateEducation[]
+  postgraduateReviews: SigecPostgraduateReview[]
+  postgraduateScore: SigecPostgraduateScore
 }) {
   const { application } = detail
   return <div className="space-y-5">
@@ -61,6 +68,8 @@ export function SigecApplicationReviewDetail({ detail, reviews, requests, dilige
     </section>
 
     <SigecDiligenceManager applicationId={application.id} applicationState={application.applicationState} requests={requests} questions={diligenceQuestions} documents={diligenceDocuments} />
+
+    <SigecPostgraduateScoringControls applicationId={application.id} applicationState={application.applicationState} education={postgraduateEducation} reviews={postgraduateReviews} score={postgraduateScore} documents={detail.documents} />
 
     {!disqualificationDecision && <SigecStageAdvanceControls applicationId={application.id} readiness={advancementReadiness} stages={nextStages} />}
 

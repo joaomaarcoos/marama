@@ -21,7 +21,8 @@ with expected(table_name) as (
     ('sigec_ranking_snapshots'), ('sigec_ranking_snapshot_entries'),
     ('sigec_ranking_snapshot_approvals'), ('sigec_ranking_snapshot_publications'),
     ('sigec_disqualification_catalog_versions'), ('sigec_disqualification_reason_items'),
-    ('sigec_application_disqualifications'), ('sigec_disqualification_internal_notes')
+    ('sigec_application_disqualifications'), ('sigec_disqualification_internal_notes'),
+    ('sigec_postgraduate_evidence_reviews')
 ), actual as (
   select c.relname as table_name, c.relrowsecurity as rls_enabled
   from pg_class c
@@ -620,5 +621,29 @@ select jsonb_build_object(
   'attendant_gate_fixtures_absent', not exists (
     select 1 from auth.users
     where email like 'sigec-p5-attendant-%@example.invalid'
+  ),
+  'postgraduate_scoring_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260901215622'
+  ),
+  'postgraduate_scoring_contract_safe', (
+    not has_table_privilege('authenticated', 'public.sigec_postgraduate_evidence_reviews', 'SELECT,INSERT,UPDATE,DELETE')
+    and not has_function_privilege('authenticated', 'public.sigec_review_postgraduate_evidence(uuid,uuid,uuid,uuid,text,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_review_postgraduate_evidence(uuid,uuid,uuid,uuid,text,text)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_get_postgraduate_score(uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_get_postgraduate_score(uuid,uuid)', 'EXECUTE')
+    and exists (
+      select 1 from pg_trigger trigger
+      join pg_class relation on relation.oid = trigger.tgrelid
+      join pg_namespace namespace on namespace.oid = relation.relnamespace
+      where namespace.nspname = 'public'
+        and relation.relname = 'sigec_postgraduate_evidence_reviews'
+        and trigger.tgname = 'sigec_postgraduate_reviews_immutable'
+        and not trigger.tgisinternal
+    )
+  ),
+  'postgraduate_scoring_fixtures_absent', not exists (
+    select 1 from auth.users
+    where email like 'sigec-p6-postgrad-%@example.invalid'
   )
 ) as sigec_remote_verification;

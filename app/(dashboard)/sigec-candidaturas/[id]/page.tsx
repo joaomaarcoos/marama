@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getAdminClient } from '@/lib/supabase/admin'
 import { extractRole } from '@/lib/roles'
-import type { SigecAdvancementReadiness, SigecApplicationDetail, SigecDiligenceOption, SigecDisqualificationDecision, SigecDisqualificationReason, SigecDocumentReview, SigecInformationRequest, SigecStageOption } from '@/lib/sigec-application-detail'
+import type { SigecAdvancementReadiness, SigecApplicationDetail, SigecDiligenceOption, SigecDisqualificationDecision, SigecDisqualificationReason, SigecDocumentReview, SigecInformationRequest, SigecPostgraduateEducation, SigecPostgraduateReview, SigecPostgraduateScore, SigecStageOption } from '@/lib/sigec-application-detail'
 import { SigecApplicationReviewDetail } from '@/components/sigec-application-review-detail'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +25,10 @@ export default async function SigecApplicationDetailPage({ params }: { params: {
   })
   if (error?.code === 'P0002') notFound()
   const detail = data as SigecApplicationDetail | null
-  const [reviewsResult, requestsResult, questionsResult, requirementsResult, readinessResult, transitionsResult, catalogsResult, decisionResult] = !error && detail
+  const identityResult = !error && detail
+    ? await admin.from('sigec_applications').select('candidate_id').eq('id', parsedId.data).maybeSingle()
+    : { data: null }
+  const [reviewsResult, requestsResult, questionsResult, requirementsResult, readinessResult, transitionsResult, catalogsResult, decisionResult, educationResult, postgraduateReviewsResult, postgraduateScoreResult] = !error && detail && identityResult.data?.candidate_id
     ? await Promise.all([
       admin.from('sigec_document_reviews').select('id,document_id,decision,public_reason,internal_note,created_at').eq('application_id', parsedId.data).order('created_at', { ascending: false }).limit(500),
       admin.from('sigec_information_requests').select('id,message,requested_fields,due_at,status,answered_at,closed_at,resolution_message,created_at').eq('application_id', parsedId.data).order('created_at', { ascending: false }).limit(100),
@@ -37,8 +40,11 @@ export default async function SigecApplicationDetailPage({ params }: { params: {
         : Promise.resolve({ data: [] }),
       admin.from('sigec_disqualification_catalog_versions').select('id').eq('process_id', detail.application.processId).eq('status', 'confirmed').eq('normative_status', 'confirmed').maybeSingle(),
       admin.from('sigec_application_disqualifications').select('reason_code,reason_label,public_message,catalog_version,decided_at').eq('application_id', parsedId.data).maybeSingle(),
+      admin.from('sigec_candidate_education').select('id,level,course_name,institution,completion_date').eq('candidate_id', identityResult.data.candidate_id).eq('is_completed', true).in('level', ['especializacao', 'mestrado', 'doutorado']).order('completion_date', { ascending: false }),
+      admin.from('sigec_postgraduate_evidence_reviews').select('id,education_id,document_id,version,decision,education_level,points_snapshot,public_reason,created_at').eq('application_id', parsedId.data).order('version', { ascending: false }).limit(500),
+      admin.rpc('sigec_get_postgraduate_score', { p_actor_id: user.id, p_application_id: parsedId.data }),
     ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: null }, { data: null }]
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: null }, { data: null }, { data: [] }, { data: [] }, { data: [] }]
 
   const reasonsResult = catalogsResult.data
     ? await admin.from('sigec_disqualification_reason_items').select('id,label,position').eq('catalog_version_id', catalogsResult.data.id).eq('active', true).order('position')
@@ -49,12 +55,13 @@ export default async function SigecApplicationDetailPage({ params }: { params: {
     const stage = Array.isArray(item.sigec_process_stages) ? item.sigec_process_stages[0] : item.sigec_process_stages
     return stage ? [{ id: stage.id, label: stage.label }] : []
   }) as SigecStageOption[]
+  const postgraduateScore = ((postgraduateScoreResult.data || [])[0] || { points: 0, selected_level: null, selected_education_id: null, selected_document_id: null, eligible_title_count: 0 }) as SigecPostgraduateScore
 
   return <>
     <div className="app-header"><div><h1>Análise da candidatura</h1><p className="app-subtitle">Documentos, respostas e solicitações da candidatura</p></div></div>
     <div className="app-content animate-fade-up space-y-5">
       <Link href="/sigec-candidaturas" className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold" style={{ color: 'hsl(var(--accent-blue))' }}><ArrowLeft className="h-4 w-4" /> Voltar para candidaturas</Link>
-      {error || !detail ? <div className="rounded-xl p-5 text-sm" style={{ background: 'hsl(var(--accent-red) / .08)', border: '1px solid hsl(var(--accent-red) / .35)', color: 'hsl(var(--fg1))' }}>Não foi possível carregar esta candidatura. Tente novamente.</div> : <SigecApplicationReviewDetail detail={detail} reviews={(reviewsResult.data || []) as SigecDocumentReview[]} requests={(requestsResult.data || []) as SigecInformationRequest[]} diligenceQuestions={(questionsResult.data || []) as SigecDiligenceOption[]} diligenceDocuments={(requirementsResult.data || []) as SigecDiligenceOption[]} advancementReadiness={readiness} nextStages={nextStages} disqualificationReasons={(reasonsResult.data || []) as SigecDisqualificationReason[]} disqualificationDecision={(decisionResult.data || null) as SigecDisqualificationDecision | null} />}
+      {error || !detail ? <div className="rounded-xl p-5 text-sm" style={{ background: 'hsl(var(--accent-red) / .08)', border: '1px solid hsl(var(--accent-red) / .35)', color: 'hsl(var(--fg1))' }}>Não foi possível carregar esta candidatura. Tente novamente.</div> : <SigecApplicationReviewDetail detail={detail} reviews={(reviewsResult.data || []) as SigecDocumentReview[]} requests={(requestsResult.data || []) as SigecInformationRequest[]} diligenceQuestions={(questionsResult.data || []) as SigecDiligenceOption[]} diligenceDocuments={(requirementsResult.data || []) as SigecDiligenceOption[]} advancementReadiness={readiness} nextStages={nextStages} disqualificationReasons={(reasonsResult.data || []) as SigecDisqualificationReason[]} disqualificationDecision={(decisionResult.data || null) as SigecDisqualificationDecision | null} postgraduateEducation={(educationResult.data || []) as SigecPostgraduateEducation[]} postgraduateReviews={(postgraduateReviewsResult.data || []) as SigecPostgraduateReview[]} postgraduateScore={postgraduateScore} />}
     </div>
   </>
 }

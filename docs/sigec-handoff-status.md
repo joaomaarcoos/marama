@@ -2,8 +2,8 @@
 
 **Última atualização:** 01/09/2026
 **Estado geral:** fundação, Gate P1, configuração administrativa da Fase 2, Fase 3, Fase 4 e triagem administrativa da Fase 5 concluídas; cadastro público permanece fechado até existir processo real pronto para publicação
-**Fase atual:** Fase 5 e Gate P5 promovidos para `master` em `b6856f8`; próxima implementação é `SIGEC-P6-01`; Gate P2 permanece adiado pelas confirmações normativas e pela importação oficial
-**Progresso auditado:** 47 de 88 tarefas concluídas; 41 pendentes
+**Fase atual:** Fase 6 em execução na branch `codex/sigec-p6-01-pos-graduacao`; `SIGEC-P6-01` concluída e próxima implementação é `SIGEC-P6-02`; Gate P2 permanece adiado pelas confirmações normativas e pela importação oficial
+**Progresso auditado:** 48 de 88 tarefas concluídas; 40 pendentes
 **Última auditoria automática:** aprovada em 01/09/2026, sem achados locais ou remotos acionáveis
 **Próxima revisão obrigatória:** após cada tarefa marcada como concluída ou sempre que surgir retificação do edital
 
@@ -18,6 +18,8 @@ Fontes funcionais, em ordem de precedência:
 - `EDITAL Nº 01/2026 — SEDUC`, arquivo `C:\Users\joaom\Downloads\EDITAL-No-01_2026-PROCESSO-SELETIVO-EPT (1).docx`, documento mais antigo e usado somente como referência histórica.
 
 **Observação pendente:** as regras extraídas do edital antigo nas seções 3 e 4 não devem ser implementadas como regra definitiva. Desempates, classificação, ordenação, inscrição única e cotas aguardam reconfirmação. A lógica da rubrica complementar de 30 pontos e o fluxo de aprovação de pendências foram compreendidos e aceitos como direção de produto, mas sua finalização foi adiada pelo responsável. Até esse fechamento, o SIGEC deve mantê-los configuráveis e não publicar classificação automática.
+
+**Correção de domínio registrada em 01/09/2026:** o SIGEC é a estrutura/sistema único e contém vários processos seletivos; ele não é sinônimo da coleção de processos. A organização e a nomenclatura atuais ficam temporariamente preservadas por decisão do responsável para não interromper a conclusão funcional. A heurística pública que prioriza título/slug contendo `sigec` é compatibilidade temporária, não uma regra canônica do domínio, e deverá ser removida em refatoração posterior.
 
 Regra de precedência atual: SIGDOC prevalece; o edital antigo serve para apontar perguntas e riscos, não para substituir o SIGDOC.
 
@@ -37,7 +39,7 @@ Regra de precedência atual: SIGDOC prevalece; o edital antigo serve para aponta
 ### Ainda não operacional
 
 - A fundação está aplicada no Supabase configurado desde 27/08/2026, mas ainda não há processo real configurado ou publicado.
-- **Ordem de lançamento confirmada em 01/09/2026:** o SIGEC deve ser o primeiro processo seletivo real aberto. A listagem pública prioriza deterministicamente processos abertos cujo título ou slug identifique o SIGEC. No estado remoto atual existe somente `Teste 1`, em rascunho e com abertura futura; portanto há zero processos abertos e nenhum gate foi contornado. A criação/publicação do processo real continua manual e condicionada aos gates.
+- **Interpretação anterior superada em 01/09/2026:** a priorização de um processo cujo nome contenha `SIGEC` permanece apenas como comportamento temporário. O modelo correto é SIGEC como sistema único com processos seletivos internos. No estado remoto atual existe somente `Teste 1`, em rascunho e com abertura futura; portanto há zero processos abertos e nenhum gate foi contornado. A criação/publicação do primeiro processo real continua manual e condicionada aos gates.
 - O cadastro, a confirmação de e-mail, a recuperação de senha, o rate limit persistente e a verificação protegida do WhatsApp estão implementados e tiveram seus testes externos aprovados. A chave `SIGEC_CANDIDATE_REGISTRATION_ENABLED` permanece desativada por decisão de lançamento até existir um processo real validado e publicado.
 - **Incidente operacional encerrado (28/08/2026):** login e recuperação carregam o Turnstile no domínio oficial; o Supabase aceita o token e a recuperação retorna a resposta genérica anti-enumeração. O CAPTCHA permanece habilitado.
 - As páginas são estruturas iniciais; não existe ainda fluxo completo de perfil, inscrição, análise, pontuação, classificação, recurso, convocação ou WhatsApp transacional.
@@ -247,7 +249,7 @@ Fórmula aceita como direção e pendente de fechamento: `nota_final = titulacao
 
 ### Fase 6 — Pontuação, classificação, cotas e resultados
 
-- [ ] SIGEC-P6-01 — Implementar pós-graduação não cumulativa: 30/25/20, máximo 30.
+- [x] SIGEC-P6-01 — Implementar pós-graduação não cumulativa: 30/25/20, máximo 30. Concluída em 01/09/2026 com decisão versionada e imutável por formação, exigência de curso concluído e documento atual previamente aprovado, cálculo server-only que seleciona somente o maior título válido e painel administrativo responsivo. Rejeição exige motivo público; auditoria registra metadados sem o texto. O teste remoto transacional aprovou 24 controles com rollback e limpeza.
 - [ ] SIGEC-P6-02 — Implementar experiência por faixas, máximo 40, com regra explícita para sobreposição de vínculos.
 - [ ] SIGEC-P6-03 — Implementar no motor de avaliação a rubrica aprovada de produção acadêmica e desenvolvimento profissional, com teto de 30 pontos, comprovação, limites por categoria e trilha de auditoria.
 - [ ] SIGEC-P6-04 — Calcular nota total no servidor/banco e impedir pontos acima do máximo por critério.
@@ -427,7 +429,8 @@ Ao concluir uma tarefa:
 | 01/09/2026 | SIGEC-P5-06 | migration `sigec_disqualification_reason_catalog`; catálogo e decisão administrativa; motivo privado na área do candidato; prioridade pública do SIGEC | nove motivos do edital antigo entram como rascunho versionado e exigem confirmação normativa explícita. Desclassificação é atômica, exige transição configurada, preserva snapshots do motivo/versão e separa mensagem pública de nota interna; auditoria não grava os textos. Vinte e seis controles remotos passaram com rollback e limpeza; auditorias aprovaram 179 controles da aplicação e todos os controles SQL, 46/46 tabelas com RLS, verificador remoto, TypeScript, build de 58 páginas e zero Advisors acionáveis. O remoto continua sem processo aberto; `Teste 1` permanece rascunho. Nenhum deploy foi executado; publicação permanece manual. |
 | 01/09/2026 | SIGEC-P5-07 e Gate P5 | `execution/test_sigec_attendant_restrictions.py`; matriz de rotas/papéis; auditorias e regressão integral da Fase 5 | dezenove controles negativos exclusivos do atendente e 151 cenários remotos de toda a Fase 5 passaram sequencialmente com rollback e limpeza. As sete políticas de escrita do ranking dependem da função central que aceita somente `admin`/`gerente`; notas e convocações permanecem sem escrita autenticada direta. Auditorias aprovaram 183 controles da aplicação e todos os controles SQL; o verificador confirmou 46/46 tabelas com RLS e nenhuma fixture; TypeScript, build de 58 páginas e Advisors sem achados acionáveis passaram. Nenhum deploy foi executado; publicação permanece manual. |
 | 01/09/2026 | Promoção e smoke pós-Gate P5 | fast-forward de `14d9941` até `b6856f8` em `master`; testes negativos, desclassificação e verificador remoto | `origin/master` ficou no mesmo commit da Fase 5. Na principal, 19 controles do atendente e 26 de desclassificação passaram novamente; 46/46 tabelas mantêm RLS, nenhuma fixture permaneceu e as auditorias SQL/183 controles da aplicação seguiram aprovados. Nenhum deploy foi executado; publicação permanece manual. |
+| 01/09/2026 | SIGEC-P6-01 | migration `sigec_postgraduate_noncumulative_scoring`; decisão de evidência versionada; painel de pontuação na candidatura | especialização 20, mestrado 25 e doutorado 30, sempre selecionando apenas o maior título aprovado. A análise exige formação concluída do candidato e documento atual previamente aprovado; histórico é append-only e server-only. Vinte e quatro controles remotos passaram com rollback/limpeza; auditorias aprovaram 188 controles da aplicação, 47/47 tabelas RLS, verificador remoto, TypeScript, build de 58 páginas e zero Advisors acionáveis. A correção de domínio que define SIGEC como sistema único com processos internos foi registrada sem refatoração imediata. Nenhum deploy foi executado; publicação permanece manual. |
 
 ## 9. Próxima ação recomendada
 
-Iniciar `SIGEC-P6-01`, implementando a pontuação não cumulativa de pós-graduação sem antecipar os pontos ainda sujeitos à reconfirmação normativa. Para fechar posteriormente o Gate P2, ainda será necessário revisar a prévia real, importar as 364 linhas prontas, corrigir ou excluir as 25 pendentes, finalizar e registrar as seis decisões exigidas pelo gate e confirmar a versão oficial de pontuação/desempates. O processo real do SIGEC deverá ser o primeiro aberto, mas até lá o banco rejeita corretamente a publicação e a classificação automática permanece fechada.
+Iniciar `SIGEC-P6-02`, implementando a pontuação de experiência por faixas com teto de 40 pontos e tratamento explícito de períodos sobrepostos. Para fechar posteriormente o Gate P2, ainda será necessário revisar a prévia real, importar as 364 linhas prontas, corrigir ou excluir as 25 pendentes, finalizar e registrar as seis decisões exigidas pelo gate e confirmar a versão oficial de pontuação/desempates. A criação/publicação do primeiro processo seletivo real dentro do SIGEC permanece manual e condicionada aos gates; a classificação automática continua fechada.

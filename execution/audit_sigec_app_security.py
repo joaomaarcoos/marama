@@ -340,6 +340,26 @@ def main() -> int:
             "components/sigec-application-review-detail.tsx",
             "Histórico de andamento",
         ),
+        "postgraduate_review_action_role_guard": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "const user = await staffActor()",
+        ),
+        "postgraduate_review_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "sigec_review_postgraduate_evidence",
+        ),
+        "postgraduate_rejection_requires_reason": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "Explique por que o comprovante não valida esse título.",
+        ),
+        "postgraduate_ui_states_noncumulative_cap": (
+            "components/sigec-postgraduate-scoring-controls.tsx",
+            "Os pontos não são somados.",
+        ),
+        "postgraduate_ui_requires_approved_document": (
+            "components/sigec-postgraduate-scoring-controls.tsx",
+            "item.reviewStatus === 'valid'",
+        ),
         "document_review_action_role_guard": (
             "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
             "['admin', 'gerente'].includes(extractRole(user))",

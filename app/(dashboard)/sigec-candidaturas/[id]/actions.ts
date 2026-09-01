@@ -61,6 +61,21 @@ const DisqualifySchema = z.object({
   confirmation: z.literal('DESCLASSIFICAR', { errorMap: () => ({ message: 'Digite DESCLASSIFICAR para confirmar.' }) }),
 }).strict()
 
+const PostgraduateReviewSchema = z.object({
+  applicationId: z.string().uuid(),
+  educationId: z.string().uuid(),
+  documentId: z.string().uuid(),
+  decision: z.enum(['eligible', 'rejected']),
+  publicReason: z.string().trim().max(2000).optional().default(''),
+}).strict().superRefine((input, context) => {
+  if (input.decision === 'rejected' && input.publicReason.length < 3) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['publicReason'], message: 'Explique por que o comprovante não valida esse título.' })
+  }
+  if (input.decision === 'eligible' && input.publicReason) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['publicReason'], message: 'A aprovação não deve incluir motivo de rejeição.' })
+  }
+})
+
 async function staffActor() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -199,4 +214,32 @@ export async function disqualifySigecApplication(input: unknown): Promise<{ erro
   revalidatePath(`/minha-area/inscricoes/${parsed.data.applicationId}`)
   revalidatePath('/minha-area')
   return { success: 'Candidatura desclassificada e motivo disponibilizado ao candidato.' }
+}
+
+export async function reviewSigecPostgraduateEvidence(input: unknown): Promise<{ error?: string; success?: string }> {
+  const parsed = PostgraduateReviewSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message || 'Revise os dados da titulação.' }
+  const user = await staffActor()
+  if (!user) return { error: 'Acesso negado.' }
+
+  const { error } = await getAdminClient().rpc('sigec_review_postgraduate_evidence', {
+    p_actor_id: user.id,
+    p_application_id: parsed.data.applicationId,
+    p_education_id: parsed.data.educationId,
+    p_document_id: parsed.data.documentId,
+    p_decision: parsed.data.decision,
+    p_public_reason: parsed.data.publicReason || null,
+  })
+  if (error) {
+    const known: Record<string, string> = {
+      SIGEC_POSTGRADUATE_SUBMITTED_APPLICATION_REQUIRED: 'A candidatura precisa estar enviada para análise.',
+      SIGEC_POSTGRADUATE_COMPLETED_TITLE_REQUIRED: 'Somente uma formação concluída do próprio candidato pode ser pontuada.',
+      SIGEC_POSTGRADUATE_APPROVED_CURRENT_DOCUMENT_REQUIRED: 'Selecione um documento atual que já tenha sido aprovado.',
+      SIGEC_POSTGRADUATE_INPUT_INVALID: 'Revise a decisão e o motivo informado.',
+    }
+    return { error: Object.entries(known).find(([code]) => error.message.includes(code))?.[1] || 'Não foi possível registrar a análise da titulação.' }
+  }
+
+  revalidatePath(`/sigec-candidaturas/${parsed.data.applicationId}`)
+  return { success: parsed.data.decision === 'eligible' ? 'Título aprovado e pontuação recalculada.' : 'Comprovante do título não aceito.' }
 }
