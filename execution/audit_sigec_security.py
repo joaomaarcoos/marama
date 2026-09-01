@@ -282,6 +282,16 @@ def audit(sql: str) -> dict[str, object]:
         "postgraduate_score_uses_maximum_only": r"select \* from eligible order by points_snapshot desc, education_id limit 1",
         "postgraduate_audit_omits_reason_body": r"'haspublicreason', normalized_reason is not null",
         "postgraduate_rpcs_service_only": r"revoke all on function public\.sigec_review_postgraduate_evidence.*?from public, anon, authenticated[\s\S]*?revoke all on function public\.sigec_get_postgraduate_score.*?from public, anon, authenticated",
+        "experience_reviews_service_only": r"revoke all on public\.sigec_experience_evidence_reviews from public, anon, authenticated",
+        "experience_reviews_append_only": r"sigec_experience_reviews_immutable[\s\S]*?before update or delete",
+        "experience_review_staff_gate": r"sigec_review_experience_evidence[\s\S]*?in \('admin', 'gerente'\)",
+        "experience_review_requires_teaching": r"not target\.is_teaching",
+        "experience_review_requires_approved_document": r"sigec_review_experience_evidence[\s\S]*?technical_status = 'validated'[\s\S]*?malware_status = 'clean'[\s\S]*?review_status = 'valid'",
+        "experience_score_submission_cutoff": r"least\(coalesce\(ends_on, cutoff_date\), cutoff_date\)",
+        "experience_score_merges_overlaps": r"range_agg\(daterange\(starts_on",
+        "experience_score_exact_bands": r"months <= 12 then 5[\s\S]*?months <= 24 then 10[\s\S]*?months <= 36 then 20[\s\S]*?months <= 48 then 30[\s\S]*?else 40",
+        "experience_audit_omits_reason_body": r"'haspublicreason', normalized_reason is not null",
+        "experience_rpcs_service_only": r"revoke all on function public\.sigec_review_experience_evidence.*?from public, anon, authenticated[\s\S]*?revoke all on function public\.sigec_get_experience_score.*?from public, anon, authenticated",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

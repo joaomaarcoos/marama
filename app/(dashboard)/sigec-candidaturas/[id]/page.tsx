@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getAdminClient } from '@/lib/supabase/admin'
 import { extractRole } from '@/lib/roles'
-import type { SigecAdvancementReadiness, SigecApplicationDetail, SigecDiligenceOption, SigecDisqualificationDecision, SigecDisqualificationReason, SigecDocumentReview, SigecInformationRequest, SigecPostgraduateEducation, SigecPostgraduateReview, SigecPostgraduateScore, SigecStageOption } from '@/lib/sigec-application-detail'
+import type { SigecAdvancementReadiness, SigecApplicationDetail, SigecDiligenceOption, SigecDisqualificationDecision, SigecDisqualificationReason, SigecDocumentReview, SigecExperienceReview, SigecExperienceScore, SigecInformationRequest, SigecPostgraduateEducation, SigecPostgraduateReview, SigecPostgraduateScore, SigecStageOption, SigecTeachingExperience } from '@/lib/sigec-application-detail'
 import { SigecApplicationReviewDetail } from '@/components/sigec-application-review-detail'
 
 export const dynamic = 'force-dynamic'
@@ -28,7 +28,7 @@ export default async function SigecApplicationDetailPage({ params }: { params: {
   const identityResult = !error && detail
     ? await admin.from('sigec_applications').select('candidate_id').eq('id', parsedId.data).maybeSingle()
     : { data: null }
-  const [reviewsResult, requestsResult, questionsResult, requirementsResult, readinessResult, transitionsResult, catalogsResult, decisionResult, educationResult, postgraduateReviewsResult, postgraduateScoreResult] = !error && detail && identityResult.data?.candidate_id
+  const [reviewsResult, requestsResult, questionsResult, requirementsResult, readinessResult, transitionsResult, catalogsResult, decisionResult, educationResult, postgraduateReviewsResult, postgraduateScoreResult, experienceResult, experienceReviewsResult, experienceScoreResult] = !error && detail && identityResult.data?.candidate_id
     ? await Promise.all([
       admin.from('sigec_document_reviews').select('id,document_id,decision,public_reason,internal_note,created_at').eq('application_id', parsedId.data).order('created_at', { ascending: false }).limit(500),
       admin.from('sigec_information_requests').select('id,message,requested_fields,due_at,status,answered_at,closed_at,resolution_message,created_at').eq('application_id', parsedId.data).order('created_at', { ascending: false }).limit(100),
@@ -43,8 +43,11 @@ export default async function SigecApplicationDetailPage({ params }: { params: {
       admin.from('sigec_candidate_education').select('id,level,course_name,institution,completion_date').eq('candidate_id', identityResult.data.candidate_id).eq('is_completed', true).in('level', ['especializacao', 'mestrado', 'doutorado']).order('completion_date', { ascending: false }),
       admin.from('sigec_postgraduate_evidence_reviews').select('id,education_id,document_id,version,decision,education_level,points_snapshot,public_reason,created_at').eq('application_id', parsedId.data).order('version', { ascending: false }).limit(500),
       admin.rpc('sigec_get_postgraduate_score', { p_actor_id: user.id, p_application_id: parsedId.data }),
+      admin.from('sigec_candidate_experience').select('id,employment_type,institution,role_title,starts_on,ends_on,is_teaching').eq('candidate_id', identityResult.data.candidate_id).eq('is_teaching', true).order('starts_on'),
+      admin.from('sigec_experience_evidence_reviews').select('id,experience_id,document_id,version,decision,starts_on,ends_on,public_reason,created_at').eq('application_id', parsedId.data).order('version', { ascending: false }).limit(500),
+      admin.rpc('sigec_get_experience_score', { p_actor_id: user.id, p_application_id: parsedId.data }),
     ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: null }, { data: null }, { data: [] }, { data: [] }, { data: [] }]
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: null }, { data: null }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }]
 
   const reasonsResult = catalogsResult.data
     ? await admin.from('sigec_disqualification_reason_items').select('id,label,position').eq('catalog_version_id', catalogsResult.data.id).eq('active', true).order('position')
@@ -56,12 +59,13 @@ export default async function SigecApplicationDetailPage({ params }: { params: {
     return stage ? [{ id: stage.id, label: stage.label }] : []
   }) as SigecStageOption[]
   const postgraduateScore = ((postgraduateScoreResult.data || [])[0] || { points: 0, selected_level: null, selected_education_id: null, selected_document_id: null, eligible_title_count: 0 }) as SigecPostgraduateScore
+  const experienceScore = ((experienceScoreResult.data || [])[0] || { total_unique_days: 0, total_months: 0, remaining_days: 0, points: 0, eligible_experience_count: 0 }) as SigecExperienceScore
 
   return <>
     <div className="app-header"><div><h1>Análise da candidatura</h1><p className="app-subtitle">Documentos, respostas e solicitações da candidatura</p></div></div>
     <div className="app-content animate-fade-up space-y-5">
       <Link href="/sigec-candidaturas" className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold" style={{ color: 'hsl(var(--accent-blue))' }}><ArrowLeft className="h-4 w-4" /> Voltar para candidaturas</Link>
-      {error || !detail ? <div className="rounded-xl p-5 text-sm" style={{ background: 'hsl(var(--accent-red) / .08)', border: '1px solid hsl(var(--accent-red) / .35)', color: 'hsl(var(--fg1))' }}>Não foi possível carregar esta candidatura. Tente novamente.</div> : <SigecApplicationReviewDetail detail={detail} reviews={(reviewsResult.data || []) as SigecDocumentReview[]} requests={(requestsResult.data || []) as SigecInformationRequest[]} diligenceQuestions={(questionsResult.data || []) as SigecDiligenceOption[]} diligenceDocuments={(requirementsResult.data || []) as SigecDiligenceOption[]} advancementReadiness={readiness} nextStages={nextStages} disqualificationReasons={(reasonsResult.data || []) as SigecDisqualificationReason[]} disqualificationDecision={(decisionResult.data || null) as SigecDisqualificationDecision | null} postgraduateEducation={(educationResult.data || []) as SigecPostgraduateEducation[]} postgraduateReviews={(postgraduateReviewsResult.data || []) as SigecPostgraduateReview[]} postgraduateScore={postgraduateScore} />}
+      {error || !detail ? <div className="rounded-xl p-5 text-sm" style={{ background: 'hsl(var(--accent-red) / .08)', border: '1px solid hsl(var(--accent-red) / .35)', color: 'hsl(var(--fg1))' }}>Não foi possível carregar esta candidatura. Tente novamente.</div> : <SigecApplicationReviewDetail detail={detail} reviews={(reviewsResult.data || []) as SigecDocumentReview[]} requests={(requestsResult.data || []) as SigecInformationRequest[]} diligenceQuestions={(questionsResult.data || []) as SigecDiligenceOption[]} diligenceDocuments={(requirementsResult.data || []) as SigecDiligenceOption[]} advancementReadiness={readiness} nextStages={nextStages} disqualificationReasons={(reasonsResult.data || []) as SigecDisqualificationReason[]} disqualificationDecision={(decisionResult.data || null) as SigecDisqualificationDecision | null} postgraduateEducation={(educationResult.data || []) as SigecPostgraduateEducation[]} postgraduateReviews={(postgraduateReviewsResult.data || []) as SigecPostgraduateReview[]} postgraduateScore={postgraduateScore} teachingExperience={(experienceResult.data || []) as SigecTeachingExperience[]} experienceReviews={(experienceReviewsResult.data || []) as SigecExperienceReview[]} experienceScore={experienceScore} />}
     </div>
   </>
 }

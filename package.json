@@ -32,6 +32,7 @@
     "sigec:test:remote-disqualification": "py execution/test_sigec_disqualification_workflow.py",
     "sigec:test:remote-attendant-restrictions": "py execution/test_sigec_attendant_restrictions.py",
     "sigec:test:remote-postgraduate-scoring": "py execution/test_sigec_postgraduate_scoring.py",
+    "sigec:test:remote-experience-scoring": "py execution/test_sigec_experience_scoring.py",
     "sigec:test:remote-candidate-education": "py execution/test_sigec_candidate_education.py",
     "sigec:test:remote-candidate-experience": "py execution/test_sigec_candidate_experience.py",
     "sigec:test:remote-candidate-documents": "py execution/test_sigec_candidate_documents.py",

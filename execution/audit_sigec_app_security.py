@@ -360,6 +360,22 @@ def main() -> int:
             "components/sigec-postgraduate-scoring-controls.tsx",
             "item.reviewStatus === 'valid'",
         ),
+        "experience_review_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "sigec_review_experience_evidence",
+        ),
+        "experience_rejection_requires_reason": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "Explique por que o comprovante não valida esse período.",
+        ),
+        "experience_ui_states_overlap_and_cap": (
+            "components/sigec-experience-scoring-controls.tsx",
+            "Períodos sobrepostos contam uma vez.",
+        ),
+        "experience_ui_requires_approved_document": (
+            "components/sigec-experience-scoring-controls.tsx",
+            "item.reviewStatus==='valid'",
+        ),
         "document_review_action_role_guard": (
             "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
             "['admin', 'gerente'].includes(extractRole(user))",

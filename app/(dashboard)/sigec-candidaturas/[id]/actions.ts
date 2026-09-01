@@ -76,6 +76,21 @@ const PostgraduateReviewSchema = z.object({
   }
 })
 
+const ExperienceReviewSchema = z.object({
+  applicationId: z.string().uuid(),
+  experienceId: z.string().uuid(),
+  documentId: z.string().uuid(),
+  decision: z.enum(['eligible', 'rejected']),
+  publicReason: z.string().trim().max(2000).optional().default(''),
+}).strict().superRefine((input, context) => {
+  if (input.decision === 'rejected' && input.publicReason.length < 3) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['publicReason'], message: 'Explique por que o comprovante não valida esse período.' })
+  }
+  if (input.decision === 'eligible' && input.publicReason) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['publicReason'], message: 'A aprovação não deve incluir motivo de rejeição.' })
+  }
+})
+
 async function staffActor() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -242,4 +257,30 @@ export async function reviewSigecPostgraduateEvidence(input: unknown): Promise<{
 
   revalidatePath(`/sigec-candidaturas/${parsed.data.applicationId}`)
   return { success: parsed.data.decision === 'eligible' ? 'Título aprovado e pontuação recalculada.' : 'Comprovante do título não aceito.' }
+}
+
+export async function reviewSigecExperienceEvidence(input: unknown): Promise<{ error?: string; success?: string }> {
+  const parsed = ExperienceReviewSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message || 'Revise os dados da experiência.' }
+  const user = await staffActor()
+  if (!user) return { error: 'Acesso negado.' }
+  const { error } = await getAdminClient().rpc('sigec_review_experience_evidence', {
+    p_actor_id: user.id,
+    p_application_id: parsed.data.applicationId,
+    p_experience_id: parsed.data.experienceId,
+    p_document_id: parsed.data.documentId,
+    p_decision: parsed.data.decision,
+    p_public_reason: parsed.data.publicReason || null,
+  })
+  if (error) {
+    const known: Record<string, string> = {
+      SIGEC_EXPERIENCE_SUBMITTED_APPLICATION_REQUIRED: 'A candidatura precisa estar enviada para análise.',
+      SIGEC_EXPERIENCE_TEACHING_REQUIRED: 'Somente experiência docente do próprio candidato pode ser pontuada.',
+      SIGEC_EXPERIENCE_APPROVED_CURRENT_DOCUMENT_REQUIRED: 'Selecione um documento atual que já tenha sido aprovado.',
+      SIGEC_EXPERIENCE_INPUT_INVALID: 'Revise a decisão e o motivo informado.',
+    }
+    return { error: Object.entries(known).find(([code]) => error.message.includes(code))?.[1] || 'Não foi possível registrar a análise da experiência.' }
+  }
+  revalidatePath(`/sigec-candidaturas/${parsed.data.applicationId}`)
+  return { success: parsed.data.decision === 'eligible' ? 'Período aprovado e pontuação recalculada.' : 'Comprovante do período não aceito.' }
 }

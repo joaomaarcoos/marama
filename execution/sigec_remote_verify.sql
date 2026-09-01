@@ -22,7 +22,7 @@ with expected(table_name) as (
     ('sigec_ranking_snapshot_approvals'), ('sigec_ranking_snapshot_publications'),
     ('sigec_disqualification_catalog_versions'), ('sigec_disqualification_reason_items'),
     ('sigec_application_disqualifications'), ('sigec_disqualification_internal_notes'),
-    ('sigec_postgraduate_evidence_reviews')
+    ('sigec_postgraduate_evidence_reviews'), ('sigec_experience_evidence_reviews')
 ), actual as (
   select c.relname as table_name, c.relrowsecurity as rls_enabled
   from pg_class c
@@ -645,5 +645,20 @@ select jsonb_build_object(
   'postgraduate_scoring_fixtures_absent', not exists (
     select 1 from auth.users
     where email like 'sigec-p6-postgrad-%@example.invalid'
+  ),
+  'experience_scoring_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260901220814'
+  ),
+  'experience_scoring_contract_safe', (
+    not has_table_privilege('authenticated', 'public.sigec_experience_evidence_reviews', 'SELECT,INSERT,UPDATE,DELETE')
+    and not has_function_privilege('authenticated', 'public.sigec_review_experience_evidence(uuid,uuid,uuid,uuid,text,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_review_experience_evidence(uuid,uuid,uuid,uuid,text,text)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_get_experience_score(uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_get_experience_score(uuid,uuid)', 'EXECUTE')
+  ),
+  'experience_scoring_fixtures_absent', not exists (
+    select 1 from auth.users
+    where email like 'sigec-p6-experience-%@example.invalid'
   )
 ) as sigec_remote_verification;

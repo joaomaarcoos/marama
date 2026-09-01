@@ -144,6 +144,36 @@ export type SigecPostgraduateScore = {
   eligible_title_count: number
 }
 
+export type SigecTeachingExperience = {
+  id: string
+  employment_type: string
+  institution: string
+  role_title: string
+  starts_on: string
+  ends_on: string | null
+  is_teaching: true
+}
+
+export type SigecExperienceReview = {
+  id: string
+  experience_id: string
+  document_id: string
+  version: number
+  decision: 'eligible' | 'rejected'
+  starts_on: string
+  ends_on: string | null
+  public_reason: string | null
+  created_at: string
+}
+
+export type SigecExperienceScore = {
+  total_unique_days: number
+  total_months: number
+  remaining_days: number
+  points: number
+  eligible_experience_count: number
+}
+
 export function formatSigecAnswer(answer: unknown) {
   if (answer === null || answer === undefined || answer === '') return 'Não informado'
   if (answer === true) return 'Sim'
