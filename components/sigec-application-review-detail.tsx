@@ -3,12 +3,15 @@ import {
   formatSigecAnswer,
   formatSigecDate,
   type SigecApplicationDetail,
+  type SigecAdvancementReadiness,
   type SigecDiligenceOption,
   type SigecDocumentReview,
   type SigecInformationRequest,
+  type SigecStageOption,
 } from '@/lib/sigec-application-detail'
 import { SigecDocumentReviewControls } from '@/components/sigec-document-review-controls'
 import { SigecDiligenceManager } from '@/components/sigec-diligence-manager'
+import { SigecStageAdvanceControls } from '@/components/sigec-stage-advance-controls'
 
 const stateLabels = { draft: 'Em preenchimento', submitted: 'Enviada', withdrawn: 'Retirada' }
 const consentLabels: Record<string, string> = {
@@ -37,12 +40,14 @@ function DocumentStatus({ document }: { document: SigecApplicationDetail['docume
   return <span className="text-xs font-semibold" style={{ color: 'hsl(var(--accent-amber))' }}>Aguardando análise</span>
 }
 
-export function SigecApplicationReviewDetail({ detail, reviews, requests, diligenceQuestions, diligenceDocuments }: {
+export function SigecApplicationReviewDetail({ detail, reviews, requests, diligenceQuestions, diligenceDocuments, advancementReadiness, nextStages }: {
   detail: SigecApplicationDetail
   reviews: SigecDocumentReview[]
   requests: SigecInformationRequest[]
   diligenceQuestions: SigecDiligenceOption[]
   diligenceDocuments: SigecDiligenceOption[]
+  advancementReadiness: SigecAdvancementReadiness
+  nextStages: SigecStageOption[]
 }) {
   const { application } = detail
   return <div className="space-y-5">
@@ -51,6 +56,8 @@ export function SigecApplicationReviewDetail({ detail, reviews, requests, dilige
     </section>
 
     <SigecDiligenceManager applicationId={application.id} applicationState={application.applicationState} requests={requests} questions={diligenceQuestions} documents={diligenceDocuments} />
+
+    <SigecStageAdvanceControls applicationId={application.id} readiness={advancementReadiness} stages={nextStages} />
 
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.75fr)]">
       <div className="space-y-5">

@@ -47,6 +47,12 @@ const CloseDiligenceSchema = z.object({
   resolutionMessage: z.string().trim().min(3, 'Informe uma mensagem de encerramento.').max(2000),
 })
 
+const AdvanceStageSchema = z.object({
+  applicationId: z.string().uuid(),
+  toStageId: z.string().uuid('Selecione a próxima etapa.'),
+  publicReason: z.string().trim().min(3, 'Informe ao candidato o motivo da mudança.').max(2000),
+})
+
 async function staffActor() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -131,4 +137,30 @@ export async function closeSigecInformationRequest(input: unknown): Promise<{ er
   }
   revalidatePath(`/sigec-candidaturas/${parsed.data.applicationId}`)
   return { success: parsed.data.action === 'accepted' ? 'Resposta conferida e aceita.' : 'Solicitação cancelada.' }
+}
+
+export async function advanceSigecApplicationStage(input: unknown): Promise<{ error?: string; success?: string }> {
+  const parsed = AdvanceStageSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message || 'Revise os dados da mudança.' }
+  const user = await staffActor()
+  if (!user) return { error: 'Acesso negado.' }
+
+  const { error } = await getAdminClient().rpc('sigec_advance_application_stage', {
+    p_actor_id: user.id,
+    p_application_id: parsed.data.applicationId,
+    p_to_stage_id: parsed.data.toStageId,
+    p_public_reason: parsed.data.publicReason,
+  })
+  if (error) {
+    const known: Record<string, string> = {
+      SIGEC_APPLICATION_ADVANCEMENT_BLOCKED: 'Resolva os documentos pendentes e encerre a solicitação de informações antes de avançar.',
+      SIGEC_ADVANCEMENT_TRANSITION_NOT_ALLOWED: 'Essa mudança de etapa não está configurada para o processo.',
+      SIGEC_ADVANCEMENT_SUBMITTED_REQUIRED: 'Somente candidaturas enviadas podem avançar.',
+    }
+    return { error: Object.entries(known).find(([code]) => error.message.includes(code))?.[1] || 'Não foi possível mudar a etapa.' }
+  }
+  revalidatePath(`/sigec-candidaturas/${parsed.data.applicationId}`)
+  revalidatePath('/sigec-candidaturas')
+  revalidatePath('/minha-area')
+  return { success: 'Etapa atualizada e registrada no histórico.' }
 }

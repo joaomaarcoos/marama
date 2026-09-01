@@ -28,6 +28,7 @@
     "sigec:test:remote-admin-application-detail": "py execution/test_sigec_admin_application_detail.py",
     "sigec:test:remote-document-review": "py execution/test_sigec_document_review.py",
     "sigec:test:remote-information-request-management": "py execution/test_sigec_information_request_management.py",
+    "sigec:test:remote-application-advancement": "py execution/test_sigec_application_advancement_gate.py",
     "sigec:test:remote-candidate-education": "py execution/test_sigec_candidate_education.py",
     "sigec:test:remote-candidate-experience": "py execution/test_sigec_candidate_experience.py",
     "sigec:test:remote-candidate-documents": "py execution/test_sigec_candidate_documents.py",

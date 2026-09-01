@@ -564,5 +564,21 @@ select jsonb_build_object(
   'information_request_management_fixtures_absent', not exists (
     select 1 from auth.users
     where email like 'sigec-p5-diligence-%@example.invalid'
+  ),
+  'application_advancement_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260901150433'
+  ),
+  'application_advancement_contract_safe', (
+    not has_function_privilege('anon', 'public.sigec_get_application_advancement_readiness(uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_get_application_advancement_readiness(uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_get_application_advancement_readiness(uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_advance_application_stage(uuid,uuid,uuid,text)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_advance_application_stage(uuid,uuid,uuid,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_advance_application_stage(uuid,uuid,uuid,text)', 'EXECUTE')
+  ),
+  'application_advancement_fixtures_absent', not exists (
+    select 1 from auth.users
+    where email like 'sigec-p5-advance-%@example.invalid'
   )
 ) as sigec_remote_verification;

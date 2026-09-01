@@ -91,6 +91,17 @@ export type SigecDiligenceOption = {
   required: boolean
 }
 
+export type SigecAdvancementReadiness = {
+  ready: boolean
+  document_blockers: number
+  diligence_blockers: number
+}
+
+export type SigecStageOption = {
+  id: string
+  label: string
+}
+
 export function formatSigecAnswer(answer: unknown) {
   if (answer === null || answer === undefined || answer === '') return 'Não informado'
   if (answer === true) return 'Sim'

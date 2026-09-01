@@ -404,6 +404,26 @@ def main() -> int:
             "components/sigec-diligence-manager.tsx",
             "Mensagem de encerramento",
         ),
+        "advancement_action_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "sigec_advance_application_stage",
+        ),
+        "advancement_action_reuses_staff_guard": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "const user = await staffActor()",
+        ),
+        "advancement_requires_public_reason": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "Informe ao candidato o motivo da mudança.",
+        ),
+        "advancement_ui_explains_blockers": (
+            "components/sigec-stage-advance-controls.tsx",
+            "A candidatura só avança depois que todas as pendências forem resolvidas e conferidas.",
+        ),
+        "advancement_ui_fails_closed": (
+            "components/sigec-stage-advance-controls.tsx",
+            "disabled={blocked || pending || !stageId || reason.trim().length < 3}",
+        ),
         "process_publication_has_readiness_panel": (
             "app/(dashboard)/sigec-processos/[id]/page.tsx",
             "SigecProcessPublicationPanel",
