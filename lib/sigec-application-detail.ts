@@ -102,6 +102,20 @@ export type SigecStageOption = {
   label: string
 }
 
+export type SigecDisqualificationReason = {
+  id: string
+  label: string
+  position: number
+}
+
+export type SigecDisqualificationDecision = {
+  reason_code: string
+  reason_label: string
+  public_message: string
+  catalog_version: number
+  decided_at: string
+}
+
 export function formatSigecAnswer(answer: unknown) {
   if (answer === null || answer === undefined || answer === '') return 'Não informado'
   if (answer === true) return 'Sim'

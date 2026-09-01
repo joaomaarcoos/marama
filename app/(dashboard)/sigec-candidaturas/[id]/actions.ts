@@ -53,6 +53,14 @@ const AdvanceStageSchema = z.object({
   publicReason: z.string().trim().min(3, 'Informe ao candidato o motivo da mudança.').max(2000),
 })
 
+const DisqualifySchema = z.object({
+  applicationId: z.string().uuid(),
+  reasonId: z.string().uuid('Selecione o motivo oficial.'),
+  publicMessage: z.string().trim().min(3, 'Explique a decisão ao candidato.').max(2000),
+  internalNote: z.string().trim().max(5000).optional().default(''),
+  confirmation: z.literal('DESCLASSIFICAR', { errorMap: () => ({ message: 'Digite DESCLASSIFICAR para confirmar.' }) }),
+}).strict()
+
 async function staffActor() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -163,4 +171,32 @@ export async function advanceSigecApplicationStage(input: unknown): Promise<{ er
   revalidatePath('/sigec-candidaturas')
   revalidatePath('/minha-area')
   return { success: 'Etapa atualizada e registrada no histórico.' }
+}
+
+export async function disqualifySigecApplication(input: unknown): Promise<{ error?: string; success?: string }> {
+  const parsed = DisqualifySchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message || 'Revise os dados da decisão.' }
+  const user = await staffActor()
+  if (!user) return { error: 'Acesso negado.' }
+  const { error } = await getAdminClient().rpc('sigec_disqualify_application', {
+    p_actor_id: user.id,
+    p_application_id: parsed.data.applicationId,
+    p_reason_item_id: parsed.data.reasonId,
+    p_public_message: parsed.data.publicMessage,
+    p_internal_note: parsed.data.internalNote || null,
+  })
+  if (error) {
+    const known: Record<string, string> = {
+      SIGEC_DISQUALIFICATION_ALREADY_DECIDED: 'Esta candidatura já foi desclassificada.',
+      SIGEC_DISQUALIFICATION_SUBMITTED_REQUIRED: 'Somente uma candidatura enviada pode ser desclassificada.',
+      SIGEC_DISQUALIFICATION_CONFIRMED_REASON_REQUIRED: 'O motivo precisa pertencer ao catálogo confirmado deste processo.',
+      SIGEC_DISQUALIFICATION_TRANSITION_REQUIRED: 'Configure uma transição ativa da etapa atual para Desclassificado.',
+    }
+    return { error: Object.entries(known).find(([code]) => error.message.includes(code))?.[1] || 'Não foi possível registrar a desclassificação.' }
+  }
+  revalidatePath(`/sigec-candidaturas/${parsed.data.applicationId}`)
+  revalidatePath('/sigec-candidaturas')
+  revalidatePath(`/minha-area/inscricoes/${parsed.data.applicationId}`)
+  revalidatePath('/minha-area')
+  return { success: 'Candidatura desclassificada e motivo disponibilizado ao candidato.' }
 }

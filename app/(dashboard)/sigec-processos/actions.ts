@@ -813,3 +813,37 @@ export async function confirmSigecScoringVersion(
   revalidatePath(`/sigec-processos/${parsed.data.processId}`)
   return { success: targetStatus === 'official' ? 'Versão oficial confirmada e bloqueada.' : 'Versão interna confirmada e bloqueada.', processId: parsed.data.processId }
 }
+
+export async function createSigecDisqualificationCatalog(processId: string): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem configurar os motivos.' }
+  const parsed = ProcessIdSchema.safeParse(processId)
+  if (!parsed.success) return { error: 'Processo inválido.' }
+  const { error } = await adminClient.rpc('sigec_create_disqualification_catalog', {
+    p_actor_id: user.id, p_process_id: parsed.data,
+  })
+  if (error) {
+    if (error.message.includes('DRAFT_EXISTS')) return { error: 'Já existe um catálogo aguardando confirmação.' }
+    if (error.message.includes('DRAFT_PROCESS_REQUIRED')) return { error: 'O catálogo só pode ser criado enquanto o processo está em rascunho.' }
+    return { error: 'Não foi possível criar o catálogo.' }
+  }
+  revalidatePath(`/sigec-processos/${parsed.data}`)
+  return { success: 'Rascunho criado para revisão. Nenhum motivo foi confirmado ainda.', processId: parsed.data }
+}
+
+export async function confirmSigecDisqualificationCatalog(processId: string, catalogId: string, explicitConfirmation: boolean): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem confirmar os motivos.' }
+  const parsed = z.object({ processId: ProcessIdSchema, catalogId: z.string().uuid(), explicitConfirmation: z.literal(true) }).safeParse({ processId, catalogId, explicitConfirmation })
+  if (!parsed.success) return { error: 'A confirmação explícita dos nove motivos é obrigatória.' }
+  const { error } = await adminClient.rpc('sigec_confirm_disqualification_catalog', {
+    p_actor_id: user.id, p_catalog_id: parsed.data.catalogId,
+  })
+  if (error) {
+    if (error.message.includes('NINE_REASONS_REQUIRED')) return { error: 'O catálogo precisa conter exatamente os nove motivos ativos.' }
+    if (error.message.includes('DRAFT_CATALOG_REQUIRED')) return { error: 'Somente um catálogo em rascunho de um processo em rascunho pode ser confirmado.' }
+    return { error: 'Não foi possível confirmar o catálogo.' }
+  }
+  revalidatePath(`/sigec-processos/${parsed.data.processId}`)
+  return { success: 'Catálogo confirmado e liberado para as decisões deste processo.', processId: parsed.data.processId }
+}

@@ -424,6 +424,42 @@ def main() -> int:
             "components/sigec-stage-advance-controls.tsx",
             "disabled={blocked || pending || !stageId || reason.trim().length < 3}",
         ),
+        "disqualification_catalog_uses_server_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "sigec_confirm_disqualification_catalog",
+        ),
+        "disqualification_catalog_requires_explicit_confirmation": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "explicitConfirmation: z.literal(true)",
+        ),
+        "disqualification_ui_warns_historical_source": (
+            "components/sigec-disqualification-catalog.tsx",
+            "Edital nº 01/2026 antigo",
+        ),
+        "disqualification_action_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "sigec_disqualify_application",
+        ),
+        "disqualification_action_uses_staff_guard": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "const user = await staffActor()",
+        ),
+        "disqualification_confirmation_is_destructive_explicit": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "confirmation: z.literal('DESCLASSIFICAR'",
+        ),
+        "disqualification_public_internal_are_distinct": (
+            "components/sigec-disqualification-controls.tsx",
+            "Nota interna (opcional)",
+        ),
+        "candidate_disqualification_uses_private_rpc": (
+            "app/(candidate)/minha-area/inscricoes/[id]/page.tsx",
+            "sigec_get_candidate_disqualification",
+        ),
+        "public_processes_prioritize_sigec": (
+            "app/(public)/processos/page.tsx",
+            "sigecPriority",
+        ),
         "process_publication_has_readiness_panel": (
             "app/(dashboard)/sigec-processos/[id]/page.tsx",
             "SigecProcessPublicationPanel",

@@ -5,6 +5,8 @@ import {
   type SigecApplicationDetail,
   type SigecAdvancementReadiness,
   type SigecDiligenceOption,
+  type SigecDisqualificationDecision,
+  type SigecDisqualificationReason,
   type SigecDocumentReview,
   type SigecInformationRequest,
   type SigecStageOption,
@@ -12,6 +14,7 @@ import {
 import { SigecDocumentReviewControls } from '@/components/sigec-document-review-controls'
 import { SigecDiligenceManager } from '@/components/sigec-diligence-manager'
 import { SigecStageAdvanceControls } from '@/components/sigec-stage-advance-controls'
+import { SigecDisqualificationControls } from '@/components/sigec-disqualification-controls'
 
 const stateLabels = { draft: 'Em preenchimento', submitted: 'Enviada', withdrawn: 'Retirada' }
 const consentLabels: Record<string, string> = {
@@ -40,7 +43,7 @@ function DocumentStatus({ document }: { document: SigecApplicationDetail['docume
   return <span className="text-xs font-semibold" style={{ color: 'hsl(var(--accent-amber))' }}>Aguardando análise</span>
 }
 
-export function SigecApplicationReviewDetail({ detail, reviews, requests, diligenceQuestions, diligenceDocuments, advancementReadiness, nextStages }: {
+export function SigecApplicationReviewDetail({ detail, reviews, requests, diligenceQuestions, diligenceDocuments, advancementReadiness, nextStages, disqualificationReasons, disqualificationDecision }: {
   detail: SigecApplicationDetail
   reviews: SigecDocumentReview[]
   requests: SigecInformationRequest[]
@@ -48,6 +51,8 @@ export function SigecApplicationReviewDetail({ detail, reviews, requests, dilige
   diligenceDocuments: SigecDiligenceOption[]
   advancementReadiness: SigecAdvancementReadiness
   nextStages: SigecStageOption[]
+  disqualificationReasons: SigecDisqualificationReason[]
+  disqualificationDecision: SigecDisqualificationDecision | null
 }) {
   const { application } = detail
   return <div className="space-y-5">
@@ -57,7 +62,9 @@ export function SigecApplicationReviewDetail({ detail, reviews, requests, dilige
 
     <SigecDiligenceManager applicationId={application.id} applicationState={application.applicationState} requests={requests} questions={diligenceQuestions} documents={diligenceDocuments} />
 
-    <SigecStageAdvanceControls applicationId={application.id} readiness={advancementReadiness} stages={nextStages} />
+    {!disqualificationDecision && <SigecStageAdvanceControls applicationId={application.id} readiness={advancementReadiness} stages={nextStages} />}
+
+    <SigecDisqualificationControls applicationId={application.id} applicationState={application.applicationState} reasons={disqualificationReasons} decision={disqualificationDecision} />
 
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.75fr)]">
       <div className="space-y-5">

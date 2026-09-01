@@ -28,6 +28,7 @@ import {
   SigecScoringConfiguration, type SigecScoringItemRow,
   type SigecScoringVersionRow, type SigecTieBreakRow,
 } from '@/components/sigec-scoring-configuration'
+import { SigecDisqualificationCatalog, type SigecDisqualificationCatalogRow, type SigecDisqualificationReasonRow } from '@/components/sigec-disqualification-catalog'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,7 +67,7 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
   if (processResult.error || !processResult.data) notFound()
 
   // Papel e RLS são confirmados antes de qualquer leitura com o cliente service-only.
-  const [readinessResult, modalitiesResult, vacanciesResult, requirementsResult, questionsResult, documentsResult, declarationsResult, stagesResult, transitionsResult, scoringVersionsResult] = await Promise.all([
+  const [readinessResult, modalitiesResult, vacanciesResult, requirementsResult, questionsResult, documentsResult, declarationsResult, stagesResult, transitionsResult, scoringVersionsResult, disqualificationCatalogsResult] = await Promise.all([
     adminClient.rpc('sigec_get_process_publication_readiness', { p_process_id: params.id }),
     supabase.from('sigec_modalities').select('id, name, slug, description').eq('process_id', params.id).order('position'),
     supabase.from('sigec_vacancies').select('id, modality_id, course_id, municipality, vacancy_kind, vacancy_count, active, course:sigec_courses(canonical_name)').eq('process_id', params.id).order('municipality'),
@@ -77,6 +78,7 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
     adminClient.from('sigec_process_stages').select('id, code, label, public_description, color, position, is_initial, is_terminal, allows_appeal, whatsapp_template').eq('process_id', params.id).order('position'),
     adminClient.from('sigec_process_stage_transitions').select('id, from_stage_id, to_stage_id, requires_reason, blocks_on_pending, active').eq('process_id', params.id).order('created_at'),
     adminClient.from('sigec_scoring_rule_versions').select('id, version, label, status, is_provisional, total_max_points, source_reference, recorded_at, confirmed_at').eq('process_id', params.id).order('version', { ascending: false }),
+    adminClient.from('sigec_disqualification_catalog_versions').select('id,version,source_reference,status,normative_status,confirmed_at').eq('process_id', params.id).order('version', { ascending: false }),
   ])
 
   const process = processResult.data as ProcessDetail
@@ -102,6 +104,8 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
   const stages = (stagesResult.data ?? []) as SigecStageRow[]
   const transitions = (transitionsResult.data ?? []) as SigecStageTransitionRow[]
   const scoringVersions = (scoringVersionsResult.data ?? []) as SigecScoringVersionRow[]
+  const disqualificationCatalogs = (disqualificationCatalogsResult.data ?? []) as SigecDisqualificationCatalogRow[]
+  const disqualificationCatalogIds = disqualificationCatalogs.map((catalog) => catalog.id)
   const scoringVersionIds = scoringVersions.map((version) => version.id)
   const [loadedScoringItems, loadedTieBreaks] = scoringVersionIds.length ? await Promise.all([
     adminClient.from('sigec_scoring_rule_items').select('id, rule_version_id, code, label, instructions, max_points, position').in('rule_version_id', scoringVersionIds).order('position'),
@@ -109,6 +113,10 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
   ]) : [{ data: [] }, { data: [] }]
   const scoringItems = (loadedScoringItems.data ?? []) as SigecScoringItemRow[]
   const tieBreaks = (loadedTieBreaks.data ?? []) as SigecTieBreakRow[]
+  const disqualificationReasonsResult = disqualificationCatalogIds.length
+    ? await adminClient.from('sigec_disqualification_reason_items').select('id,catalog_version_id,code,label,position,active').in('catalog_version_id', disqualificationCatalogIds).order('position')
+    : { data: [] }
+  const disqualificationReasons = (disqualificationReasonsResult.data ?? []) as SigecDisqualificationReasonRow[]
 
   return (
     <>
@@ -195,6 +203,7 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
           items={scoringItems}
           tieBreaks={tieBreaks}
         />
+        <SigecDisqualificationCatalog processId={process.id} editable={editable} catalogs={disqualificationCatalogs} reasons={disqualificationReasons} />
       </div>
     </>
   )

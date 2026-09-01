@@ -19,7 +19,9 @@ with expected(table_name) as (
     ('sigec_scoring_rule_versions'), ('sigec_scoring_rule_items'),
     ('sigec_tie_break_rules'),
     ('sigec_ranking_snapshots'), ('sigec_ranking_snapshot_entries'),
-    ('sigec_ranking_snapshot_approvals'), ('sigec_ranking_snapshot_publications')
+    ('sigec_ranking_snapshot_approvals'), ('sigec_ranking_snapshot_publications'),
+    ('sigec_disqualification_catalog_versions'), ('sigec_disqualification_reason_items'),
+    ('sigec_application_disqualifications'), ('sigec_disqualification_internal_notes')
 ), actual as (
   select c.relname as table_name, c.relrowsecurity as rls_enabled
   from pg_class c
@@ -580,5 +582,23 @@ select jsonb_build_object(
   'application_advancement_fixtures_absent', not exists (
     select 1 from auth.users
     where email like 'sigec-p5-advance-%@example.invalid'
+  ),
+  'disqualification_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations
+    where version = '20260901212822'
+  ),
+  'disqualification_contract_safe', (
+    not has_function_privilege('anon', 'public.sigec_create_disqualification_catalog(uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_create_disqualification_catalog(uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_create_disqualification_catalog(uuid,uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_disqualify_application(uuid,uuid,uuid,text,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_disqualify_application(uuid,uuid,uuid,text,text)', 'EXECUTE')
+    and not has_table_privilege('authenticated', 'public.sigec_application_disqualifications', 'SELECT,INSERT,UPDATE,DELETE')
+    and has_function_privilege('authenticated', 'public.sigec_get_candidate_disqualification(uuid)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.sigec_get_candidate_disqualification(uuid)', 'EXECUTE')
+  ),
+  'disqualification_fixtures_absent', not exists (
+    select 1 from auth.users
+    where email like 'sigec-p5-disqualify-%@example.invalid'
   )
 ) as sigec_remote_verification;

@@ -37,7 +37,10 @@ export default async function PublicProcessesPage() {
       account = { href: roleHome(role), label: role === 'candidato' ? 'Minha área' : 'Painel', email: user.email }
     }
     available = !result.error
-    processes = (result.data ?? []) as PublicProcess[]
+    processes = ((result.data ?? []) as PublicProcess[])
+      .map((process, index) => ({ process, index, sigecPriority: /sigec/i.test(`${process.title} ${process.slug}`) ? 0 : 1 }))
+      .sort((left, right) => left.sigecPriority - right.sigecPriority || left.index - right.index)
+      .map(({ process }) => process)
   }
 
   return (
