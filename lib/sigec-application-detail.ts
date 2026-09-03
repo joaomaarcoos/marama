@@ -174,6 +174,30 @@ export type SigecExperienceScore = {
   eligible_experience_count: number
 }
 
+export type SigecAcademicCategory = 'scientific_article' | 'book_or_chapter' | 'technical_material' | 'event_presentation' | 'continuing_education'
+
+export type SigecAcademicProductionReview = {
+  id: string
+  document_id: string
+  version: number
+  decision: 'eligible' | 'rejected'
+  category: SigecAcademicCategory
+  quantity: number
+  workload_hours: number | null
+  relevance_confirmed: boolean
+  used_as_mandatory_requirement: boolean
+  points_snapshot: number
+  public_reason: string | null
+  internal_rationale: string
+  created_at: string
+}
+
+export type SigecAcademicProductionScore = {
+  points: number
+  breakdown: Partial<Record<SigecAcademicCategory, number>>
+  eligible_evidence_count: number
+}
+
 export function formatSigecAnswer(answer: unknown) {
   if (answer === null || answer === undefined || answer === '') return 'Não informado'
   if (answer === true) return 'Sim'

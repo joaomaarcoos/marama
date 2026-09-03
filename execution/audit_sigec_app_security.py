@@ -376,6 +376,26 @@ def main() -> int:
             "components/sigec-experience-scoring-controls.tsx",
             "item.reviewStatus==='valid'",
         ),
+        "academic_review_action_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "sigec_review_academic_production",
+        ),
+        "academic_review_requires_internal_rationale": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "Registre uma justificativa interna para a decisão.",
+        ),
+        "academic_ui_requires_approved_document": (
+            "components/sigec-academic-production-scoring-controls.tsx",
+            "d.reviewStatus==='valid'",
+        ),
+        "academic_ui_confirms_relevance": (
+            "components/sigec-academic-production-scoring-controls.tsx",
+            "Relacionado à vaga escolhida",
+        ),
+        "academic_ui_marks_mandatory_reuse": (
+            "components/sigec-academic-production-scoring-controls.tsx",
+            "usado como requisito obrigatório",
+        ),
         "document_review_action_role_guard": (
             "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
             "['admin', 'gerente'].includes(extractRole(user))",

@@ -91,6 +91,22 @@ const ExperienceReviewSchema = z.object({
   }
 })
 
+const AcademicProductionReviewSchema = z.object({
+  applicationId: z.string().uuid(), documentId: z.string().uuid(),
+  decision: z.enum(['eligible', 'rejected']),
+  category: z.enum(['scientific_article', 'book_or_chapter', 'technical_material', 'event_presentation', 'continuing_education']),
+  quantity: z.coerce.number().int().min(1).max(1000),
+  workloadHours: z.coerce.number().int().min(0).max(10000).optional().default(0),
+  relevanceConfirmed: z.boolean(), usedAsMandatoryRequirement: z.boolean(),
+  publicReason: z.string().trim().max(2000).optional().default(''),
+  internalRationale: z.string().trim().min(3, 'Registre uma justificativa interna para a decisão.').max(2000),
+}).strict().superRefine((input, context) => {
+  if (input.category === 'continuing_education' && input.workloadHours < 20) context.addIssue({ code: z.ZodIssueCode.custom, path: ['workloadHours'], message: 'A formação precisa ter ao menos 20 horas para pontuar.' })
+  if (input.decision === 'eligible' && (!input.relevanceConfirmed || input.usedAsMandatoryRequirement)) context.addIssue({ code: z.ZodIssueCode.custom, message: 'Para aprovar, confirme a relação com a vaga e que o comprovante não foi usado como requisito obrigatório.' })
+  if (input.decision === 'eligible' && input.publicReason) context.addIssue({ code: z.ZodIssueCode.custom, path: ['publicReason'], message: 'A aprovação não deve incluir motivo de rejeição.' })
+  if (input.decision === 'rejected' && input.publicReason.length < 3) context.addIssue({ code: z.ZodIssueCode.custom, path: ['publicReason'], message: 'Explique ao candidato por que o comprovante não foi aceito.' })
+})
+
 async function staffActor() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -283,4 +299,30 @@ export async function reviewSigecExperienceEvidence(input: unknown): Promise<{ e
   }
   revalidatePath(`/sigec-candidaturas/${parsed.data.applicationId}`)
   return { success: parsed.data.decision === 'eligible' ? 'Período aprovado e pontuação recalculada.' : 'Comprovante do período não aceito.' }
+}
+
+export async function reviewSigecAcademicProduction(input: unknown): Promise<{ error?: string; success?: string }> {
+  const parsed = AcademicProductionReviewSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message || 'Revise os dados da produção.' }
+  const user = await staffActor()
+  if (!user) return { error: 'Acesso negado.' }
+  const value = parsed.data
+  const { error } = await getAdminClient().rpc('sigec_review_academic_production', {
+    p_actor_id: user.id, p_application_id: value.applicationId, p_document_id: value.documentId,
+    p_decision: value.decision, p_category: value.category, p_quantity: value.quantity,
+    p_workload_hours: value.category === 'continuing_education' ? value.workloadHours : null,
+    p_relevance_confirmed: value.relevanceConfirmed, p_used_as_mandatory_requirement: value.usedAsMandatoryRequirement,
+    p_public_reason: value.publicReason || null, p_internal_rationale: value.internalRationale,
+  })
+  if (error) {
+    const known: Record<string,string> = {
+      SIGEC_ACADEMIC_SUBMITTED_APPLICATION_REQUIRED: 'A candidatura precisa estar enviada para análise.',
+      SIGEC_ACADEMIC_APPROVED_CURRENT_DOCUMENT_REQUIRED: 'Selecione um documento atual que já tenha sido aprovado.',
+      SIGEC_ACADEMIC_INPUT_INVALID: 'Revise categoria, quantidade, pertinência e justificativas.',
+      SIGEC_ACADEMIC_NO_SCORE: 'A carga horária informada não gera pontuação.',
+    }
+    return { error: Object.entries(known).find(([code]) => error.message.includes(code))?.[1] || 'Não foi possível registrar a pontuação.' }
+  }
+  revalidatePath(`/sigec-candidaturas/${value.applicationId}`)
+  return { success: value.decision === 'eligible' ? 'Comprovante pontuado dentro dos limites da categoria.' : 'Comprovante não aceito.' }
 }

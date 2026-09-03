@@ -292,6 +292,16 @@ def audit(sql: str) -> dict[str, object]:
         "experience_score_exact_bands": r"months <= 12 then 5[\s\S]*?months <= 24 then 10[\s\S]*?months <= 36 then 20[\s\S]*?months <= 48 then 30[\s\S]*?else 40",
         "experience_audit_omits_reason_body": r"'haspublicreason', normalized_reason is not null",
         "experience_rpcs_service_only": r"revoke all on function public\.sigec_review_experience_evidence.*?from public, anon, authenticated[\s\S]*?revoke all on function public\.sigec_get_experience_score.*?from public, anon, authenticated",
+        "academic_reviews_service_only": r"revoke all on public\.sigec_academic_production_reviews from public, anon, authenticated",
+        "academic_reviews_append_only": r"sigec_academic_reviews_immutable before update or delete",
+        "academic_review_staff_gate": r"sigec_review_academic_production[\s\S]*?in \('admin','gerente'\)",
+        "academic_review_requires_approved_document": r"sigec_review_academic_production[\s\S]*?technical_status='validated'[\s\S]*?malware_status='clean'[\s\S]*?review_status='valid'",
+        "academic_review_requires_relevance": r"not coalesce\(p_relevance_confirmed,false\)",
+        "academic_review_blocks_mandatory_reuse": r"coalesce\(p_used_as_mandatory_requirement,false\)",
+        "academic_score_category_caps": r"scientific_article' then 10[\s\S]*?book_or_chapter' then 5[\s\S]*?technical_material' then 6[\s\S]*?event_presentation' then 4[\s\S]*?else 5",
+        "academic_score_one_latest_category_per_document": r"distinct on \(review\.document_id\)[\s\S]*?order by review\.document_id,review\.version desc",
+        "academic_audit_omits_reason_bodies": r"'haspublicreason',normalized_public is not null,'hasinternalrationale',true",
+        "academic_rpcs_service_only": r"revoke all on function public\.sigec_review_academic_production.*?from public,anon,authenticated[\s\S]*?revoke all on function public\.sigec_get_academic_production_score.*?from public,anon,authenticated",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):
