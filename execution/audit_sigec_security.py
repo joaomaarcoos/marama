@@ -311,6 +311,12 @@ def audit(sql: str) -> dict[str, object]:
         "consolidated_score_atomic_application_update": r"update public\.sigec_applications set score_total=final_points,updated_at=now\(\)",
         "consolidated_score_algorithm_versioned": r"'sigec-score-v1'",
         "consolidated_score_rpc_service_only": r"revoke all on function public\.sigec_recalculate_application_score\(uuid,uuid\) from public,anon,authenticated",
+        "ranking_review_rpc_service_only": r"revoke all on function public\.sigec_approve_ranking_snapshot\(uuid, uuid, text\) from public, anon, authenticated",
+        "ranking_publication_rpc_service_only": r"revoke all on function public\.sigec_publish_ranking_snapshot\(uuid, uuid, text\) from public, anon, authenticated",
+        "ranking_reviewer_role_gate": r"sigec_ranking_reviewer_required",
+        "ranking_latest_snapshot_gate": r"sigec_latest_ranking_snapshot_required",
+        "ranking_replacement_chain": r"sigec_publication_replacement_chain_required",
+        "ranking_publication_audited": r"'ranking_snapshot_published'",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

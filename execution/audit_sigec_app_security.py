@@ -412,6 +412,26 @@ def main() -> int:
             "components/sigec-consolidated-score-controls.tsx",
             "Consolidar nota",
         ),
+        "ranking_review_action_uses_server_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "sigec_approve_ranking_snapshot",
+        ),
+        "ranking_publication_action_uses_server_rpc": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "sigec_publish_ranking_snapshot",
+        ),
+        "ranking_publication_requires_explicit_confirmation": (
+            "app/(dashboard)/sigec-processos/actions.ts",
+            "explicitConfirmation: z.literal(true)",
+        ),
+        "ranking_ui_shows_two_person_gate": (
+            "components/sigec-ranking-publication-controls.tsx",
+            "Dupla confirmação",
+        ),
+        "ranking_ui_hides_until_snapshot_exists": (
+            "components/sigec-ranking-publication-controls.tsx",
+            "Nenhum resultado oficial está pronto para revisão",
+        ),
         "document_review_action_role_guard": (
             "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
             "['admin', 'gerente'].includes(extractRole(user))",

@@ -29,6 +29,12 @@ import {
   type SigecScoringVersionRow, type SigecTieBreakRow,
 } from '@/components/sigec-scoring-configuration'
 import { SigecDisqualificationCatalog, type SigecDisqualificationCatalogRow, type SigecDisqualificationReasonRow } from '@/components/sigec-disqualification-catalog'
+import {
+  SigecRankingPublicationControls,
+  type SigecRankingApprovalRow,
+  type SigecRankingPublicationRow,
+  type SigecRankingSnapshotRow,
+} from '@/components/sigec-ranking-publication-controls'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,7 +73,7 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
   if (processResult.error || !processResult.data) notFound()
 
   // Papel e RLS são confirmados antes de qualquer leitura com o cliente service-only.
-  const [readinessResult, modalitiesResult, vacanciesResult, requirementsResult, questionsResult, documentsResult, declarationsResult, stagesResult, transitionsResult, scoringVersionsResult, disqualificationCatalogsResult] = await Promise.all([
+  const [readinessResult, modalitiesResult, vacanciesResult, requirementsResult, questionsResult, documentsResult, declarationsResult, stagesResult, transitionsResult, scoringVersionsResult, disqualificationCatalogsResult, rankingSnapshotsResult] = await Promise.all([
     adminClient.rpc('sigec_get_process_publication_readiness', { p_process_id: params.id }),
     supabase.from('sigec_modalities').select('id, name, slug, description').eq('process_id', params.id).order('position'),
     supabase.from('sigec_vacancies').select('id, modality_id, course_id, municipality, vacancy_kind, vacancy_count, active, course:sigec_courses(canonical_name)').eq('process_id', params.id).order('municipality'),
@@ -79,6 +85,7 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
     adminClient.from('sigec_process_stage_transitions').select('id, from_stage_id, to_stage_id, requires_reason, blocks_on_pending, active').eq('process_id', params.id).order('created_at'),
     adminClient.from('sigec_scoring_rule_versions').select('id, version, label, status, is_provisional, total_max_points, source_reference, recorded_at, confirmed_at').eq('process_id', params.id).order('version', { ascending: false }),
     adminClient.from('sigec_disqualification_catalog_versions').select('id,version,source_reference,status,normative_status,confirmed_at').eq('process_id', params.id).order('version', { ascending: false }),
+    adminClient.from('sigec_ranking_snapshots').select('id,phase,version,algorithm_version,row_count,content_hash,frozen_at').eq('process_id', params.id).eq('state', 'frozen').in('phase', ['preliminary', 'final']).order('version', { ascending: false }),
   ])
 
   const process = processResult.data as ProcessDetail
@@ -105,6 +112,8 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
   const transitions = (transitionsResult.data ?? []) as SigecStageTransitionRow[]
   const scoringVersions = (scoringVersionsResult.data ?? []) as SigecScoringVersionRow[]
   const disqualificationCatalogs = (disqualificationCatalogsResult.data ?? []) as SigecDisqualificationCatalogRow[]
+  const rankingSnapshots = (rankingSnapshotsResult.data ?? []) as SigecRankingSnapshotRow[]
+  const rankingSnapshotIds = rankingSnapshots.map((snapshot) => snapshot.id)
   const disqualificationCatalogIds = disqualificationCatalogs.map((catalog) => catalog.id)
   const scoringVersionIds = scoringVersions.map((version) => version.id)
   const [loadedScoringItems, loadedTieBreaks] = scoringVersionIds.length ? await Promise.all([
@@ -117,6 +126,12 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
     ? await adminClient.from('sigec_disqualification_reason_items').select('id,catalog_version_id,code,label,position,active').in('catalog_version_id', disqualificationCatalogIds).order('position')
     : { data: [] }
   const disqualificationReasons = (disqualificationReasonsResult.data ?? []) as SigecDisqualificationReasonRow[]
+  const [rankingApprovalsResult, rankingPublicationsResult] = rankingSnapshotIds.length ? await Promise.all([
+    adminClient.from('sigec_ranking_snapshot_approvals').select('id,snapshot_id,approver_id,approved_at').in('snapshot_id', rankingSnapshotIds).order('approved_at'),
+    adminClient.from('sigec_ranking_snapshot_publications').select('id,snapshot_id,public_label,published_at,supersedes_publication_id').in('snapshot_id', rankingSnapshotIds).order('published_at'),
+  ]) : [{ data: [] }, { data: [] }]
+  const rankingApprovals = (rankingApprovalsResult.data ?? []) as SigecRankingApprovalRow[]
+  const rankingPublications = (rankingPublicationsResult.data ?? []) as SigecRankingPublicationRow[]
 
   return (
     <>
@@ -204,6 +219,13 @@ export default async function SigecProcessDetailPage({ params }: { params: { id:
           tieBreaks={tieBreaks}
         />
         <SigecDisqualificationCatalog processId={process.id} editable={editable} catalogs={disqualificationCatalogs} reasons={disqualificationReasons} />
+        <SigecRankingPublicationControls
+          processId={process.id}
+          currentUserId={user.id}
+          snapshots={rankingSnapshots}
+          approvals={rankingApprovals}
+          publications={rankingPublications}
+        />
       </div>
     </>
   )

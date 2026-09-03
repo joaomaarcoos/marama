@@ -692,5 +692,25 @@ select jsonb_build_object(
   ),
   'consolidated_score_fixtures_absent', not exists (
     select 1 from auth.users where email like 'sigec-p6-total-%@example.invalid'
+  ),
+  'ranking_four_eyes_migrations_applied', (
+    select count(*) = 3 from supabase_migrations.schema_migrations
+    where version in ('20260903133220', '20260903133727', '20260903133900')
+  ),
+  'ranking_four_eyes_contract_safe', (
+    not has_function_privilege('authenticated', 'public.sigec_approve_ranking_snapshot(uuid,uuid,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_approve_ranking_snapshot(uuid,uuid,text)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.sigec_publish_ranking_snapshot(uuid,uuid,text)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_publish_ranking_snapshot(uuid,uuid,text)', 'EXECUTE')
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'sigec_ranking_snapshot_publications'
+        and column_name = 'supersedes_publication_id'
+    )
+    and position('SIGEC_LATEST_RANKING_SNAPSHOT_REQUIRED' in pg_get_functiondef('private.sigec_validate_snapshot_publication()'::regprocedure)) > 0
+    and position('SIGEC_PUBLICATION_REPLACEMENT_CHAIN_REQUIRED' in pg_get_functiondef('private.sigec_validate_snapshot_publication()'::regprocedure)) > 0
+  ),
+  'ranking_four_eyes_fixtures_absent', not exists (
+    select 1 from auth.users where email like 'sigec-test-ranking-%@example.invalid'
   )
 ) as sigec_remote_verification;

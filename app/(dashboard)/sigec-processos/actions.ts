@@ -164,6 +164,19 @@ const TieBreakInputSchema = z.object({
   direction: z.enum(['asc', 'desc']), position: z.coerce.number().int().positive().max(100),
 })
 
+const RankingReviewInputSchema = z.object({
+  processId: z.string().uuid(),
+  snapshotId: z.string().uuid(),
+  statement: z.string().trim().min(10, 'Descreva o que foi revisado.').max(2000),
+})
+
+const RankingPublicationInputSchema = z.object({
+  processId: z.string().uuid(),
+  snapshotId: z.string().uuid(),
+  publicLabel: z.string().trim().min(3, 'Informe o nome público do resultado.').max(240),
+  explicitConfirmation: z.literal(true),
+})
+
 async function requireSigecManager() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -812,6 +825,66 @@ export async function confirmSigecScoringVersion(
   }
   revalidatePath(`/sigec-processos/${parsed.data.processId}`)
   return { success: targetStatus === 'official' ? 'Versão oficial confirmada e bloqueada.' : 'Versão interna confirmada e bloqueada.', processId: parsed.data.processId }
+}
+
+export async function approveSigecRankingSnapshot(formData: FormData): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem revisar resultados.' }
+  const parsed = RankingReviewInputSchema.safeParse({
+    processId: formData.get('processId'),
+    snapshotId: formData.get('snapshotId'),
+    statement: formData.get('statement'),
+  })
+  if (!parsed.success) return { error: firstValidationError(parsed.error) }
+
+  const input = parsed.data
+  const { error } = await adminClient.rpc('sigec_approve_ranking_snapshot', {
+    p_actor_id: user.id,
+    p_snapshot_id: input.snapshotId,
+    p_statement: input.statement,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao aprovar resultado:', error.code, error.message)
+    if (error.code === '23505') return { error: 'Você já confirmou esta versão.' }
+    if (error.message.includes('LATEST_RANKING')) return { error: 'Existe uma versão mais nova para revisar.' }
+    if (error.message.includes('ALREADY_PUBLISHED')) return { error: 'Esta versão já foi publicada.' }
+    if (error.message.includes('OFFICIAL_FROZEN')) return { error: 'Somente um resultado oficial concluído pode ser confirmado.' }
+    return { error: 'Não foi possível registrar sua confirmação.' }
+  }
+
+  revalidatePath(`/sigec-processos/${input.processId}`)
+  return { success: 'Sua confirmação foi registrada.', processId: input.processId }
+}
+
+export async function publishSigecRankingSnapshot(formData: FormData): Promise<SigecProcessActionState> {
+  const user = await requireSigecManager()
+  if (!user) return { error: 'Apenas administradores e gerentes podem publicar resultados.' }
+  const parsed = RankingPublicationInputSchema.safeParse({
+    processId: formData.get('processId'),
+    snapshotId: formData.get('snapshotId'),
+    publicLabel: formData.get('publicLabel'),
+    explicitConfirmation: formData.get('explicitConfirmation') === 'true',
+  })
+  if (!parsed.success) return { error: firstValidationError(parsed.error) }
+
+  const input = parsed.data
+  const { error } = await adminClient.rpc('sigec_publish_ranking_snapshot', {
+    p_actor_id: user.id,
+    p_snapshot_id: input.snapshotId,
+    p_public_label: input.publicLabel,
+  })
+  if (error) {
+    console.error('[sigec] Falha ao publicar resultado:', error.code, error.message)
+    if (error.code === '23505') return { error: 'Esta versão já foi publicada.' }
+    if (error.message.includes('TWO_PERSON')) return { error: 'São necessárias confirmações de duas pessoas diferentes.' }
+    if (error.message.includes('LATEST_RANKING')) return { error: 'Existe uma versão mais nova; publique somente a revisão atual.' }
+    if (error.message.includes('CURRENT_RANKING_EVIDENCE') || error.message.includes('NORMATIVE_DECISIONS')) return { error: 'As regras oficiais usadas neste resultado não estão mais vigentes.' }
+    if (error.message.includes('REPLACEMENT_CHAIN')) return { error: 'A substituição não corresponde à última publicação oficial.' }
+    return { error: 'Não foi possível publicar o resultado.' }
+  }
+
+  revalidatePath(`/sigec-processos/${input.processId}`)
+  return { success: 'Resultado oficial publicado com trilha de auditoria.', processId: input.processId }
 }
 
 export async function createSigecDisqualificationCatalog(processId: string): Promise<SigecProcessActionState> {

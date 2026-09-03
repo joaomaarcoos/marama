@@ -316,7 +316,7 @@ def main() -> int:
                 returning id
                 """,
                 (process_id, version, f"confirmed-{version}", Json({"municipality": "São Luís"}),
-                 str(version + 5) * 64, sources, quota, manager_a),
+                 format((version + 5) % 16, "x") * 64, sources, quota, manager_a),
             )
             snapshot_id = cursor.fetchone()[0]
             cursor.execute(
@@ -340,7 +340,7 @@ def main() -> int:
                     content_hash = %s
                 where id = %s
                 """,
-                (manager_a, str(version + 6) * 64, snapshot_id),
+                (manager_a, format((version + 6) % 16, "x") * 64, snapshot_id),
             )
             return snapshot_id
 
@@ -430,6 +430,68 @@ def main() -> int:
             (publication_id,),
             ("SIGEC_IMMUTABLE_RECORD", "42501"),
         )
+
+        superseded_candidate = create_official_snapshot(4, decision_ids, current_quota_id)
+        replacement_snapshot = create_official_snapshot(5, decision_ids, current_quota_id)
+        as_actor(manager_a, "gerente")
+        expect_error(
+            "older_frozen_snapshot_cannot_be_reviewed",
+            """
+            insert into public.sigec_ranking_snapshot_approvals
+              (snapshot_id, approver_id, statement)
+            values (%s, %s, 'Revisão de versão antiga para teste.')
+            """,
+            (superseded_candidate, manager_a),
+            "SIGEC_LATEST_RANKING_SNAPSHOT_REQUIRED",
+        )
+        as_actor(attendant, "atendente")
+        expect_error(
+            "attendant_cannot_approve_official_result",
+            """
+            insert into public.sigec_ranking_snapshot_approvals
+              (snapshot_id, approver_id, statement)
+            values (%s, %s, 'Tentativa de confirmação por atendente.')
+            """,
+            (replacement_snapshot, attendant),
+            ("SIGEC_RANKING_REVIEWER_REQUIRED", "42501"),
+        )
+        for actor in (manager_a, manager_b):
+            as_actor(actor, "gerente")
+            cursor.execute(
+                "insert into public.sigec_ranking_snapshot_approvals (snapshot_id, approver_id, statement) values (%s, %s, %s)",
+                (replacement_snapshot, actor, "Confirmação independente da versão substituta."),
+            )
+        as_actor(manager_a, "gerente")
+        expect_error(
+            "replacement_requires_publication_chain",
+            """
+            insert into public.sigec_ranking_snapshot_publications
+              (snapshot_id, public_label, published_by)
+            values (%s, 'Resultado preliminar substituto', %s)
+            """,
+            (replacement_snapshot, manager_a),
+            "SIGEC_PUBLICATION_REPLACEMENT_CHAIN_REQUIRED",
+        )
+        cursor.execute("reset role")
+        cursor.execute(
+            "select public.sigec_publish_ranking_snapshot(%s, %s, %s)",
+            (manager_a, replacement_snapshot, "Resultado preliminar substituto"),
+        )
+        replacement_publication_id = cursor.fetchone()[0]
+        cursor.execute(
+            "select supersedes_publication_id from public.sigec_ranking_snapshot_publications where id = %s",
+            (replacement_publication_id,),
+        )
+        if cursor.fetchone()[0] != publication_id:
+            raise AssertionError("replacement_publication_chain_invalid")
+        checks.append("server_publication_preserves_replacement_chain")
+
+        cursor.execute(
+            "select has_function_privilege('authenticated', 'public.sigec_publish_ranking_snapshot(uuid,uuid,text)', 'execute')"
+        )
+        if cursor.fetchone()[0]:
+            raise AssertionError("ranking_publication_rpc_exposed_to_authenticated")
+        checks.append("ranking_publication_rpc_is_service_only")
 
         as_actor(candidate, "candidato")
         cursor.execute("select count(*) from public.sigec_ranking_snapshot_publications")
