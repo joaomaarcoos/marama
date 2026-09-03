@@ -107,6 +107,8 @@ const AcademicProductionReviewSchema = z.object({
   if (input.decision === 'rejected' && input.publicReason.length < 3) context.addIssue({ code: z.ZodIssueCode.custom, path: ['publicReason'], message: 'Explique ao candidato por que o comprovante não foi aceito.' })
 })
 
+const RecalculateScoreSchema = z.object({ applicationId: z.string().uuid() }).strict()
+
 async function staffActor() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -325,4 +327,25 @@ export async function reviewSigecAcademicProduction(input: unknown): Promise<{ e
   }
   revalidatePath(`/sigec-candidaturas/${value.applicationId}`)
   return { success: value.decision === 'eligible' ? 'Comprovante pontuado dentro dos limites da categoria.' : 'Comprovante não aceito.' }
+}
+
+export async function recalculateSigecApplicationScore(input: unknown): Promise<{ error?: string; success?: string }> {
+  const parsed = RecalculateScoreSchema.safeParse(input)
+  if (!parsed.success) return { error: 'Candidatura inválida.' }
+  const user = await staffActor()
+  if (!user) return { error: 'Acesso negado.' }
+  const { error } = await getAdminClient().rpc('sigec_recalculate_application_score', { p_actor_id: user.id, p_application_id: parsed.data.applicationId })
+  if (error) {
+    const known: Record<string,string> = {
+      SIGEC_SCORE_SUBMITTED_APPLICATION_REQUIRED: 'A candidatura precisa estar enviada para calcular a nota.',
+      SIGEC_SCORE_COMPONENT_OUT_OF_RANGE: 'Um componente ultrapassou o limite permitido.',
+      SIGEC_SCORE_TOTAL_OUT_OF_RANGE: 'A nota total ultrapassou o limite de 100 pontos.',
+    }
+    return { error: Object.entries(known).find(([code]) => error.message.includes(code))?.[1] || 'Não foi possível consolidar a nota.' }
+  }
+  revalidatePath(`/sigec-candidaturas/${parsed.data.applicationId}`)
+  revalidatePath('/sigec-candidaturas')
+  revalidatePath(`/minha-area/inscricoes/${parsed.data.applicationId}`)
+  revalidatePath('/minha-area')
+  return { success: 'Nota consolidada e nova versão registrada.' }
 }

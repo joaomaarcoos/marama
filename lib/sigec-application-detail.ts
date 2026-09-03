@@ -198,6 +198,17 @@ export type SigecAcademicProductionScore = {
   eligible_evidence_count: number
 }
 
+export type SigecConsolidatedScoreSnapshot = {
+  id: string
+  version: number
+  algorithm_version: string
+  postgraduate_points: number
+  experience_points: number
+  academic_points: number
+  total_points: number
+  created_at: string
+}
+
 export function formatSigecAnswer(answer: unknown) {
   if (answer === null || answer === undefined || answer === '') return 'Não informado'
   if (answer === true) return 'Sim'

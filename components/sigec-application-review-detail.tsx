@@ -5,6 +5,7 @@ import {
   type SigecApplicationDetail,
   type SigecAcademicProductionReview,
   type SigecAcademicProductionScore,
+  type SigecConsolidatedScoreSnapshot,
   type SigecAdvancementReadiness,
   type SigecDiligenceOption,
   type SigecDisqualificationDecision,
@@ -26,6 +27,7 @@ import { SigecDisqualificationControls } from '@/components/sigec-disqualificati
 import { SigecPostgraduateScoringControls } from '@/components/sigec-postgraduate-scoring-controls'
 import { SigecExperienceScoringControls } from '@/components/sigec-experience-scoring-controls'
 import { SigecAcademicProductionScoringControls } from '@/components/sigec-academic-production-scoring-controls'
+import { SigecConsolidatedScoreControls } from '@/components/sigec-consolidated-score-controls'
 
 const stateLabels = { draft: 'Em preenchimento', submitted: 'Enviada', withdrawn: 'Retirada' }
 const consentLabels: Record<string, string> = {
@@ -54,7 +56,7 @@ function DocumentStatus({ document }: { document: SigecApplicationDetail['docume
   return <span className="text-xs font-semibold" style={{ color: 'hsl(var(--accent-amber))' }}>Aguardando análise</span>
 }
 
-export function SigecApplicationReviewDetail({ detail, reviews, requests, diligenceQuestions, diligenceDocuments, advancementReadiness, nextStages, disqualificationReasons, disqualificationDecision, postgraduateEducation, postgraduateReviews, postgraduateScore, teachingExperience, experienceReviews, experienceScore, academicReviews, academicScore }: {
+export function SigecApplicationReviewDetail({ detail, reviews, requests, diligenceQuestions, diligenceDocuments, advancementReadiness, nextStages, disqualificationReasons, disqualificationDecision, postgraduateEducation, postgraduateReviews, postgraduateScore, teachingExperience, experienceReviews, experienceScore, academicReviews, academicScore, latestScoreSnapshot }: {
   detail: SigecApplicationDetail
   reviews: SigecDocumentReview[]
   requests: SigecInformationRequest[]
@@ -72,12 +74,15 @@ export function SigecApplicationReviewDetail({ detail, reviews, requests, dilige
   experienceScore: SigecExperienceScore
   academicReviews: SigecAcademicProductionReview[]
   academicScore: SigecAcademicProductionScore
+  latestScoreSnapshot: SigecConsolidatedScoreSnapshot | null
 }) {
   const { application } = detail
   return <div className="space-y-5">
     <section className="rounded-2xl p-5 sm:p-7" style={{ background: 'linear-gradient(120deg, hsl(var(--card)), hsl(var(--accent-blue) / .07))', border: '1px solid hsl(var(--border))' }}>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-[.14em]" style={{ color: 'hsl(var(--accent-green))' }}>{application.processTitle}</p><h1 className="mt-2 break-words text-2xl font-semibold tracking-tight sm:text-3xl" style={{ color: 'hsl(var(--fg1))' }}>{application.candidateName}</h1><div className="mt-3 flex flex-wrap gap-2"><span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: 'hsl(var(--accent-blue) / .12)', color: 'hsl(var(--accent-blue))' }}>{stateLabels[application.applicationState]}</span><span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: 'hsl(var(--muted))', color: 'hsl(var(--fg2))' }}>{application.stageLabel || 'Sem etapa definida'}</span></div></div><div className="grid grid-cols-2 gap-3 sm:flex"><div className="min-w-32 rounded-xl px-4 py-3" style={{ background: 'hsl(var(--bg) / .7)', border: '1px solid hsl(var(--border))' }}><p className="text-[11px]" style={{ color: 'hsl(var(--fg3))' }}>Enviada em</p><p className="mt-1 text-sm font-semibold" style={{ color: 'hsl(var(--fg1))' }}>{formatSigecDate(application.submittedAt, true)}</p></div><div className="min-w-32 rounded-xl px-4 py-3" style={{ background: 'hsl(var(--bg) / .7)', border: '1px solid hsl(var(--border))' }}><p className="text-[11px]" style={{ color: 'hsl(var(--fg3))' }}>Pontuação atual</p><p className="mt-1 font-data text-lg" style={{ color: 'hsl(var(--fg1))' }}>{application.scoreTotal === null ? 'Não avaliada' : application.scoreTotal.toLocaleString('pt-BR')}</p></div></div></div>
     </section>
+
+    <SigecConsolidatedScoreControls applicationId={application.id} applicationState={application.applicationState} currentTotal={application.scoreTotal} postgraduate={postgraduateScore} experience={experienceScore} academic={academicScore} latestSnapshot={latestScoreSnapshot} />
 
     <SigecDiligenceManager applicationId={application.id} applicationState={application.applicationState} requests={requests} questions={diligenceQuestions} documents={diligenceDocuments} />
 

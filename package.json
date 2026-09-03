@@ -34,6 +34,7 @@
     "sigec:test:remote-postgraduate-scoring": "py execution/test_sigec_postgraduate_scoring.py",
     "sigec:test:remote-experience-scoring": "py execution/test_sigec_experience_scoring.py",
     "sigec:test:remote-academic-scoring": "py execution/test_sigec_academic_production_scoring.py",
+    "sigec:test:remote-consolidated-score": "py execution/test_sigec_consolidated_score.py",
     "sigec:test:remote-candidate-education": "py execution/test_sigec_candidate_education.py",
     "sigec:test:remote-candidate-experience": "py execution/test_sigec_candidate_experience.py",
     "sigec:test:remote-candidate-documents": "py execution/test_sigec_candidate_documents.py",

@@ -23,7 +23,7 @@ with expected(table_name) as (
     ('sigec_disqualification_catalog_versions'), ('sigec_disqualification_reason_items'),
     ('sigec_application_disqualifications'), ('sigec_disqualification_internal_notes'),
     ('sigec_postgraduate_evidence_reviews'), ('sigec_experience_evidence_reviews'),
-    ('sigec_academic_production_reviews')
+    ('sigec_academic_production_reviews'), ('sigec_application_score_snapshots')
 ), actual as (
   select c.relname as table_name, c.relrowsecurity as rls_enabled
   from pg_class c
@@ -674,5 +674,23 @@ select jsonb_build_object(
   ),
   'academic_scoring_fixtures_absent', not exists (
     select 1 from auth.users where email like 'sigec-p6-academic-%@example.invalid'
+  ),
+  'consolidated_score_migration_applied', exists (
+    select 1 from supabase_migrations.schema_migrations where version = '20260903132251'
+  ),
+  'consolidated_score_contract_safe', (
+    not has_table_privilege('authenticated', 'public.sigec_application_score_snapshots', 'SELECT,INSERT,UPDATE,DELETE')
+    and not has_function_privilege('authenticated', 'public.sigec_recalculate_application_score(uuid,uuid)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.sigec_recalculate_application_score(uuid,uuid)', 'EXECUTE')
+    and exists (
+      select 1 from pg_constraint constraint_row
+      join pg_class relation on relation.oid = constraint_row.conrelid
+      where relation.relname = 'sigec_applications'
+        and constraint_row.conname = 'sigec_applications_score_total_cap'
+        and constraint_row.convalidated
+    )
+  ),
+  'consolidated_score_fixtures_absent', not exists (
+    select 1 from auth.users where email like 'sigec-p6-total-%@example.invalid'
   )
 ) as sigec_remote_verification;

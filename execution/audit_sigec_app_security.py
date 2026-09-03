@@ -396,6 +396,22 @@ def main() -> int:
             "components/sigec-academic-production-scoring-controls.tsx",
             "usado como requisito obrigatório",
         ),
+        "consolidated_score_action_uses_atomic_rpc": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "sigec_recalculate_application_score",
+        ),
+        "consolidated_score_revalidates_candidate_area": (
+            "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
+            "revalidatePath(`/minha-area/inscricoes/${parsed.data.applicationId}`)",
+        ),
+        "consolidated_score_ui_shows_100_cap": (
+            "components/sigec-consolidated-score-controls.tsx",
+            "<span className=\"text-lg font-medium\"",
+        ),
+        "consolidated_score_ui_requires_explicit_action": (
+            "components/sigec-consolidated-score-controls.tsx",
+            "Consolidar nota",
+        ),
         "document_review_action_role_guard": (
             "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
             "['admin', 'gerente'].includes(extractRole(user))",

@@ -302,6 +302,15 @@ def audit(sql: str) -> dict[str, object]:
         "academic_score_one_latest_category_per_document": r"distinct on \(review\.document_id\)[\s\S]*?order by review\.document_id,review\.version desc",
         "academic_audit_omits_reason_bodies": r"'haspublicreason',normalized_public is not null,'hasinternalrationale',true",
         "academic_rpcs_service_only": r"revoke all on function public\.sigec_review_academic_production.*?from public,anon,authenticated[\s\S]*?revoke all on function public\.sigec_get_academic_production_score.*?from public,anon,authenticated",
+        "consolidated_score_application_cap": r"sigec_applications_score_total_cap check \(score_total is null or score_total between 0 and 100\)",
+        "consolidated_score_snapshots_service_only": r"revoke all on public\.sigec_application_score_snapshots from public, anon, authenticated",
+        "consolidated_score_snapshots_append_only": r"sigec_score_snapshots_immutable before update or delete",
+        "consolidated_score_exact_component_caps": r"postgraduate_points between 0 and 30[\s\S]*?experience_points between 0 and 40[\s\S]*?academic_points between 0 and 30",
+        "consolidated_score_total_cap": r"postgraduate_points \+ experience_points \+ academic_points <= 100",
+        "consolidated_score_role_gate": r"sigec_recalculate_application_score[\s\S]*?in \('admin','gerente'\)",
+        "consolidated_score_atomic_application_update": r"update public\.sigec_applications set score_total=final_points,updated_at=now\(\)",
+        "consolidated_score_algorithm_versioned": r"'sigec-score-v1'",
+        "consolidated_score_rpc_service_only": r"revoke all on function public\.sigec_recalculate_application_score\(uuid,uuid\) from public,anon,authenticated",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):
