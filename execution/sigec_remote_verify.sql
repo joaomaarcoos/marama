@@ -23,7 +23,8 @@ with expected(table_name) as (
     ('sigec_disqualification_catalog_versions'), ('sigec_disqualification_reason_items'),
     ('sigec_application_disqualifications'), ('sigec_disqualification_internal_notes'),
     ('sigec_postgraduate_evidence_reviews'), ('sigec_experience_evidence_reviews'),
-    ('sigec_academic_production_reviews'), ('sigec_application_score_snapshots')
+    ('sigec_academic_production_reviews'), ('sigec_application_score_snapshots'),
+    ('sigec_appeal_windows')
 ), actual as (
   select c.relname as table_name, c.relrowsecurity as rls_enabled
   from pg_class c
@@ -711,6 +712,20 @@ select jsonb_build_object(
     and position('SIGEC_PUBLICATION_REPLACEMENT_CHAIN_REQUIRED' in pg_get_functiondef('private.sigec_validate_snapshot_publication()'::regprocedure)) > 0
   ),
   'ranking_four_eyes_fixtures_absent', not exists (
+    select 1 from auth.users where email like 'sigec-test-ranking-%@example.invalid'
+  ),
+  'appeal_window_migrations_applied', (
+    select count(*) = 3 from supabase_migrations.schema_migrations
+    where version in ('20260903134422', '20260903134951', '20260903135112')
+  ),
+  'appeal_window_contract_safe', (
+    not has_table_privilege('authenticated', 'public.sigec_appeal_windows', 'SELECT,INSERT,UPDATE,DELETE')
+    and has_table_privilege('service_role', 'public.sigec_appeal_windows', 'SELECT,INSERT')
+    and position('America/Sao_Paulo' in pg_get_functiondef('private.sigec_schedule_appeal_window()'::regprocedure)) > 0
+    and position('SIGEC_APPEAL_WINDOW_CLOSED' in pg_get_functiondef('private.sigec_enforce_appeal_window()'::regprocedure)) > 0
+    and position('SECURITY DEFINER' in upper(pg_get_functiondef('private.sigec_enforce_appeal_window()'::regprocedure))) > 0
+  ),
+  'appeal_window_fixtures_absent', not exists (
     select 1 from auth.users where email like 'sigec-test-ranking-%@example.invalid'
   )
 ) as sigec_remote_verification;

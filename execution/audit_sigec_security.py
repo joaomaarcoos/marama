@@ -317,6 +317,12 @@ def audit(sql: str) -> dict[str, object]:
         "ranking_latest_snapshot_gate": r"sigec_latest_ranking_snapshot_required",
         "ranking_replacement_chain": r"sigec_publication_replacement_chain_required",
         "ranking_publication_audited": r"'ranking_snapshot_published'",
+        "appeal_windows_server_only": r"revoke all on public\.sigec_appeal_windows from public, anon, authenticated",
+        "appeal_windows_immutable": r"sigec_appeal_windows_immutable[\s\S]*?sigec_reject_appeal_window_mutation",
+        "appeal_window_official_timezone": r"america/sao_paulo",
+        "appeal_window_exact_duration": r"closes_at = opens_at \+ interval '24 hours'",
+        "appeal_insert_database_gate": r"sigec_appeals_enforce_window[\s\S]*?sigec_enforce_appeal_window",
+        "appeal_window_trigger_private_definer": r"private\.sigec_enforce_appeal_window\(\)[\s\S]*?security definer",
     }
     for name, pattern in required_patterns.items():
         if not re.search(pattern, normalized, flags=re.IGNORECASE):

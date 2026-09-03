@@ -10,6 +10,7 @@ import json
 import secrets
 import sys
 import uuid
+from datetime import timedelta
 from typing import Any
 
 import psycopg2
@@ -92,7 +93,7 @@ def main() -> int:
                 markers = (marker,) if isinstance(marker, str) else marker
                 error_evidence = f"{error.pgcode} {error}"
                 if not any(expected in error_evidence for expected in markers):
-                    raise AssertionError(f"{name}: wrong error {error.pgcode}") from error
+                    raise AssertionError(f"{name}: wrong error {error.pgcode} {str(error).splitlines()[0]}") from error
                 checks.append(name)
             else:
                 cursor.execute(f"rollback to savepoint {savepoint}")
@@ -424,6 +425,23 @@ def main() -> int:
         )
         publication_id = cursor.fetchone()[0]
         checks.append("current_snapshot_with_two_approvers_can_be_published")
+        cursor.execute("reset role")
+        cursor.execute(
+            """
+            select timezone('America/Sao_Paulo', appeal_window.opens_at),
+                   timezone('America/Sao_Paulo', appeal_window.closes_at),
+                   timezone('America/Sao_Paulo', publication.published_at)
+            from public.sigec_appeal_windows appeal_window
+            join public.sigec_ranking_snapshot_publications publication on publication.id = appeal_window.publication_id
+            where publication.id = %s
+            """,
+            (publication_id,),
+        )
+        opens_local, closes_local, published_local = cursor.fetchone()
+        if opens_local.date() != published_local.date() + timedelta(days=1) or opens_local.hour != 0 or closes_local - opens_local != timedelta(hours=24):
+            raise AssertionError("preliminary_appeal_window_bounds_invalid")
+        checks.append("preliminary_publication_schedules_exact_24h_window")
+        as_actor(manager_a, "gerente")
         expect_error(
             "publication_record_is_immutable",
             "update public.sigec_ranking_snapshot_publications set public_label = 'Alterado' where id = %s",
@@ -485,6 +503,10 @@ def main() -> int:
         if cursor.fetchone()[0] != publication_id:
             raise AssertionError("replacement_publication_chain_invalid")
         checks.append("server_publication_preserves_replacement_chain")
+        cursor.execute("select count(*) from public.sigec_appeal_windows where process_id = %s", (process_id,))
+        if cursor.fetchone()[0] != 2:
+            raise AssertionError("replacement_did_not_create_new_appeal_window")
+        checks.append("replacement_publication_creates_versioned_appeal_window")
 
         cursor.execute(
             "select has_function_privilege('authenticated', 'public.sigec_publish_ranking_snapshot(uuid,uuid,text)', 'execute')"
@@ -494,6 +516,12 @@ def main() -> int:
         checks.append("ranking_publication_rpc_is_service_only")
 
         as_actor(candidate, "candidato")
+        expect_error(
+            "appeal_rejected_before_window_opens",
+            "insert into public.sigec_appeals(application_id, reason) values (%s, 'Recurso apresentado antes da abertura oficial.')",
+            (application_id,),
+            "SIGEC_APPEAL_WINDOW_CLOSED",
+        )
         cursor.execute("select count(*) from public.sigec_ranking_snapshot_publications")
         if cursor.fetchone()[0] != 0:
             raise AssertionError("candidate_cannot_read_internal_publication_record")

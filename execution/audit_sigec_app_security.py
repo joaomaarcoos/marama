@@ -432,6 +432,14 @@ def main() -> int:
             "components/sigec-ranking-publication-controls.tsx",
             "Nenhum resultado oficial está pronto para revisão",
         ),
+        "appeal_window_candidate_view_is_owner_scoped": (
+            "app/(candidate)/minha-area/inscricoes/[id]/page.tsx",
+            ".eq('candidate_id', user.id)",
+        ),
+        "appeal_window_candidate_view_uses_official_timezone": (
+            "app/(candidate)/minha-area/inscricoes/[id]/page.tsx",
+            "timeZone: appealWindow.timezone",
+        ),
         "document_review_action_role_guard": (
             "app/(dashboard)/sigec-candidaturas/[id]/actions.ts",
             "['admin', 'gerente'].includes(extractRole(user))",
